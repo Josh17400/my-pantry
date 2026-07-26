@@ -15,7 +15,7 @@ export function HomePage() {
   return (
     <div className="flex flex-col items-center text-center">
       <h1 className="mb-2 text-3xl font-bold tracking-tight text-zinc-900">
-        My Pantry
+        The Good Pantry
       </h1>
       <p className="mb-8 max-w-md text-base text-zinc-600">
         Shell scaffold (React + Vite + Capacitor). No product features yet —

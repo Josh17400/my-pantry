@@ -32,7 +32,7 @@ const sizeMap = {
 } as const;
 
 /**
- * "My Pantry" wordmark — display serif + leaf.
+ * "The Good Pantry" wordmark — display serif + leaf.
  * Longer than mockup "Larder"; lockup is compact at 320px.
  */
 export function Wordmark({
@@ -48,7 +48,7 @@ export function Wordmark({
       <div className={cn('flex items-center', s.gap)}>
         <LeafIcon
           className={cn('shrink-0 text-primary', s.leaf)}
-          title="My Pantry"
+          title="The Good Pantry"
         />
         <span
           className={cn(
@@ -56,7 +56,7 @@ export function Wordmark({
             s.text,
           )}
         >
-          My&nbsp;Pantry
+          The Good&nbsp;Pantry
         </span>
       </div>
       {showTagline ? (

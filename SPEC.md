@@ -1,4 +1,4 @@
-# My Pantry — Pantry / Recipe / Grocery App
+# The Good Pantry — Pantry / Recipe / Grocery App
 
 **SPEC v2** — revised 2026-07-25 after adversarial red-team (`reports/redteam.md`).
 This document is the design authority. Every Grok brief is written from it.
@@ -9,10 +9,10 @@ This document is the design authority. Every Grok brief is written from it.
 
 Greenfield at `C:\Users\joshu\Documents\Larder`.
 
-> **Naming:** the product is **My Pantry**. `Larder` was the working name and survives only as
+> **Naming:** the product is **The Good Pantry**. `Larder` was the working name and survives only as
 > the folder name and in the concept mockups' wordmark. The directory rename is deferred until
 > M0 finishes — a Grok instance is currently bound to that path. `app.json` display name,
-> the wordmark, and all user-facing copy use **My Pantry**.
+> the wordmark, and all user-facing copy use **The Good Pantry**.
 
 The problem: you're standing in a grocery store thinking *"I want to make chicken parm — do I already have parmesan?"* and you have no way to know. Pantry apps fail because keeping inventory accurate is manual drudgery. This app's bet is that the pantry maintains itself, because the two events that change it are things you already do: you buy groceries (photograph the receipt) and you cook (tap the recipe).
 

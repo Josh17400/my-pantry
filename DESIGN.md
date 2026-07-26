@@ -1,11 +1,11 @@
-# My Pantry — Design Language
+# The Good Pantry — Design Language
 
 Derived from three owner-approved concept mockups (2026-07-25). These define the target look
 and the information architecture.
 
-> **The product name is "My Pantry."** The mockups show the working name *Larder* in the
+> **The product name is "The Good Pantry."** The mockups show the working name *Larder* in the
 > wordmark — that is the one thing in them not to copy. Everything else about the concepts is
-> the target. The wordmark needs redrawing as **My Pantry** in the same editorial serif, and
+> the target. The wordmark needs redrawing as **The Good Pantry** in the same editorial serif, and
 > it is longer, so the header lockup needs checking at small widths.
 
 **Reference images** (in repo — Grok instances should look at these directly):
@@ -73,7 +73,7 @@ Warmth is the rule. Every neutral is warm-shifted. A cool gray anywhere will loo
 
 ## Type
 
-- **Display / headings** — high-contrast editorial serif. `My Pantry`, `At a Glance`,
+- **Display / headings** — high-contrast editorial serif. `The Good Pantry`, `At a Glance`,
   `In Your Fridge`, `Good morning, Alex`. Recommend **Fraunces** (variable, warm, optical
   sizing) or **Instrument Serif**. Both are free and load via `expo-font`.
 - **Body / UI** — clean sans. Recommend **Inter** (variable, excellent at small sizes).

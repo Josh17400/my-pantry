@@ -1,4 +1,4 @@
-# iOS build + TestFlight upload for the My Pantry Capacitor app.
+# iOS build + TestFlight upload for the The Good Pantry Capacitor app.
 #
 # MANUAL TRIGGER ONLY for now — the App Store Connect secrets are added
 # after repo setup, and nothing should fire before they exist. Once secrets
@@ -21,7 +21,7 @@
 #   1. Create an App Store Connect API key (Users and Access -> Integrations)
 #      with App Manager role; download the .p8 (downloadable exactly once).
 #   2. Create the app record in App Store Connect with bundle id
-#      com.josh17400.mypantry (register the identifier at developer.apple.com
+#      com.josh17400.WellStocked (register the identifier at developer.apple.com
 #      first if ASC doesn't offer it).
 #   Signing uses the API key + a persistent Distribution cert — no Mac
 #   required for day-to-day builds. See native/ios/fastlane/Fastfile.

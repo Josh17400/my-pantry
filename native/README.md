@@ -1,12 +1,12 @@
-# My Pantry — Capacitor native wrapper
+# The Good Pantry — Capacitor native wrapper
 
 Mirrors the owner's euchre-game layout (`native/` next to the web app, not
 inside it).
 
 | Item | Value |
 |---|---|
-| appId | `com.josh17400.mypantry` |
-| appName | My Pantry |
+| appId | `com.josh17400.WellStocked` |
+| appName | The Good Pantry |
 | webDir | `../apps/web/dist` |
 | Capacitor | 8.x |
 | SQLite plugin | `@capacitor-community/sqlite` 8.x |

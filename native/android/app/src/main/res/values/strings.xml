@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">My Pantry</string>
-    <string name="title_activity_main">My Pantry</string>
-    <string name="package_name">com.josh17400.mypantry</string>
-    <string name="custom_url_scheme">com.josh17400.mypantry</string>
+    <string name="app_name">The Good Pantry</string>
+    <string name="title_activity_main">The Good Pantry</string>
+    <string name="package_name">com.josh17400.WellStocked</string>
+    <string name="custom_url_scheme">com.josh17400.WellStocked</string>
 </resources>

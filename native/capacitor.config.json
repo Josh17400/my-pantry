@@ -1,6 +1,6 @@
 {
-  "appId": "com.josh17400.mypantry",
-  "appName": "My Pantry",
+  "appId": "com.josh17400.WellStocked",
+  "appName": "The Good Pantry",
   "webDir": "../apps/web/dist",
   "zoomEnabled": false,
   "android": {

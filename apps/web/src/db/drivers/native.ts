@@ -25,7 +25,7 @@ import {
 } from '../repository';
 import { healthProbe } from '../schema';
 
-const DB_NAME = 'my-pantry-m0';
+const DB_NAME = 'well-stocked-m0';
 const DB_VERSION = 1;
 const BATCH_SIZE = 1000;
 

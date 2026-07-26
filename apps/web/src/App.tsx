@@ -25,7 +25,7 @@ export function App() {
       <header className="border-b border-black/[0.04] bg-surface">
         <nav className="mx-auto flex max-w-3xl items-center gap-6 px-4 py-3">
           <Link to="/" className="font-display text-sm font-semibold text-ink">
-            My Pantry
+            The Good Pantry
           </Link>
           <Link
             to="/design"

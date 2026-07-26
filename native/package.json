@@ -1,7 +1,7 @@
 {
   "name": "larder-native",
   "version": "1.0.0",
-  "description": "Capacitor native wrapper for My Pantry (Android + iOS)",
+  "description": "Capacitor native wrapper for The Good Pantry (Android + iOS)",
   "private": true,
   "scripts": {
     "sync": "cap sync",
