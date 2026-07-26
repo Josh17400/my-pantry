@@ -1,0 +1,95 @@
+# BRIEF: M4 — monetization, privacy, and store readiness
+
+## Context
+
+**The Good Pantry.** Read `SPEC.md` — "Freemium boundary" and the M4 milestone — and
+`DESIGN.md` — "Open problem: there is nowhere to put the ad" (already resolved: `AdSlot` is an
+in-feed card, deliberately clear of the tab bar).
+
+**The owner has already shipped this exact stack.** `~/euchre-game/native/package.json` uses
+`@capacitor-community/admob` ^8.0.0 and `@revenuecat/purchases-capacitor` ^13.2.1 with the same
+Capacitor 8 + GitHub Actions + fastlane pipeline. **Read that project and mirror its
+conventions** rather than inventing new ones — its failure modes are already documented.
+
+## Scope
+
+You own `apps/web/src/features/monetization/**`, `apps/web/src/features/settings/**`, routes
+`PaywallPage.tsx` and `SettingsPage.tsx`, `native/package.json` (plugin deps), and
+`supabase/functions/entitlements/**`.
+
+**Do NOT touch** `packages/core/**`, other feature folders, `src/ui/**` (except consuming
+`AdSlot`), or `src/db/**`.
+
+## Build
+
+### 1. Ads — free tier only
+
+`@capacitor-community/admob`, wired into the existing `AdSlot` component so placement stays
+where the design put it.
+
+- **Placement is already decided**: in-feed card in the home scroll. **Do not** add a banner
+  above the tab bar — adjacency to navigation is an accidental-click violation and an
+  ads-disabled offense.
+- **No ads in cooking mode.** That route is already outside the app shell; keep it that way.
+- **Consent is mandatory, not optional**: Google UMP for GDPR/EEA, and App Tracking
+  Transparency on iOS. Shipping AdMob without these gets the app pulled. Request ATT at a
+  sensible moment, not on cold start.
+- Web falls back to AdSense or renders nothing — never a broken frame.
+- Test ad unit IDs in dev; real IDs from env. **Never commit real ad unit IDs.**
+
+### 2. Subscriptions
+
+`@revenuecat/purchases-capacitor`. Per SPEC, RevenueCat's web billing is now mature enough to
+unify entitlements rather than splitting RevenueCat-native / Stripe-web — do that unless you
+find a concrete reason not to, and say so if you do.
+
+- Entitlement mirrored to Supabase via a webhook (`supabase/functions/entitlements/`) so the
+  server can gate the chef and receipt quotas. **Never trust a client claim of entitlement.**
+- Restore purchases. Sandbox throughout — **nothing touches real payment rails in this track.**
+
+### 3. Paywall
+
+Honest about what is free. Per SPEC the free tier must be a genuinely good pantry app; the
+paywall sells the AI chef, unlimited receipt scans, no ads, household sharing, and cost
+analytics. Do not dark-pattern it — no fake urgency, no disguised dismiss.
+
+### 4. Privacy, deletion, export — required by both stores
+
+- Privacy policy page covering: receipt images (**parsed and discarded by default**), pantry
+  data, auth, ads/tracking, and the AI chef.
+- **Account deletion** that actually deletes, reachable from settings.
+- **Data export** — JSON of pantry, recipes and history. People will not trust an inventory
+  they cannot get out.
+- App Store privacy-label answers documented in the report, including receipt image
+  *processing* even though images are not retained.
+
+### 5. Settings
+Dietary profile (allergens + the new dietary flags), household, notification preferences
+(daily shopping brief, quiet hours), units display, subscription status, privacy links.
+
+## Constraints
+
+TypeScript `strict`, no `any`. Native plugins must degrade gracefully on web — the browser is
+where this gets reviewed. **No real ad unit IDs, no API keys, no live purchases.**
+Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run test && npm run test:functions && npm run build
+node scripts/screenshot-routes.mjs      # from apps/web — every route still renders
+```
+
+265 core + 211 web + 55 function tests must stay green. Add tests for: entitlement gating
+(free vs paid), the webhook updating entitlement state, `AdSlot` hidden when subscribed,
+**`AdSlot` absent from cooking mode**, and export producing valid JSON.
+
+## Report
+
+`reports/m4-monetization.md`: ad placement and **how it satisfies AdMob policy**, the consent
+flow (UMP + ATT) and when each fires, the entitlement architecture and why the server never
+trusts the client, the paywall, privacy/deletion/export, the store privacy-label answers, what
+the owner must configure (AdMob account, RevenueCat products, ad unit IDs), what you could not
+verify without a device, deviations, and open questions.
+
+Work continuously; do not stall waiting for input.

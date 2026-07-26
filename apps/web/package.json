@@ -12,11 +12,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@capacitor-community/admob": "^8.0.0",
     "@capacitor-community/sqlite": "^8.1.0",
     "@capacitor/core": "^8.4.1",
     "@fontsource/fraunces": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
     "@larder/core": "*",
+    "@revenuecat/purchases-capacitor": "^13.2.1",
     "@supabase/supabase-js": "^2.110.8",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
@@ -37,6 +39,7 @@
     "autoprefixer": "^10.4.21",
     "better-sqlite3": "^11.10.0",
     "drizzle-kit": "^0.31.10",
+    "playwright": "^1.62.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.2",

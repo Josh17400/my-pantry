@@ -1,0 +1,87 @@
+# BRIEF: M3 Track C — 50 original starter recipes
+
+## Context
+
+**The Good Pantry.** Read `SPEC.md` — "Community + catalog (M3)".
+
+## The legal constraint — read before writing anything
+
+> ⚖️ Recipe **ingredient lists** are not copyrightable. Recipe **prose, step wording,
+> headnotes and photographs absolutely are.**
+
+Every recipe in this catalog must be **originally written by you**. Do not copy, lightly
+reword, or "adapt" text from Allrecipes, NYT Cooking, Serious Eats, food blogs, or anywhere
+else. That is a lawsuit and an App Store takedown, and it is the single fastest way to kill
+this product.
+
+Writing an original recipe for a dish that exists (there is nothing novel about carbonara) is
+fine and expected. Reproducing someone's *words* is not. If you find yourself recalling a
+specific published phrasing, write it differently in your own voice.
+
+**Affirm explicitly in your report that every recipe is originally written.**
+
+## Scope
+
+You own `packages/core/src/seed/recipes/**` and its tests.
+
+**Do NOT touch** anything else in `packages/core`, `apps/web/**`, or `supabase/**`.
+
+## Build
+
+50 recipes that a real household would actually cook. Weight toward weeknight-plausible over
+impressive: if a recipe takes 90 minutes and four pans, it will never be tapped.
+
+Coverage: breakfasts, quick weeknight dinners (≤30 min), one-pan meals, pasta, rice/grain
+bowls, soups, salads, sheet-pan roasts, a few slower weekend dishes, sides, and a couple of
+simple desserts. Vegetarian and meat options both.
+
+### Structure — the important part
+
+**Ingredients must reference the existing seeded catalog by id**, with real quantities, units
+and forms. Do not invent ingredient ids; if a recipe needs something not in the catalog,
+either substitute or note it in the report — **do not add ingredients**, that is another
+track's file.
+
+- Correct `formId` per line (garlic *clove* vs *minced*, cheese *block* vs *shredded*) — the
+  conversion graph depends on it.
+- Realistic `servings`, `prepMin`, `cookMin`.
+- Steps with `durationSec` where a timer genuinely helps ("simmer 12 minutes"), so cooking mode
+  can offer one.
+- `tags` for search (quick, vegetarian, one-pan, make-ahead…).
+- Optional ingredients marked optional; garnishes and "to taste" as non-quantified.
+- `unknownAllergens: false` — every line resolves, because you are using catalog ids.
+
+### Why the ids matter more than the prose
+
+These recipes are what make the cook-now feature ("you have everything for 6 recipes") and the
+cook→deduct flow work on day one for a new user. A recipe whose ingredients do not resolve is
+invisible to matching and deducts nothing. **Correct ids and forms are the deliverable; the
+prose is the wrapper.**
+
+## Constraints
+
+TypeScript `strict`, no `any`. Split across readable files by category with a barrel — not one
+enormous array. Deterministic ids (`recipe-garlic-butter-pasta`). No new dependencies.
+Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run test && npm run build
+```
+
+265 core + 211 web must stay green. **Add a validation test that every ingredient id and
+formId in every recipe resolves against the seeded catalog** — a dangling id is a silently
+broken recipe, and 50 of them hand-checked is exactly where that slips through.
+
+Also assert: no duplicate recipe ids, servings > 0, every recipe has ≥1 step and ≥2
+ingredients, and timers only on steps that plausibly need them.
+
+## Report
+
+`reports/m3-c-catalog.md`: recipes by category, **an explicit statement that all text is
+original**, any dish you wanted but skipped because the catalog lacked an ingredient (that is
+useful signal for the seed track), what the validation test covers, deviations, and open
+questions.
+
+Work continuously; do not stall waiting for input.

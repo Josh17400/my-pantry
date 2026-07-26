@@ -40,11 +40,13 @@
       "apps/web": {
         "packageJson": {
           "dependencies": [
+            "npm:@capacitor-community/admob@8",
             "npm:@capacitor-community/sqlite@^8.1.0",
             "npm:@capacitor/core@^8.4.1",
             "npm:@fontsource/fraunces@^5.3.0",
             "npm:@fontsource/inter@^5.3.0",
             "npm:@larder/core@*",
+            "npm:@revenuecat/purchases-capacitor@^13.2.1",
             "npm:@supabase/supabase-js@^2.110.8",
             "npm:@types/better-sqlite3@^7.6.13",
             "npm:@types/node@^22.15.30",
@@ -57,6 +59,7 @@
             "npm:drizzle-kit@~0.31.10",
             "npm:drizzle-orm@~0.45.2",
             "npm:jeep-sqlite@^2.8.0",
+            "npm:playwright@^1.62.0",
             "npm:postcss@^8.5.6",
             "npm:react-dom@^19.2.3",
             "npm:react-router-dom@^7.6.3",

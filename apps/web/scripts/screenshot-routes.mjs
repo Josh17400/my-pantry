@@ -32,6 +32,9 @@ const ROUTES = [
   ['receipt-review', '/receipt/review'],
   ['barcode', '/barcode'],
   ['db-health', '/db-health'],
+  ['settings', '/settings'],
+  ['paywall', '/paywall'],
+  ['privacy', '/privacy'],
 ];
 
 const preview = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], {

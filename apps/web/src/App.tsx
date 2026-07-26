@@ -14,12 +14,15 @@ import { ImportRecipePage } from './routes/ImportRecipePage';
 import { LocationsPage } from './routes/LocationsPage';
 import { PantryItemPage } from './routes/PantryItemPage';
 import { PantryPage } from './routes/PantryPage';
+import { PaywallPage } from './routes/PaywallPage';
+import { PrivacyPage } from './routes/PrivacyPage';
 import { QuickAddPage } from './routes/QuickAddPage';
 import { ReceiptReviewPage } from './routes/ReceiptReviewPage';
 import { RecipeDetailPage } from './routes/RecipeDetailPage';
 import { RecipeEditPage } from './routes/RecipeEditPage';
 import { RecipesPage } from './routes/RecipesPage';
 import { ScanPage } from './routes/ScanPage';
+import { SettingsPage } from './routes/SettingsPage';
 import { TabBar } from './ui';
 
 /** Tab icons. Kept inline and minimal — the design system owns LeafIcon only. */
@@ -162,6 +165,10 @@ export function App() {
         <Route path="/receipt/review" element={<ReceiptReviewPage />} />
 
         <Route path="/chef" element={<ChefPage />} />
+
+        <Route path="/paywall" element={<PaywallPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

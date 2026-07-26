@@ -437,7 +437,8 @@ export function HomeScreen() {
           <ItemRail title="Pantry Staples" items={data.pantryStaples} />
 
           {/* In-feed ad — well clear of tab bar (AdMob policy). Free tier only. */}
-          <AdSlot paidTier={false} className="mt-1" />
+          {/* paidTier omitted — AdSlot reads entitlement store (free shows, Pro hides) */}
+          <AdSlot className="mt-1" />
 
           {data.isDemo ? (
             <p className="px-1 text-center text-[0.65rem] text-ink-muted/80">
