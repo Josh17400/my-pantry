@@ -1,9 +1,9 @@
-# Supabase local / CLI config for The Good Pantry.
-# Project is not linked in this track — owner links and pushes.
+# Supabase CLI config for The Good Pantry.
 # See README.md for apply commands. Do not put credentials here.
-
-[project]
-id = ""
+#
+# NOTE: the project ref is a top-level `project_id`, not a [project] table —
+# the CLI rejects the latter with "'config.config' has invalid keys: project".
+project_id = "nolwohnxwtckfgzrrpbw"
 
 [api]
 enabled = true

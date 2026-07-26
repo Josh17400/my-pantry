@@ -130,9 +130,31 @@ platform :ios do
       keychain_path: keychain,
       keychain_password: ""
     )
-    key_file = Dir["build/*.p12"].reject { |f| f.end_with?("dist_full.p12") }.first
-    cer_file = Dir["build/*.cer"].first
-    UI.user_error!("cert() outputs not found in build/") unless key_file && cer_file
+    # cert() does not reliably write into output_path — a previous run created a
+    # certificate on the portal but left nothing in build/, so the runner was
+    # wiped with the private key on it and the cert became an unusable orphan
+    # occupying one of Apple's limited distribution slots. Search widely and, if
+    # nothing is found, fail with a full listing rather than a bare message.
+    search = ["build/*", "*.p12", "*.cer", "**/*.p12", "**/*.cer",
+              File.expand_path("~/Library/MobileDevice/Certificates/**/*")]
+    found = search.flat_map { |g| Dir[g] }.uniq
+    UI.message("cert() artifact search: #{found.inspect}")
+
+    key_file = found.find { |f| f.end_with?(".p12") && !f.end_with?("dist_full.p12") }
+    cer_file = found.find { |f| f.end_with?(".cer") }
+
+    unless key_file && cer_file
+      UI.user_error!(
+        "cert() produced no usable key/cert pair.\n" \
+        "Searched: #{search.inspect}\n" \
+        "Found: #{found.inspect}\n" \
+        "Working dir: #{Dir.pwd}\n" \
+        "NOTE: a certificate may still have been created on the portal — check " \
+        "developer.apple.com -> Certificates and revoke any orphan before retrying, " \
+        "or the distribution-cert cap will fill with unusable entries."
+      )
+    end
+    FileUtils.mkdir_p("build")
     sh("openssl x509 -inform DER -in #{cer_file.shellescape} -out build/cert.pem")
     # -passout env: keeps the password out of the logged command line.
     sh("openssl pkcs12 -export -inkey #{key_file.shellescape} -in build/cert.pem -passout env:CERT_EXPORT_PASS -out build/dist_full.p12")
