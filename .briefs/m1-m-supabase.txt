@@ -1,0 +1,107 @@
+# BRIEF: M1 Track M — Supabase schema, RLS, and the sync contract
+
+## Context
+
+**The Good Pantry.** Read `SPEC.md` — "The ledger", "De-duplication", "Household", and the
+Indexes section. The local SQLite schema already exists at `apps/web/src/db/schema.ts` (built
+by track G) — **read it and mirror it**; the two must agree or sync is impossible.
+
+Supabase project is live and verified: auth reachable, email signup enabled, REST reachable,
+schema currently empty. Credentials are in `apps/web/.env` (gitignored).
+
+## Scope
+
+You own `supabase/**` only — migrations, RLS policies, and documentation.
+
+**Do NOT touch** `apps/web/**` or `packages/core/**`. Two other tracks are working in the app
+right now. Your deliverable is SQL plus a written contract; the client sync implementation is
+a separate track that will be briefed from your contract.
+
+## What to build
+
+### 1. Schema (`supabase/migrations/`)
+
+Mirror the local schema: households, household_members, locations, ingredients,
+ingredient_forms, conversion_edges, package_specs, pantry_items, **pantry_txns**, recipes,
+recipe_lines, recipe_steps, grocery_lists, grocery_list_items, user_aliases.
+
+**`pantry_txns` is the important one.** It carries both event kinds:
+
+- relative → `delta_base`
+- absolute → `target_base`, `basis_cursor`
+
+plus `household_id`, `client_txn_id`, `device_id`, `user_id`, `occurred_at` (client clock),
+`accepted_at` (**server clock — `default now()`**), `reason`, `ref_id`, `unit_price`.
+
+**Required constraints and indexes (from SPEC — implement, don't rediscover):**
+- `UNIQUE (household_id, client_txn_id)` — this is what makes replay idempotent
+- `(household_id, ingredient_id, occurred_at)`
+- `(household_id, accepted_at)` — the pull cursor
+- an append-only guard on `pantry_txns`: no UPDATE, no DELETE. Corrections are compensating
+  rows, never edits. Enforce it in the database, not by convention.
+
+### 2. RLS — every table, no exceptions
+
+- Household-scoped tables: a user may read/write only rows whose `household_id` is one of
+  their memberships.
+- `recipes`: owner read/write, **plus public read where `visibility = 'public'`** (community
+  browsing in M3).
+- Reference data (ingredients, forms, conversion edges, package specs): public read,
+  no client write.
+- **Write a test/verification SQL script** that attempts cross-household access and asserts it
+  is denied. RLS that has never been tested is RLS you should not trust.
+
+### 3. Auth + household bootstrap
+
+A trigger or function so a new signup gets a household and a membership row. A user with no
+household is a broken state the app should never have to handle.
+
+Include an invite path (invite code or email) so a second phone can join an existing household
+— multi-user is an M1 decision, not an M3 one.
+
+### 4. The sync contract — write it down
+
+`supabase/SYNC.md`, and be precise. This is the document another track implements against:
+
+- **Push:** insert local txns not yet acknowledged. Conflict on `(household_id,
+  client_txn_id)` → `ON CONFLICT DO NOTHING`. Idempotent by construction.
+- **Pull:** rows where `accepted_at > cursor`, ordered by `accepted_at`, paged.
+- **Ordering caveat, state it explicitly:** the fold orders by `(occurred_at, device_id,
+  client_txn_id)` using the *client* clock, while the pull cursor uses the *server* clock.
+  Those are different orderings and client clocks can be skewed. Document what that means for
+  correctness and what the client must do (hint: re-fold, don't assume append-only arrival —
+  `needsRefold` in `packages/core` already exists for this).
+- Row metadata (recipes, par levels) is last-write-wins on `updated_at`. Only the ledger needs
+  union semantics; say why.
+- What the client does on first sync, and on a full re-sync.
+
+### 5. Local vs remote parity check
+
+A short document or script listing every table and column on both sides and flagging drift.
+A silent mismatch between local SQLite and Postgres is the kind of bug that only shows up on a
+second device, which is the worst place to find it.
+
+## Constraints
+
+- Plain SQL migrations, idempotent, forward-only. No ORM-generated dumps.
+- **Do not embed credentials.** Reference env vars.
+- Do not deploy or link the project — the owner runs that. Provide the exact commands in your
+  report.
+- Create no git commits.
+
+## Verification
+
+You cannot apply migrations without the project linked, so:
+- Validate the SQL parses (e.g. `psql --dry-run`-style check, or a local `supabase db` if the
+  CLI is available offline). If you cannot validate, **say so plainly** rather than claiming
+  it works.
+- Manually re-read every RLS policy against the threat "user from household B reads household
+  A's pantry" and state your conclusion per table.
+
+## Report
+
+`supabase/README.md` plus `reports/m1-m-supabase.md`: the schema with any deviation from the
+local one and why, the RLS model table by table, the household bootstrap, the exact commands
+the owner must run to apply it, what you could not verify, deviations, and open questions.
+
+Work continuously; do not stall waiting for input.

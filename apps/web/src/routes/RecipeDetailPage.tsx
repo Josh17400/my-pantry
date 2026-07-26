@@ -18,7 +18,14 @@ import {
 } from '../features/recipes';
 import { statusChipClass } from '../features/recipes/status-styles';
 import { getIngredientName } from '../features/recipes/catalog';
-import { hasActiveRepository, useGrocery, usePantry, useRecipes } from '../state';
+import {
+  hasActiveRepository,
+  useGrocery,
+  usePantry,
+  usePantryStore,
+  useRecipes,
+  useRecipesStore,
+} from '../state';
 import { PlaceholderThumb } from '../ui/PlaceholderThumb';
 import { cn } from '../ui/cn';
 
@@ -28,7 +35,7 @@ import { cn } from '../ui/cn';
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { current, loading, error, get, clearError } = useRecipes();
+  const { current, loading, error, clearError } = useRecipes();
   const pantry = usePantry();
   const grocery = useGrocery();
   const [servings, setServings] = useState(1);
@@ -37,10 +44,11 @@ export function RecipeDetailPage() {
 
   const load = useCallback(async () => {
     if (!id || !hasActiveRepository()) return;
-    const d = await get(id);
+    // Stable store actions — avoid deps on the whole pantry/recipes objects.
+    const d = await useRecipesStore.getState().get(id);
     if (d) setServings(d.servings);
-    await pantry.load();
-  }, [id, get, pantry]);
+    await usePantryStore.getState().load();
+  }, [id]);
 
   useEffect(() => {
     void load();

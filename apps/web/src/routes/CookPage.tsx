@@ -37,8 +37,14 @@ import {
   type CookMachineState,
 } from '../features/recipes';
 import type { Recipe } from '../features/recipes/core-imports';
-import { hasActiveRepository, useGrocery, usePantry, useRecipes } from '../state';
+import {
+  hasActiveRepository,
+  useGrocery,
+  usePantry,
+  useRecipes,
+} from '../state';
 import { usePantryStore } from '../state/pantry-store';
+import { useRecipesStore } from '../state/recipes-store';
 import { cn } from '../ui/cn';
 
 /**
@@ -48,7 +54,7 @@ import { cn } from '../ui/cn';
 export function CookPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const { get, loading: recipeLoading, error: recipeError } = useRecipes();
+  const { loading: recipeLoading, error: recipeError } = useRecipes();
   const pantry = usePantry();
   const grocery = useGrocery();
 
@@ -64,12 +70,13 @@ export function CookPage() {
     if (!id || !hasActiveRepository()) return;
     setLoadError(null);
     try {
-      const detail = await get(id);
+      // Stable store actions — do not close over whole store objects.
+      const detail = await useRecipesStore.getState().get(id);
       if (!detail) {
         setLoadError('Recipe not found.');
         return;
       }
-      await pantry.load();
+      await usePantryStore.getState().load();
       const core = recipeDetailToCore(detail);
       recipeRef.current = core;
       const sParam = searchParams.get('servings');
@@ -90,7 +97,7 @@ export function CookPage() {
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : String(err));
     }
-  }, [id, get, pantry, searchParams]);
+  }, [id, searchParams]);
 
   useEffect(() => {
     void boot();

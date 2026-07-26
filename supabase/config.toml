@@ -1,0 +1,32 @@
+# Supabase local / CLI config for The Good Pantry.
+# Project is not linked in this track — owner links and pushes.
+# See README.md for apply commands. Do not put credentials here.
+
+[project]
+id = ""
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[db.migrations]
+schema_paths = []
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["http://127.0.0.1:3000"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false

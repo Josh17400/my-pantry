@@ -12,7 +12,14 @@ import {
   recipeDetailToCore,
 } from '../features/recipes';
 import type { Recipe } from '../features/recipes/core-imports';
-import { hasActiveRepository, usePantry, useRecipes } from '../state';
+import {
+  getDomainRepository,
+  hasActiveRepository,
+  usePantry,
+  usePantryStore,
+  useRecipes,
+  useRecipesStore,
+} from '../state';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { cn } from '../ui/cn';
 import type { RecipeDetail, RecipeSummary } from '../db/types';
@@ -27,8 +34,6 @@ export function RecipesPage() {
     recipes,
     loading,
     error,
-    list,
-    get,
     clearError,
   } = useRecipes();
   const pantry = usePantry();
@@ -38,11 +43,13 @@ export function RecipesPage() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
 
+  // Stable actions from getState — do not put the whole store in deps
+  // (that re-runs every item update and livelocks the page).
   const refresh = useCallback(async () => {
     if (!hasActiveRepository()) return;
-    await list();
-    await pantry.load();
-  }, [list, pantry]);
+    await useRecipesStore.getState().list();
+    await usePantryStore.getState().load();
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -59,9 +66,10 @@ export function RecipesPage() {
     setDetailsError(null);
     void (async () => {
       try {
+        const domain = getDomainRepository();
         const loaded: RecipeDetail[] = [];
         for (const summary of recipes) {
-          const d = await get(summary.id);
+          const d = await domain.getRecipe(summary.id);
           if (d) loaded.push(d);
         }
         if (!cancelled) setDetails(loaded);
@@ -78,7 +86,7 @@ export function RecipesPage() {
     return () => {
       cancelled = true;
     };
-  }, [recipes, get]);
+  }, [recipes]);
 
   const coreRecipes: Recipe[] = useMemo(
     () => details.map(recipeDetailToCore),

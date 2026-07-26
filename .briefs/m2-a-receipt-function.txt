@@ -1,0 +1,90 @@
+# BRIEF: M2 Track A — receipt parsing Edge Function
+
+## Context
+
+**The Good Pantry.** Read `SPEC.md` — "Receipt → pantry (M2)" — and `reports/redteam.md`
+finding **M1** (receipt UX) and **M6** (unit economics). This function is the server half of
+the feature that makes the product feel like magic; the client half is a separate track.
+
+Supabase project is live (auth + REST verified). Schema and RLS are being built in
+`supabase/migrations/` by another track — read whatever exists there, don't duplicate it.
+
+## Scope
+
+You own `supabase/functions/parse-receipt/**` and its tests.
+
+**Do NOT touch** `apps/web/**`, `packages/core/**`, or `supabase/migrations/**`.
+
+## What to build
+
+A Supabase Edge Function (Deno) that takes a receipt image and returns structured line items.
+
+### Pipeline
+
+1. **Authenticate** the caller (Supabase JWT). Reject anonymous requests.
+2. **Quota check — before any paid call.** Per SPEC:
+   - Free tier: 15 scans/month.
+   - **Charge on COMMIT, not on parse.** A failed OCR must not cost the user a scan. This
+     function records an attempt; the client confirms commit separately. Design the accounting
+     so an abandoned review is not billed to the user.
+   - **Enforce a server-side dollar/token budget, not just a scan counter** (red-team M6). A
+     40-line multi-photo warehouse receipt costs far more than a corner-store one; a counter
+     alone does not bound spend. Implement a circuit breaker on cost.
+3. **Grocery-likelihood pre-check** — cheaply reject obviously non-grocery images (a hardware
+   store receipt, a random photo) before spending on the expensive model. Do not burn a user's
+   quota parsing a Home Depot receipt.
+4. **Vision call** via OpenRouter with a **strict JSON schema** response. Use a cheap
+   Flash-class vision model. Return per line: `rawText`, `guessedName`, `quantity`, `unit`,
+   `packageSize`, `unitPrice`, `totalPrice`, `confidence`, `lineType`
+   (`food` | `non-food` | `tax` | `discount` | `total` | `unknown`).
+5. **Normalize** the response: weighed items (`BANANAS 2.14 LB @ 0.59` → mass), multi-buy
+   (`2 @ 3.49`), negative discount lines paired to their parent where possible.
+6. **Return** items plus a parse summary (model used, token cost, confidence distribution).
+
+### Privacy — non-negotiable
+
+**Parse and discard by default. Never persist the image.** Receipts carry card last-4, store
+address, timestamps, and loyalty IDs. Opt-in retention only, private bucket, owner-only RLS,
+30-day purge. Never log image bytes or raw receipt text at info level.
+
+### Secrets
+
+`OPENROUTER_API_KEY` comes from Supabase function secrets — **never from the client, never
+committed, never in any `VITE_`-prefixed variable.** The owner sets it with
+`supabase secrets set`. If it is absent, fail cleanly with a clear error rather than crashing.
+
+### Safety carry-over — read this
+
+Track D's matcher has an **allergen veto that is inert when the query carries no allergen
+tags** — which is exactly the raw-OCR case. Where you can infer allergens (from a UPC or a
+prior confirmed match), attach them to the returned line so the client-side matcher's veto can
+actually fire. Where you cannot, mark the line `allergensUnknown: true`. **Unknown is unsafe,
+never clear.**
+
+## Constraints
+
+- Deno / TypeScript, `strict`. No `any` on the response boundary.
+- Deterministic, testable core: keep parsing/normalisation in pure functions with the network
+  call injected, so it can be tested against fixture responses without hitting OpenRouter.
+- Handle: multi-photo receipts, faded/unreadable images, non-English receipts (pass locale to
+  the model; do not run an English alias table over a Spanish receipt), and model responses
+  that violate the schema (retry once, then fail cleanly).
+- Create no git commits.
+
+## Verification
+
+- Unit tests over **fixture** model responses covering: a normal receipt, a warehouse receipt
+  with item codes, weighed items, discount lines, a non-grocery receipt, and a malformed model
+  response.
+- A cost-estimation test asserting the budget breaker trips at the configured ceiling.
+- You cannot deploy without the owner's project link — **do not claim it is deployed.** Provide
+  the exact `supabase functions deploy` and `supabase secrets set` commands in the report.
+
+## Report
+
+`reports/m2-a-receipt-function.md`: the pipeline, the quota-and-budget accounting (be explicit
+about how commit-time charging works), the model and estimated p95 cost per receipt, the
+privacy handling, allergen propagation, what you could not verify without deployment,
+deviations, and open questions.
+
+Work continuously; do not stall waiting for input.

@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_LOCATION_IDS } from '../../db/constants';
 import type { LocationRow, PantryItemView } from '../../db/types';
 import {
+  getDomainRepository,
   hasActiveRepository,
   useLocations,
   usePantry,
@@ -314,10 +315,13 @@ export function useHomeScreenData(): HomeScreenData {
     }
     void (async () => {
       try {
+        const { usePantryStore } = await import('../../state/pantry-store');
+        const { useRecipesStore } = await import('../../state/recipes-store');
+        const { useLocationsStore } = await import('../../state/locations-store');
         await Promise.all([
-          pantry.load(),
-          recipesStore.list(),
-          locationsStore.list(),
+          usePantryStore.getState().load(),
+          useRecipesStore.getState().list(),
+          useLocationsStore.getState().list(),
         ]);
       } catch (err) {
         setRecipeLoadError(
@@ -326,7 +330,7 @@ export function useHomeScreenData(): HomeScreenData {
         setBootstrapped(true);
       }
     })();
-  }, [useDemo, pantry, recipesStore, locationsStore]);
+  }, [useDemo]);
 
   // Initial load
   useEffect(() => {
@@ -344,10 +348,13 @@ export function useHomeScreenData(): HomeScreenData {
     let cancelled = false;
     void (async () => {
       try {
+        const { usePantryStore } = await import('../../state/pantry-store');
+        const { useRecipesStore } = await import('../../state/recipes-store');
+        const { useLocationsStore } = await import('../../state/locations-store');
         await Promise.all([
-          pantry.load(),
-          recipesStore.list(),
-          locationsStore.list(),
+          usePantryStore.getState().load(),
+          useRecipesStore.getState().list(),
+          useLocationsStore.getState().list(),
         ]);
       } catch (err) {
         if (!cancelled) {
@@ -366,7 +373,10 @@ export function useHomeScreenData(): HomeScreenData {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useDemo]);
 
-  // Hydrate full recipes for cook-now after list
+  // Hydrate full recipes for cook-now after list.
+  // Do NOT call recipesStore.get() here — that toggles `loading` and would
+  // re-trigger this effect (infinite loop once a real repo has recipes).
+  // Read details via the domain repo directly.
   useEffect(() => {
     if (useDemo || !hasActiveRepository()) return;
     if (recipesStore.loading) return;
@@ -378,8 +388,9 @@ export function useHomeScreenData(): HomeScreenData {
     let cancelled = false;
     void (async () => {
       try {
+        const domain = getDomainRepository();
         const details = await Promise.all(
-          summaries.map((s) => recipesStore.get(s.id)),
+          summaries.map((s) => domain.getRecipe(s.id)),
         );
         if (cancelled) return;
         const recipes = details
@@ -398,7 +409,10 @@ export function useHomeScreenData(): HomeScreenData {
     return () => {
       cancelled = true;
     };
-  }, [useDemo, recipesStore.recipes, recipesStore.loading, recipesStore.get]);
+    // Only re-hydrate when the summary list identity changes, not on loading toggles
+    // from other store actions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useDemo, recipesStore.recipes]);
 
   const items = useDemo ? (demo?.items ?? []) : pantry.items;
   const locations = useDemo

@@ -413,7 +413,8 @@ export function buildFixtureItems(): FixtureItem[] {
   ];
 }
 
-function buildFixtureRecipes(householdId: string): RecipeWrite[] {
+/** Fixture recipes for dev seed (exported for the browser IndexedDB driver). */
+export function buildFixtureRecipes(householdId: string): RecipeWrite[] {
   return [
     {
       id: 'fixture-recipe-garlic-pasta',

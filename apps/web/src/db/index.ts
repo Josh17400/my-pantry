@@ -28,12 +28,16 @@ export {
 } from './schema';
 export { runHealthCheck } from './health-check';
 export { createPantryRepository } from './create-repository';
+export { shouldUseBrowserDevDriver } from './drivers/dev-gate';
+// Dev driver: import from './drivers/dev' in tests / console reset — keep out of
+// the default app graph so production hosts don't parse the IndexedDB store.
 export { runMigrations } from './migrate';
 export { runSeed, seedCatalogStats } from './seed';
 export { DomainRepository } from './domain-repository';
 export {
   generateDevFixtures,
   buildFixtureItems,
+  buildFixtureRecipes,
   FIXTURES_VERSION,
 } from './fixtures';
 export {

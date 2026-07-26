@@ -1,0 +1,24 @@
+# Normalize line endings so Windows checkouts stop emitting LF->CRLF warnings
+# on every `git add`. Those warnings go to stderr, which trips up scripted
+# commits (PowerShell reads a non-empty stderr as failure).
+* text=auto eol=lf
+
+# Windows-only files keep CRLF.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# Binary — never touch.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.ico   binary
+*.wasm  binary
+*.p12   binary
+*.jks   binary
+*.keystore binary
+*.ttf   binary
+*.otf   binary
+*.woff  binary
+*.woff2 binary

@@ -1,23 +1,31 @@
 import { isNativePlatform } from '../lib/platform';
-import { NativePantryRepository } from './drivers/native';
-import { WebPantryRepository } from './drivers/web';
+import { shouldUseBrowserDevDriver } from './drivers/dev-gate';
 import type { PantryRepository } from './repository';
 
 /**
  * Runtime platform switch (Capacitor WebView vs browser).
- * Replaces Metro's .native.ts / .web.ts resolution from the Expo app.
+ *
+ * Drivers are loaded via dynamic `import()` so the browser never evaluates
+ * `@capacitor-community/sqlite` (native-only) and production web hosts never
+ * need to parse the IndexedDB dev driver until selected.
  *
  * - Native (iOS/Android WebView): Capacitor SQLite + Drizzle proxy
- * - Browser: Supabase-direct stub (online companion)
+ * - Browser + DEV / localhost: IndexedDB plain-TS driver (product review)
+ * - Browser production host: Supabase-direct stub (online companion)
  *
- * jeep-sqlite was investigated as a DEV-only browser SQLite path. It does NOT
- * need COOP/COEP (sql.js + IndexedDB), but sql.js wasm fails to instantiate
- * under Vite (LinkError). Not wired — see reports/m1-replatform.md and
- * src/db/jeep-dev.ts.
+ * jeep-sqlite was investigated as a browser SQLite path. It does NOT need
+ * COOP/COEP, but sql.js wasm fails under Vite (LinkError). See
+ * reports/m1-replatform.md. Track L uses IndexedDB instead.
  */
-export function createPantryRepository(): PantryRepository {
+export async function createPantryRepository(): Promise<PantryRepository> {
   if (isNativePlatform()) {
+    const { NativePantryRepository } = await import('./drivers/native');
     return new NativePantryRepository();
   }
+  if (shouldUseBrowserDevDriver()) {
+    const { DevPantryRepository } = await import('./drivers/dev');
+    return new DevPantryRepository();
+  }
+  const { WebPantryRepository } = await import('./drivers/web');
   return new WebPantryRepository();
 }

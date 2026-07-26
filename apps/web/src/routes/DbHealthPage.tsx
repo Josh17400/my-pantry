@@ -87,7 +87,7 @@ function NativeHealthPanel() {
     setError(null);
     setResult(null);
     try {
-      const repo = createPantryRepository();
+      const repo = await createPantryRepository();
       const run = await runHealthCheck(repo);
       setResult(run);
     } catch (err) {
