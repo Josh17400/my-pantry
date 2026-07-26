@@ -1,0 +1,79 @@
+# BRIEF: M1 Track K — Grocery list and quick-consume items
+
+## Context
+
+**The Good Pantry.** Read `SPEC.md` — "Grocery list" and "Quick items" — and `DESIGN.md`.
+
+Read-only to you: the design system (`apps/web/src/ui/**`, see `/design`), the stores
+(`apps/web/src/state/**` — `useGrocery()`, `usePantry()`), and `@larder/core` (248 tests:
+`buildList` and the grocery aggregation, `formatQuantity`, par/stock helpers).
+
+**The aggregation logic already exists and is tested. Consume it; do not reimplement it in
+the UI.**
+
+## Scope
+
+You own `apps/web/src/features/grocery/**`, `apps/web/src/features/quick/**`, and routes
+`GroceryPage.tsx`, `QuickAddPage.tsx`.
+
+**Do NOT edit** `App.tsx`, `src/ui/**`, `src/state/**`, `src/db/**`, `packages/core/**`, or the
+`home` / `pantry` / `recipes` feature folders. Three other screen tracks run in parallel.
+
+## Build
+
+### 1. Grocery list
+Merged from all sources: manual adds, low/out suggestions, recipe shortfalls, and
+reorder-cadence suggestions. Each line shows **where it came from** — a user should be able to
+tell why "2 lb ground beef" is on their list.
+
+- Quantities in **purchase units** via `formatQuantity` ("2 lb", not "907 g").
+- **Aisle grouping** by ingredient category — this is what makes the list usable in a store.
+- Check-off must work **offline** and feel instant (optimistic update).
+- Items the core layer could not merge into a common unit stay **separate and flagged** —
+  never silently summed.
+
+### 2. Reorder suggestions
+Derived, not hand-curated: *"You usually buy milk every 7 days — last bought 8 days ago."*
+The purchase history is already in the ledger. One-tap add.
+
+### 3. End of trip
+"Add checked items to pantry" — writes `purchase` txns carrying the `shoppingTripId`, so a
+receipt scanned later (M2) reconciles against the trip instead of double-adding. Carry the id
+even though reconciliation itself lands in M2.
+
+### 4. Quick-consume items
+One-tap tiles for non-recipe eating — a yogurt, an apple, two eggs. Writes a single `quick`
+txn via `usePantry().appendTxn(...)`.
+
+**This must be one tap from the home screen, not three** — that is why it is not modelled as a
+one-ingredient recipe. Tiles are user-pinnable and auto-suggested by frequency. Support a
+quantity stepper for "2 eggs" without adding taps to the common case.
+
+## Non-negotiables
+
+- Check-off is offline-safe and optimistic; a store has bad signal and that is the whole point.
+- Undo on quick-consume — one-tap actions get mis-tapped.
+- Empty states for both an empty list and no pinned quick items.
+- Loading and error states everywhere.
+- Status text uses `low`; `low-fill` is bars/dots only (contrast).
+
+## Constraints
+
+TypeScript `strict`, no `any`. Mobile-first, 44px tap targets, safe-area aware.
+Large tap targets especially matter here — this screen gets used one-handed, in a store,
+holding a basket. No new deps. Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run test && npm run build
+```
+
+Existing tests stay green (248 core + 44 web). Use track G's dev fixtures. Screenshot the
+grocery list at 390px into `reports/grocery-screen.png`.
+
+## Report
+
+`reports/m1-k-grocery.md`: how list sources are merged and surfaced, aisle grouping, the
+offline check-off approach, trip handoff to M2, quick-item interaction cost, deviations,
+open questions. Work continuously; do not stall.

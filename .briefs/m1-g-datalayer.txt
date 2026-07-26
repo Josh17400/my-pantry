@@ -1,0 +1,108 @@
+# BRIEF: M1 Track G — the app data layer (schema, repositories, seeding, state)
+
+## Context
+
+**The Good Pantry** — read `SPEC.md` (design authority). The app is `apps/web`
+(React 19 + Vite + Tailwind + Capacitor). `packages/core` holds all domain logic:
+**248 tests, framework-agnostic, DO NOT MODIFY IT.** You consume it; you never reimplement it.
+
+Right now `apps/web/src/db` only has an M0 health-probe table. Your job is the real data layer
+that every product screen will sit on. **No screens in this track** — those come next and are
+being briefed separately.
+
+## Scope
+
+You own `apps/web/src/db/**` (except the health-check files, which stay),
+`apps/web/src/state/**`, and their tests. Do not touch `packages/core/**`, `apps/web/src/ui/**`,
+`apps/web/src/routes/**`, or `native/**`.
+
+## What to build
+
+### 1. Real Drizzle schema
+
+Model what `SPEC.md` specifies, in SQLite via Drizzle:
+
+- `locations` — user-defined and nestable (`parentId`), seeded with Fridge / Pantry /
+  Around the House and its children (Spices, Tea & Coffee, Baking, Household). **Not an enum.**
+- `ingredients`, `ingredient_forms`, `conversion_edges`, `package_specs` — mirroring the
+  `packages/core/src/domain` types
+- `pantry_items` — including `parLevelBase`, `lowThresholdPct`, `lastVerifiedAt`,
+  `unverifiedCookCount`, `expiresAt`, `openedAt`
+- `pantry_txns` — **the append-only ledger.** Both event kinds: relative (`deltaBase`) and
+  absolute (`targetBase`, `basisCursor`). Include `householdId`, `clientTxnId`, `deviceId`,
+  `occurredAt`, `acceptedAt`, `reason`, `refId`, `unitPrice`.
+- `recipes`, `recipe_lines`, `recipe_steps`
+- `grocery_lists`, `grocery_list_items` with `shoppingTripId`
+- `user_aliases` for learned ingredient matching
+
+**Indexes are specified in SPEC.md — implement them, don't discover them later:**
+`pantry_txn(household_id, client_txn_id)` UNIQUE ·
+`(household_id, ingredient_id, occurred_at)` · `(household_id, accepted_at)` for the sync cursor.
+
+### 2. Migrations
+
+Real drizzle-kit migrations, not `execAsync` of a DDL string. Migrations must run on app start
+and be idempotent. The M0 health probe stays working.
+
+### 3. Repositories
+
+Extend `PantryRepository` (or add siblings) with the operations screens actually need:
+
+- pantry: list by location, get one, upsert, search by name
+- ledger: **append txn, and recompute the projection using `foldLedger` from `@larder/core`**
+- recipes: CRUD, list, get with lines and steps
+- grocery: build/get/update list, check off items
+- locations: CRUD
+
+> **The projection must be computed by `packages/core`, never reimplemented in SQL.** The fold
+> has subtle rules — absolute recounts act as checkpoints, out-of-order sync forces a re-fold —
+> and there is exactly one correct implementation. Call it.
+
+Keep the native/web driver split that already exists. Web (Supabase-direct) may remain a stub
+that throws `NotConfiguredError`.
+
+### 4. Seeding
+
+On first run, load `packages/core`'s ~300 seeded ingredients, forms, conversion edges and
+package specs into the DB, plus the default locations. Idempotent — restarting must not
+duplicate rows. Record a seed version so it can be re-run when seed data changes.
+
+### 5. State layer
+
+Zustand stores over the repositories: pantry, recipes, grocery, locations. Async actions,
+loading/error states. Screens should consume hooks like `usePantry()`, never touch the DB
+directly.
+
+Include a **dev-mode fixture generator** — a function that populates a believable demo pantry
+(~40 items across locations, some expiring soon, some low, some out) plus a handful of recipes.
+Screens cannot be reviewed against an empty database, and the next tracks will need this.
+
+## Constraints
+
+- TypeScript `strict`, no `any`.
+- `packages/core` is **read-only** to you. If something is missing there, note it in the
+  report rather than patching it.
+- No new heavy dependencies. Drizzle, Zustand, and what's already installed.
+- All existing tests must still pass (248 core + 32 web).
+- Create no git commits.
+
+## Verification
+
+```
+npm run typecheck    # zero errors
+npm run test         # 280 existing still green, plus your new tests
+npm run build        # production build succeeds
+```
+
+Write tests for: migrations run idempotently, seeding is idempotent, appending a txn updates
+the projection to exactly what `foldLedger` returns, and the repository round-trips a recipe
+with lines and steps.
+
+## Report
+
+`reports/m1-g-datalayer.md`: the schema with reasoning for any deviation from SPEC, how
+projection recompute is wired to `@larder/core`, the seeding and idempotency strategy, the
+store API that screens will consume (this is the contract the next tracks build against — be
+explicit), what the dev fixture generates, deviations, and open questions.
+
+Work continuously; do not stall waiting for input.

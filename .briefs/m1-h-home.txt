@@ -1,0 +1,76 @@
+# BRIEF: M1 Track H — Home / Overview screen
+
+## Context
+
+**The Good Pantry.** Read `SPEC.md` and `DESIGN.md`, and **look at the mockups**:
+`design/references/mockup-01-overview.jpg`, `mockup-02-home-stats.jpg`, `mockup-03-greeting.jpg`.
+This screen is the one all three mockups depict — match them.
+
+Everything you need already exists:
+
+- **Design system**: `apps/web/src/ui/**` — Card, Rail, SegmentedControl, StatusBadge,
+  FreshnessBar, ItemTile, PlaceholderThumb, AdSlot, Fab, TabBar, Wordmark. See `/design`.
+- **State**: `apps/web/src/state/**` — `usePantry()`, `useRecipes()`, `useGrocery()`,
+  `useLocations()`. **Screens must use these hooks; never open SQLite directly.**
+- **Domain logic**: `@larder/core` — 248 tests. `findCookableRecipes`, `evaluateStockBatch`,
+  `formatQuantity`, provenance helpers. **Consume it; never reimplement it.**
+
+## Scope
+
+You own `apps/web/src/features/home/**` and `apps/web/src/routes/HomePage.tsx`.
+
+**Do NOT edit** `App.tsx` (the architect wires routing), `src/ui/**`, `src/state/**`,
+`src/db/**`, `packages/core/**`, or other tracks' feature folders (`pantry`, `recipes`,
+`grocery`). Three other screen tracks are running in parallel.
+
+## Build
+
+Per the mockups, top to bottom:
+
+1. **Header** — Wordmark + greeting ("Good morning, Alex" — time-of-day aware), search affordance.
+2. **At a Glance** — location summary cards (Fridge / Pantry / Around the House / Favorites)
+   with item counts and a status word. Counts come from `usePantry()` + `useLocations()`.
+3. **Cook-now banner** — *"Make something amazing — you have everything for 6 recipes."*
+   Use `findCookableRecipes` from `@larder/core`. **This is free-tier core logic, NOT AI.**
+4. **Recipe Inspiration** — a Rail of recipes, prioritising ones that **use up expiring
+   ingredients** ("Use up: spinach, garlic, parmesan"). The expiry-driven ordering is a
+   first-class requirement from the designs, not a nicety.
+5. **Fridge Highlights / Pantry Staples** — Rails of ItemTiles showing quantity **and
+   provenance/status** (`6 left · 2 days`, `Almost empty`, `Plenty`).
+6. **AdSlot** — in-feed, well clear of the tab bar (AdMob placement policy). Free tier only.
+
+### Non-negotiables
+
+- **Provenance is visible.** SPEC requires every quantity carry its confidence — a drifted
+  number must look drifted. Use the provenance fields; do not render bare confident numbers.
+- **Empty state.** A new user has an empty pantry — that is the default, not an edge case.
+  Design a genuine first-run state that invites adding items. Never render a broken-looking
+  screen full of zeros.
+- **Loading and error states** for every async read.
+- Use the `low` token for status *text* and `low-fill` only for bars/dots — the vibrant amber
+  fails contrast as text.
+
+## Constraints
+
+- TypeScript `strict`, no `any`. Function components.
+- Mobile-first, 44px minimum tap targets, safe-area aware.
+- No new dependencies. No product logic that belongs in `@larder/core` — if something is
+  missing there, note it in the report rather than writing it here.
+- Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run test && npm run build
+```
+
+All existing tests must stay green (248 core + 44 web). Use the dev fixture generator from
+track G to review against a realistic pantry, and include a screenshot of the finished screen
+at 390px in `reports/home-screen.png` (see `apps/web/scripts/screenshot-design.mjs` for the
+pattern).
+
+## Report
+
+`reports/m1-h-home.md`: section-by-section mapping to the mockups, how cook-now and
+expiry-driven suggestions are computed, the empty/loading/error states, deviations, and open
+questions. Work continuously; do not stall.

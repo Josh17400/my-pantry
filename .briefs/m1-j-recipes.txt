@@ -1,0 +1,94 @@
+# BRIEF: M1 Track J — Recipes and the cook → deduct flow
+
+## Context
+
+**The Good Pantry.** Read `SPEC.md` — especially "Cook planning" — and `DESIGN.md`.
+Look at `design/references/mockup-02-home-stats.jpg` (My Recipes rail) for the visual language.
+
+Read-only to you: the design system (`apps/web/src/ui/**`, see `/design`), the stores
+(`apps/web/src/state/**` — `useRecipes()`, `usePantry()`), and `@larder/core` (248 tests:
+`planCook`, `scaleRecipe`, `convert`, `formatQuantity`).
+
+**This track contains the single most important interaction in the product.** Everything else
+is inventory display; this is where the pantry actually updates itself.
+
+## Scope
+
+You own `apps/web/src/features/recipes/**` and routes `RecipesPage.tsx`,
+`RecipeDetailPage.tsx`, `RecipeEditPage.tsx`, `CookPage.tsx`.
+
+**Do NOT edit** `App.tsx`, `src/ui/**`, `src/state/**`, `src/db/**`, `packages/core/**`, or the
+`home` / `pantry` / `grocery` feature folders. Three other screen tracks run in parallel.
+
+## Build
+
+### 1. Recipe list
+Cards with image placeholder, title, time, servings. Filter by "can make now" using
+`findCookableRecipes`. Search by name and by ingredient.
+
+### 2. Recipe detail
+Ingredients with **have / need indicators per line**, steps, servings, times. A servings
+stepper that live-rescales via `scaleRecipe`. "Add missing to grocery list."
+
+### 3. Recipe create / edit
+Title, servings, times, ingredient lines (search the seeded catalog, or free text), steps.
+Free-text lines that don't resolve must be marked `unknownAllergens: true` — **treat unknown
+as unsafe, never as clear.** This is a safety requirement from SPEC, not a nicety.
+
+### 4. Cook flow — the core interaction
+
+This is `planCook(recipe, servings, pantry)` made visible. **Never a silent subtract.**
+
+**Preview screen** showing, per ingredient: need · have · shortfall · status
+(enough / short / not-convertible / missing / optional-missing / non-quantified), plus
+`uncertaintyPct` where the conversion is shaky.
+
+The user can then:
+- **Edit what they actually used** — real cooking is not exact; this is the main defence
+  against drift.
+- Mark substitutions.
+- Send shortfalls to the grocery list.
+- Confirm.
+
+**On confirm:** write all txns under **one `cookEventId`** so the entire meal undoes as a
+unit, via `usePantry().appendTxn(...)`.
+
+**Handle these explicitly:**
+- **Going negative** → prompt *"still have some?"*. SPEC is explicit: do not silently clamp,
+  do not hide a negative. That prompt is how reality gets recovered.
+- **Not-convertible lines** → surface plainly; never treat as zero, never guess.
+- **Optional lines** never block a cook.
+- **Substitution groups** — satisfied if any member is.
+
+### 5. Undo
+Immediately after a cook, offer undo. The ledger makes this a compensating entry keyed on
+`cookEventId`.
+
+## Non-negotiables
+
+- The deduction preview is **always** shown and **always** editable before commit.
+- Allergen-unknown lines are visibly flagged.
+- Empty state (no recipes yet) invites creating or browsing.
+- Loading and error states everywhere.
+
+## Constraints
+
+TypeScript `strict`, no `any`. Mobile-first, 44px tap targets. No new deps.
+No domain logic here — it belongs in `@larder/core`; if something is missing, report it rather
+than writing it in the UI. Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run test && npm run build
+```
+
+Existing tests stay green (248 core + 44 web). **Add tests for the cook flow's state machine**
+— it is the highest-value UI logic in the app. Use track G's dev fixtures. Screenshot the cook
+preview at 390px into `reports/cook-flow.png`.
+
+## Report
+
+`reports/m1-j-recipes.md`: the cook-flow state machine, how each planCook status is presented,
+negative-stock prompt, undo, allergen flagging, deviations, open questions.
+Work continuously; do not stall.

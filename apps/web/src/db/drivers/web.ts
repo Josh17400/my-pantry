@@ -1,9 +1,12 @@
 import {
   NotConfiguredError,
   type AggregateResult,
+  type InitializeResult,
   type PantryRepository,
   type VerifyResult,
 } from '../repository';
+import type { DomainRepository } from '../domain-repository';
+import type { SeedResult } from '../seed';
 
 /**
  * Web driver: Supabase-direct + service-worker cache (future).
@@ -54,5 +57,19 @@ export class WebPantryRepository implements PantryRepository {
 
   async close(): Promise<void> {
     // no-op: nothing opened
+  }
+
+  async initialize(_options?: { loadFixtures?: boolean }): Promise<InitializeResult> {
+    throw new NotConfiguredError(
+      'Web data layer is not configured (Supabase credentials required)',
+    );
+  }
+
+  async seed(_options?: { force?: boolean }): Promise<SeedResult> {
+    throw new NotConfiguredError();
+  }
+
+  domain(): DomainRepository {
+    throw new NotConfiguredError();
   }
 }

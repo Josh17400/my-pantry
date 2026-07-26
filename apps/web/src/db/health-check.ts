@@ -40,7 +40,7 @@ export async function runHealthCheck(repo: PantryRepository): Promise<HealthRunR
   steps.push(
     await timedStep('migrate', async () => {
       await repo.migrate();
-      return 'created m0_health_probe + index';
+      return 'applied drizzle migrations (health probe + product schema)';
     }),
   );
   if (!steps[steps.length - 1]!.ok) {

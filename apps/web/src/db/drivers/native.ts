@@ -16,20 +16,25 @@ import {
 import { asc, count, sql, sum } from 'drizzle-orm';
 import { drizzle, type SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
 
+import { DomainRepository } from '../domain-repository';
+import { generateDevFixtures } from '../fixtures';
+import { runMigrations, type SqlExecutor } from '../migrate';
 import {
   batchValues,
   computeChecksum,
   type AggregateResult,
+  type InitializeResult,
   type PantryRepository,
   type VerifyResult,
 } from '../repository';
-import { healthProbe } from '../schema';
+import { healthProbe, schema, type AppSchema } from '../schema';
+import { runSeed, type SeedResult } from '../seed';
 
-const DB_NAME = 'well-stocked-m0';
+const DB_NAME = 'good-pantry';
 const DB_VERSION = 1;
 const BATCH_SIZE = 1000;
 
-type DrizzleDb = SqliteRemoteDatabase<Record<string, never>>;
+type DrizzleDb = SqliteRemoteDatabase<AppSchema>;
 
 let sharedConnection: SQLiteConnection | null = null;
 
@@ -46,29 +51,32 @@ function getSqliteConnection(): SQLiteConnection {
  * empty rows for run.
  */
 function createProxyDb(conn: SQLiteDBConnection): DrizzleDb {
-  return drizzle(async (sqlText, params, method) => {
-    const values = params as unknown[];
+  return drizzle(
+    async (sqlText, params, method) => {
+      const values = params as unknown[];
 
-    if (method === 'run') {
-      await conn.run(sqlText, values, false);
-      return { rows: [] };
-    }
+      if (method === 'run') {
+        await conn.run(sqlText, values, false);
+        return { rows: [] };
+      }
 
-    // 'all' | 'values' — Drizzle expects rows as unknown[][]
-    const result = await conn.query(sqlText, values);
-    const raw = result.values ?? [];
-    const rows: unknown[][] = raw.map((row) => {
-      if (Array.isArray(row)) {
-        return row as unknown[];
-      }
-      // Capacitor sometimes returns row objects; normalize to ordered values.
-      if (row !== null && typeof row === 'object') {
-        return Object.values(row as Record<string, unknown>);
-      }
-      return [row];
-    });
-    return { rows };
-  });
+      // 'all' | 'values' — Drizzle expects rows as unknown[][]
+      const result = await conn.query(sqlText, values);
+      const raw = result.values ?? [];
+      const rows: unknown[][] = raw.map((row) => {
+        if (Array.isArray(row)) {
+          return row as unknown[];
+        }
+        // Capacitor sometimes returns row objects; normalize to ordered values.
+        if (row !== null && typeof row === 'object') {
+          return Object.values(row as Record<string, unknown>);
+        }
+        return [row];
+      });
+      return { rows };
+    },
+    { schema },
+  );
 }
 
 export class NativePantryRepository implements PantryRepository {
@@ -76,6 +84,7 @@ export class NativePantryRepository implements PantryRepository {
 
   private conn: SQLiteDBConnection | null = null;
   private db: DrizzleDb | null = null;
+  private domainRepo: DomainRepository | null = null;
 
   async open(): Promise<void> {
     const sqlite = getSqliteConnection();
@@ -97,21 +106,76 @@ export class NativePantryRepository implements PantryRepository {
 
     await this.conn.open();
     this.db = createProxyDb(this.conn);
+    this.domainRepo = new DomainRepository(this.db as import('../domain-repository').AppDatabase);
   }
 
   async migrate(): Promise<void> {
+    const exec = this.createExecutor();
+    await runMigrations(exec);
+  }
+
+  async seed(options?: { force?: boolean }): Promise<SeedResult> {
+    return runSeed(this.appDb(), options);
+  }
+
+  async initialize(options?: {
+    loadFixtures?: boolean;
+  }): Promise<InitializeResult> {
+    await this.open();
+    const migrateResult = await runMigrations(this.createExecutor());
+    const seed = await runSeed(this.appDb());
+    let fixtures;
+    if (options?.loadFixtures) {
+      fixtures = await generateDevFixtures(this.domain(), this.appDb());
+    }
+    return {
+      migrateApplied: migrateResult.applied,
+      migrateSkipped: migrateResult.skipped,
+      seed,
+      fixtures,
+    };
+  }
+
+  domain(): DomainRepository {
+    if (!this.domainRepo) {
+      throw new Error('Database not open');
+    }
+    return this.domainRepo;
+  }
+
+  private createExecutor(): SqlExecutor {
     const conn = this.requireConn();
-    // Apply the Drizzle schema as SQL at runtime (probe table only).
-    // Prefer HEALTH_PROBE_DDL from core when available; keep local DDL in sync.
-    await conn.execute(`
-      CREATE TABLE IF NOT EXISTS m0_health_probe (
-        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-        value INTEGER NOT NULL,
-        label TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS m0_health_probe_value_idx
-      ON m0_health_probe (value);
-    `);
+    return {
+      execute: async (sqlText, params = []) => {
+        if (params.length === 0) {
+          await conn.execute(sqlText);
+        } else {
+          await conn.run(sqlText, params as unknown[], false);
+        }
+      },
+      selectObjects: async (sqlText, params = []) => {
+        const result = await conn.query(sqlText, params as unknown[]);
+        // Prefer object rows when Capacitor provides them
+        if (result.values && result.values.length > 0) {
+          const first = result.values[0];
+          if (first !== null && typeof first === 'object' && !Array.isArray(first)) {
+            return result.values as Record<string, unknown>[];
+          }
+        }
+        // Fall back: if columns present, zip
+        const cols = (result as { columns?: string[] }).columns;
+        if (cols && result.values) {
+          return (result.values as unknown[][]).map((row) => {
+            const obj: Record<string, unknown> = {};
+            cols.forEach((c, i) => {
+              obj[c] = Array.isArray(row) ? row[i] : row;
+            });
+            return obj;
+          });
+        }
+        return (result.values ?? []) as Record<string, unknown>[];
+      },
+    };
   }
 
   async insertBatch(
@@ -216,6 +280,7 @@ export class NativePantryRepository implements PantryRepository {
     }
     this.conn = null;
     this.db = null;
+    this.domainRepo = null;
   }
 
   private requireDb(): DrizzleDb {
@@ -223,6 +288,10 @@ export class NativePantryRepository implements PantryRepository {
       throw new Error('Database not open');
     }
     return this.db;
+  }
+
+  private appDb(): import('../domain-repository').AppDatabase {
+    return this.requireDb() as unknown as import('../domain-repository').AppDatabase;
   }
 
   private requireConn(): SQLiteDBConnection {

@@ -1,15 +1,19 @@
 /**
- * Platform-agnostic data-access surface for the shell.
+ * Platform-agnostic data-access surface for the shell + product domain.
  *
- * Product domain repositories land later; this only covers what the
- * DB Health self-test needs. Drivers: native = Capacitor SQLite + Drizzle
- * (sqlite-proxy), web = Supabase-direct (stub until product needs it).
+ * Drivers: native = Capacitor SQLite + Drizzle (sqlite-proxy),
+ * web = Supabase-direct (stub until product needs it),
+ * node = better-sqlite3 (tests).
  */
 
 import {
   batchValues as coreBatchValues,
   computeChecksum as coreComputeChecksum,
 } from '@larder/core';
+
+import type { DomainRepository } from './domain-repository';
+import type { SeedResult } from './seed';
+import type { FixtureResult } from './fixtures';
 
 export type HealthStepName =
   | 'open'
@@ -48,9 +52,16 @@ export type VerifyResult = {
   ok: boolean;
 };
 
+export type InitializeResult = {
+  migrateApplied: string[];
+  migrateSkipped: string[];
+  seed: SeedResult;
+  fixtures?: FixtureResult;
+};
+
 /**
- * Minimal repository exercised by the DB Health screen (native only).
- * Implementations live in platform-specific drivers.
+ * Minimal repository exercised by the DB Health screen (native only),
+ * extended with product domain access via `domain()`.
  */
 export interface PantryRepository {
   readonly driverName: string;
@@ -58,7 +69,10 @@ export interface PantryRepository {
   /** Open / create the database file (or web equivalent). */
   open(): Promise<void>;
 
-  /** Apply schema for the health-probe table (create if missing). */
+  /**
+   * Apply drizzle-kit migrations (idempotent).
+   * Product drivers also leave the DB ready for seed.
+   */
   migrate(): Promise<void>;
 
   /**
@@ -84,6 +98,25 @@ export interface PantryRepository {
 
   /** Close without reopening (best-effort). */
   close(): Promise<void>;
+
+  // ── Product domain (optional on web stub) ───────────────────────────────
+
+  /**
+   * Full product open path: open → migrate → seed catalog/locations.
+   * Native/node only. Web throws NotConfiguredError.
+   */
+  initialize?(options?: {
+    loadFixtures?: boolean;
+  }): Promise<InitializeResult>;
+
+  /** Seed catalog + default locations (idempotent). */
+  seed?(options?: { force?: boolean }): Promise<SeedResult>;
+
+  /**
+   * Domain repository for pantry / ledger / recipes / grocery / locations.
+   * Available after open()+migrate() (and typically seed()).
+   */
+  domain?(): DomainRepository;
 }
 
 /** Deterministic checksum used by insert + verify steps (from @larder/core). */

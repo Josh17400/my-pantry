@@ -1,0 +1,83 @@
+# BRIEF: M1 Track I — Pantry screens (list, item detail, locations)
+
+## Context
+
+**The Good Pantry.** Read `SPEC.md` (especially "The ledger", provenance, and low/out) and
+`DESIGN.md`. Look at `design/references/mockup-01-overview.jpg` for the visual language.
+
+Available and **read-only to you**: the design system (`apps/web/src/ui/**`, see `/design`),
+the stores (`apps/web/src/state/**` — `usePantry()`, `useLocations()`), and `@larder/core`
+(248 tests: `formatQuantity`, `convert`, `evaluateStockBatch`, provenance and par helpers).
+
+**Consume the domain logic. Never reimplement it.** In particular the ledger fold has subtle
+rules and exactly one correct implementation.
+
+## Scope
+
+You own `apps/web/src/features/pantry/**` and routes `PantryPage.tsx`, `PantryItemPage.tsx`,
+`LocationsPage.tsx` in `apps/web/src/routes/`.
+
+**Do NOT edit** `App.tsx`, `src/ui/**`, `src/state/**`, `src/db/**`, `packages/core/**`, or the
+`home` / `recipes` / `grocery` feature folders. Three other screen tracks run in parallel.
+
+## Build
+
+### 1. Pantry list
+Grouped by location, searchable, filterable (all / low / out / expiring). Each row shows name,
+quantity in **human units** (`formatQuantity` — "2.5 lb", not "1134 g"), status band, and
+**provenance** (`✓ receipt · 2 days ago` / `⚠ 3 cooks since verified`).
+
+Must stay responsive at 500 items — virtualize or paginate, and say which in the report.
+
+### 2. Item detail
+Quantity with provenance, location, par level, low threshold, expiry, purchase history from
+the ledger. Actions:
+
+- **Adjust quantity** — writes a `relative` txn (`adjust_delta`).
+- **Recount** — writes an **`absolute`** txn (`targetBase`). This is the "snap to reality"
+  flow. It is semantically different from an adjustment and the UI must make that clear:
+  a recount says *"there is exactly this much"*, an adjustment says *"add/remove this much."*
+- **Mark used up** / **waste** — appropriate txn reasons.
+- Edit par level, threshold, expiry, location.
+
+All writes go through `usePantry().appendTxn(...)`.
+
+### 3. Locations
+CRUD over user-defined, one-level-nestable locations (Fridge / Pantry / Around the House →
+Spices, Tea & Coffee, Baking, Household). Icon and tint per location. **Not an enum** —
+the user can add "Garage Freezer" or "Office Drawer".
+
+### 4. Add item
+Manual add: search the seeded ingredient catalog, pick form and quantity, choose location.
+Writes a `purchase` txn.
+
+## Non-negotiables
+
+- **Never render false precision.** SPEC: a drifted number must look drifted. Provenance is
+  displayed everywhere a quantity is.
+- **Empty states** — an empty pantry is the default first-run state, not an edge case.
+- **Undo.** A mis-tapped deduction must be reversible; the ledger makes this a compensating
+  txn. Offer it after destructive-feeling actions.
+- Status text uses the `low` token; `low-fill` is bars/dots only (contrast).
+- Loading and error states on every async path.
+
+## Constraints
+
+TypeScript `strict`, no `any`. Mobile-first, 44px tap targets, safe-area aware. No new deps.
+Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run test && npm run build
+```
+
+Existing tests stay green (248 core + 44 web). Add tests for anything with real logic.
+Use track G's dev fixture generator to review against a realistic pantry. Screenshot the list
+and detail at 390px into `reports/pantry-screens.png`.
+
+## Report
+
+`reports/m1-i-pantry.md`: screen inventory, **how recount vs adjust is presented to the user**,
+the virtualization choice, empty/loading/error states, undo, deviations, open questions.
+Work continuously; do not stall.
