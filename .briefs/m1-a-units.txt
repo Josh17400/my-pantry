@@ -1,0 +1,117 @@
+# BRIEF: M1 Track A — units, forms, and the conversion graph
+
+## Context
+
+**My Pantry** — see `SPEC.md` at the repo root (read it fully; the "Units" section is your
+authority). M0 foundation is complete: npm workspaces monorepo, Expo SDK 57 app, and
+`packages/core` as a pure-TypeScript package with vitest already wired and green.
+
+You are building the unit system. It is the foundation the entire product sits on — recipe
+deduction, receipt intake, grocery aggregation, and low-stock all convert through it. **A
+silently wrong conversion corrupts a user's inventory invisibly, which is the worst failure
+this product has.** Correctness beats convenience everywhere in this track.
+
+## Scope — you own exactly one directory
+
+`packages/core/src/units/**` and `packages/core/test/units/**`
+
+**Do NOT edit `packages/core/src/index.ts`** — another track is working in this package in
+parallel. Export everything from `packages/core/src/units/index.ts` and the architect will
+wire the root barrel at integration. Do not touch `src/pantry/`, `src/seed/`, or anything
+under `apps/`.
+
+## What to build
+
+### 1. Dimensions and base units
+
+Three dimensions with a canonical base unit each: `MASS → g`, `VOLUME → ml`, `COUNT → each`.
+Every quantity is stored as a number in a base unit plus its dimension. Never store a display
+string.
+
+Support at minimum: g, kg, mg, oz, lb · ml, l, tsp, tbsp, cup, fl oz, pint, quart, gallon ·
+each, dozen. **Use US customary volumes** (US cup = 236.588 ml, not metric 250) — the product
+targets US retail. Put the exact factors in a table with a comment citing the definition; do
+not approximate.
+
+### 2. Forms are a first-class axis — read SPEC.md carefully here
+
+A three-dimension model is **not sufficient**. "3 cloves garlic", a jar of minced garlic, and
+garlic powder are the same ingredient in incompatible forms. One density scalar per ingredient
+is a fiction — scooped vs sifted flour differs by 20%+.
+
+```ts
+IngredientForm { id, ingredientId, form, dim, densityGPerMl?, gramsPerCount?, uncertaintyPct }
+ConversionEdge { fromFormId, toFormId, factor, uncertaintyPct, source }
+PackageSpec    { formId, label, netG, drainedG? }   // "can_14_5oz"
+```
+
+### 3. `convert()` — a graph traversal, never a global scalar
+
+Conversion between forms is only defined along **declared edges**. Find the shortest path,
+multiply factors, and **accumulate uncertainty along the path**.
+
+```ts
+type ConversionResult =
+  | { ok: true; value: number; dim: Dimension; uncertaintyPct: number; path: string[] }
+  | { ok: false; reason: 'no-path' | 'unknown-unit' | 'unknown-form' | 'non-finite';
+      detail: string }
+```
+
+**Hard requirements:**
+- Returns a result object. **Never throws for an unconvertible pair, and never guesses.**
+- Within a single dimension, conversion needs no ingredient (g ↔ lb is universal).
+- Across dimensions it requires the form's density or gramsPerCount, or a declared edge.
+- Uncertainty compounds across a multi-hop path — a 2-hop path is less trustworthy than 1-hop
+  and the caller must be able to see that.
+- Deterministic: same inputs always produce the same path. If two paths tie in length, break
+  the tie by lowest total uncertainty, then lexicographically by edge id. **Document the rule.**
+
+### 4. Parsing and formatting
+
+- `parseQuantity("1 1/2 cups")` → `{qty: 1.5, unit: 'cup'}`. Handle unicode fractions (½ ¼ ¾),
+  ASCII fractions, decimals, ranges ("2-3 cloves" → take the midpoint and flag it), and
+  "a pinch" / "to taste" → a distinct **non-quantified** result, NOT zero.
+- `formatQuantity(base, dim, opts)` → human display, US retail default: 1134 g → "2.5 lb",
+  473 ml → "2 cups". Choose the unit that yields the most readable number. Never show more
+  precision than the uncertainty justifies — that is the whole point of tracking uncertainty.
+
+## Conventions
+
+- Match the existing code style in `packages/core/src/sqlite-health.ts`.
+- **Pure TypeScript. Zero React, zero react-native, zero platform APIs.** This is enforced.
+- `strict` mode; no `any`; prefer discriminated unions over optional-field soup.
+- No new runtime dependencies without saying why in your report. Dev deps for testing are fine.
+
+## Tests — this track is judged on its tests
+
+`packages/core/test/units/`. Cover at minimum:
+
+- round-trips within each dimension, and that they are lossless within floating tolerance
+- US customary correctness: 1 cup = 236.588 ml, 1 lb = 453.592 g, 1 tbsp = 3 tsp
+- density path: 1 cup grated parmesan ≈ 90 g at 0.38 g/ml — assert the math, not the vibe
+- count path via gramsPerCount
+- **unconvertible pairs return `ok: false` and never approximate** — this is the headline test
+- multi-hop uncertainty is strictly greater than single-hop
+- deterministic tie-breaking: build a graph with two equal-length paths, assert stable choice
+- cycles in the conversion graph do not hang or infinite-loop
+- `parseQuantity` across fractions, unicode, decimals, ranges, and non-quantified inputs
+- `formatQuantity` never displays precision beyond the uncertainty
+
+## Verification — run before reporting done
+
+```
+npm run typecheck     # zero errors
+npm run test          # all green, including existing M0 tests
+```
+
+Then grep your own output: confirm no `react` / `react-native` import entered
+`packages/core`.
+
+## Report
+
+Write `reports/m1-a-units.md`: the conversion-graph design and tie-break rule, the unit
+factor table with sources, what `parseQuantity` handles and what it deliberately rejects,
+test coverage summary, every deviation with reasoning, and any open questions — **state them,
+do not guess.** You will get answers.
+
+Work continuously; do not stall waiting for input.

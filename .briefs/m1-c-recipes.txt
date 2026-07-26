@@ -1,0 +1,117 @@
+# BRIEF: M1 Track C — recipes, cook planning, grocery lists
+
+## Context
+
+**My Pantry.** Read `SPEC.md` (design authority) — sections "Key algorithms" and
+"Feature pipelines". `packages/core` is live and green (130 tests): `src/domain/` (shapes),
+`src/units/` (conversion graph), `src/pantry/` (ledger fold, projection, par, stock).
+
+**Use them — do not re-declare types or re-implement conversion.** `Dimension`,
+`IngredientForm`, `ConversionEdge`, `PackageSpec`, `Ingredient`, `Location` all live in
+`src/domain/`. Conversion is `convert()` from `src/units/`. Stock evaluation is in
+`src/pantry/`.
+
+## Scope — you own exactly these directories
+
+`packages/core/src/recipes/**`, `packages/core/src/grocery/**`, and their tests under
+`packages/core/test/recipes/**`, `packages/core/test/grocery/**`.
+
+**Do NOT edit `packages/core/src/index.ts`** (architect wires it), and do not touch
+`src/domain/`, `src/units/`, `src/pantry/`, `src/matching/`, `src/dedupe/`, `src/seed/`, or
+`apps/**`. Other tracks are running in parallel.
+
+## What to build
+
+### 1. Recipe types (`src/recipes/types.ts`)
+
+Per SPEC. `Recipe` and `RecipeLine`, where a line may be **unmatched free text** and therefore
+carries `unknownAllergens: true`. Support `optional`, substitution `group`, and `substitutes[]`.
+
+### 2. Scaling
+
+`scaleRecipe(recipe, targetServings)` — scales every line by `target / recipe.servings`.
+
+Handle the awkward cases honestly: fractional counts ("2.5 eggs" after scaling down) must be
+representable and flagged, not silently rounded — the UI will decide how to present it.
+Non-quantified lines ("to taste", "a pinch") **do not scale** and must pass through untouched.
+
+### 3. `planCook(recipe, servings, pantry)` — the core of the track
+
+For each line, return `{ line, needBase, haveBase, shortfallBase, convertible, uncertaintyPct,
+status }` where status distinguishes: have enough · short · not convertible · not in pantry ·
+optional-and-missing · non-quantified.
+
+**Rules:**
+- Convert the recipe's unit/form into the pantry item's form via `convert()`. If conversion
+  fails, status is `not-convertible` — **never guess, never treat as zero.**
+- Surface `uncertaintyPct` per line so the UI can warn on shaky conversions.
+- Optional lines never block a cook.
+- Substitution groups: if any member is satisfied, the group is satisfied.
+- **Nothing in this module writes transactions.** It returns a plan; committing is the
+  caller's job. Keep it pure.
+
+### 4. Cook-now matching — `findCookableRecipes(recipes, pantry, opts)`
+
+This powers *"Make something amazing — you have everything for 6 recipes"* from the mockups.
+It is `planCook` inverted across the recipe set: pure, deterministic, offline, **free tier —
+not an AI feature.**
+
+Return recipes ranked by: fully-cookable first, then by fewest missing items, then (important)
+by **whether they use ingredients that are expiring soon** — the designs show
+*"Use up: spinach, garlic, parmesan"*, so expiry-driven suggestion is a first-class output,
+not a nice-to-have.
+
+Must stay responsive with 2,000 recipes and 500 pantry items. Do not do an O(recipes × lines ×
+pantry) scan with a linear pantry lookup inside — index the pantry by ingredient first. Include
+a performance test asserting a sane bound.
+
+### 5. Grocery list (`src/grocery/`)
+
+- `buildList(sources)` merging: manual adds, low/out from `src/pantry/` stock evaluation,
+  recipe shortfalls from `planCook`, and reorder-cadence suggestions.
+- **Aggregation is the hard part.** The same ingredient needed by three recipes in mixed units
+  must merge into **one** line with a correct total. If two lines cannot be converted into a
+  common form, do **not** silently sum them — keep them separate and mark why.
+- Display in purchase units ("2 lb ground beef", not "907 g") via `formatQuantity`.
+- Group by aisle using `Ingredient.category`.
+- For ranges, use the **`high`** end for shortfall/purchase quantities — under-buying means a
+  second trip. (`parseQuantity` exposes `low`/`high`/midpoint; this is why.)
+- `shoppingTripId` on the list so a receipt can later reconcile against it rather than
+  double-adding. You do not implement reconciliation (track D owns de-dupe) — just carry the id.
+
+## Conventions
+
+- Pure TypeScript, **zero React / react-native / platform APIs**, `strict`, no `any`.
+- Pure functions; no I/O, no clock reads except via an injected `now` parameter (testability).
+- No new runtime dependencies.
+
+## Tests — where this track is judged
+
+- scaling: fractional counts flagged not rounded; non-quantified passes through unscaled
+- `planCook`: exact-enough, short, not-convertible, missing, optional-missing, substitution
+  group satisfied by one member, uncertainty surfaced
+- **unconvertible lines never silently become zero** — headline test
+- cook-now ranking: fully-cookable first, expiry-driven ordering, deterministic ties
+- cook-now performance bound with a large synthetic set
+- grocery aggregation: same ingredient across recipes in mixed units → one correct line;
+  non-convertible pair stays separate and flagged
+- ranges use `high` for purchase quantity
+- display formatting in purchase units
+
+## Verification — run before reporting
+
+```
+npm run typecheck    # zero errors, full workspace
+npm run test         # all green — 130 existing plus yours
+```
+
+**All 130 existing tests must still pass.** If you believe an existing test is wrong, say so in
+the report — do not edit another track's tests.
+
+## Report
+
+`reports/m1-c-recipes.md`: the planCook status model, aggregation and non-convertible policy,
+cook-now ranking rule and its complexity, test coverage, deviations, and open questions —
+state them plainly rather than guessing.
+
+Work continuously; do not stall waiting for input.

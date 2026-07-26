@@ -1,0 +1,77 @@
+# iOS build + TestFlight upload for the My Pantry Capacitor app.
+#
+# MANUAL TRIGGER ONLY for now — the App Store Connect secrets are added
+# after repo setup, and nothing should fire before they exist. Once secrets
+# are in place and the first run succeeds, a tag trigger (push: tags:
+# ['ios-v*']) can be added.
+#
+# REQUIRED REPO SECRETS (Settings -> Secrets and variables -> Actions),
+# see CI_SETUP.md at the repo root for the exact `gh secret set` commands:
+#   ASC_KEY_ID         App Store Connect API key ID        (e.g. 2X9R4HXF34)
+#   ASC_ISSUER_ID      App Store Connect API issuer ID     (UUID)
+#   ASC_KEY_P8         base64 of the AuthKey_XXXX.p8 file
+#   APPLE_TEAM_ID      Apple Developer Team ID             (e.g. AB12CD34EF)
+#
+# ALSO REQUIRED once the persistent Distribution cert is minted (see
+# CI_SETUP.md and the mint_cert lane — same pattern as euchre-game):
+#   IOS_CERT_P12_B64   base64 of the Apple Distribution .p12
+#   CERT_EXPORT_PASS   password used when exporting that .p12
+#
+# ONE-TIME SETUP before the first run (needs the Apple Developer account):
+#   1. Create an App Store Connect API key (Users and Access -> Integrations)
+#      with App Manager role; download the .p8 (downloadable exactly once).
+#   2. Create the app record in App Store Connect with bundle id
+#      com.mypantry.app (register the identifier at developer.apple.com
+#      first if ASC doesn't offer it).
+#   Signing uses the API key + a persistent Distribution cert — no Mac
+#   required for day-to-day builds. See native/ios/fastlane/Fastfile.
+
+name: iOS TestFlight
+
+on:
+  workflow_dispatch: # manual "Run workflow" button / `gh workflow run ios.yml`
+
+jobs:
+  build-and-upload:
+    runs-on: macos-26 # Xcode 26 image (Capacitor 8 requires Xcode 16.4+)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Show toolchain versions (diagnostics)
+        run: |
+          xcodebuild -version
+          node --version
+          npm --version
+          fastlane --version
+
+      - name: Install monorepo dependencies
+        run: npm ci
+
+      - name: Build web assets (Vite production bundle)
+        run: npm run build
+
+      - name: Install native Capacitor dependencies
+        working-directory: native
+        run: npm ci
+
+      - name: Capacitor sync (copies web dist/, resolves iOS SPM plugins)
+        working-directory: native
+        run: npx cap sync ios
+
+      - name: Build and upload to TestFlight (fastlane)
+        working-directory: native/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IOS_CERT_P12_B64: ${{ secrets.IOS_CERT_P12_B64 }}
+          CERT_EXPORT_PASS: ${{ secrets.CERT_EXPORT_PASS }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          LC_ALL: en_US.UTF-8
+          LANG: en_US.UTF-8
+        run: fastlane ios beta

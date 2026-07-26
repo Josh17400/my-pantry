@@ -1,0 +1,108 @@
+# BRIEF: M1 Track E — canonical ingredient seed data
+
+## Context
+
+**My Pantry.** Read `SPEC.md` (sections "Units", "Allergens", "Data model"). `packages/core`
+is live and green (130 tests). The shapes you are populating already exist in
+`packages/core/src/domain/types.ts` and `domain/allergens.ts` — **import them; do not
+re-declare them.** Conversion math lives in `src/units/` — do not reimplement it.
+
+This is the data backbone. Matching, recipes, receipts, and par levels all resolve against it.
+Bad density values here produce silently wrong inventory everywhere downstream, which is the
+worst failure class this product has.
+
+## Scope — you own exactly one directory
+
+`packages/core/src/seed/**` and `packages/core/test/seed/**`.
+
+**Do NOT edit `packages/core/src/index.ts`** (architect wires it) and do not touch
+`src/domain/`, `src/units/`, `src/pantry/`, `src/recipes/`, `src/grocery/`, `src/matching/`,
+`src/dedupe/`, or `apps/**`. Other tracks are running in parallel.
+
+## What to build
+
+### 1. ~300 canonical ingredients
+
+Cover a real US home kitchen: produce, dairy, meat/seafood, pantry staples, grains/pasta,
+canned goods, baking, spices/herbs, condiments/sauces, oils/vinegars, frozen, beverages,
+baby/household-adjacent edibles. Weight coverage toward what people **actually buy weekly** —
+this seeds real usage, not a culinary encyclopedia.
+
+Per ingredient: `id`, `name`, `category` (drives grocery aisle grouping), `allergens[]`,
+`isStaple`, `defaultFormId`, plus common `aliases` (including receipt-style abbreviations you
+are confident about — `PARM`, `SHRD CHDR`, `GRND BF`).
+
+### 2. Forms, conversions, packages
+
+Where an ingredient realistically exists in multiple forms, model them: garlic
+(whole/clove/minced/powder), cheese (block/shredded/grated), butter (stick/tbsp/g), onion
+(whole/chopped), herbs (fresh bunch/chopped/dried). Give each form `dim` and, where it applies,
+`densityGPerMl` or `gramsPerCount` with an honest `uncertaintyPct`.
+
+`PackageSpec` entries for typical US retail sizes — these seed par levels, so they matter:
+14.5 oz can diced tomatoes (with `drainedG`), gallon of milk, 5 lb flour, dozen eggs, 8 oz
+block of cheese.
+
+### 3. Data quality rules — the part that actually matters
+
+- **Cite your density sources** in a comment or a `source` field. USDA FoodData Central is the
+  preferred reference. **Do not invent numbers that look plausible.** A wrong density is
+  undetectable by tests and corrupts inventory silently.
+- Where a value is genuinely variable (a "bunch" of cilantro varies 2–4× by store and season),
+  give it a **high `uncertaintyPct`** rather than false precision. Honest uncertainty is the
+  correct answer; a confident wrong number is not.
+- **Allergens must be right.** Under-tagging is a safety failure: soy sauce contains wheat,
+  Worcestershire contains fish (anchovy), many baking chips contain milk and soy, "natural
+  flavors" is not a free pass. Tag conservatively — over-tagging is merely annoying,
+  under-tagging can hurt someone.
+- **EDGE DIRECTION INVARIANT (enforced, not advisory):** emit each conversion edge in **one
+  direction only.** `convert()` auto-inverts non-`oneWay` edges, so emitting both directions
+  creates parallel arcs whose factors can drift apart under rounding and make conversions
+  path-dependent. Mark genuinely lossy conversions `oneWay: true` (whole chicken → boneless
+  yield cannot be inverted). **Write a validator that fails the test suite if seed data
+  contains both directions of the same form pair.**
+
+### 4. Validation module + tests
+
+Ship `validateSeed()` alongside the data, and test that the shipped seed passes it:
+
+- every `defaultFormId` resolves to a real form of that ingredient
+- every `ConversionEdge` references forms that exist
+- **no duplicate-direction edges** (the invariant above)
+- no duplicate ingredient ids or colliding aliases across different ingredients
+  (a collision makes matching ambiguous — fail loudly)
+- densities within a physically sane band (roughly 0.1–2.0 g/ml; nothing is denser than
+  honey or lighter than puffed rice by much) — catches typos and unit slips
+- every ingredient has at least one form, and forms have the field their `dim` requires
+- spot-check tests asserting specific known conversions land in the right ballpark
+  (1 cup granulated sugar ≈ 200 g, 1 cup all-purpose flour ≈ 120 g, 1 large egg ≈ 50 g,
+  1 stick butter = 113 g)
+
+## Conventions
+
+- Pure TypeScript data modules, **zero React / react-native / platform APIs**, `strict`, no
+  `any`. No new runtime dependencies.
+- Keep the data readable and diffable — split across category files rather than one enormous
+  array, with a barrel at `src/seed/index.ts`.
+- Deterministic ids (stable slugs like `garlic`, `garlic-clove`), never generated at runtime.
+
+## Verification — run before reporting
+
+```
+npm run typecheck    # zero errors, full workspace
+npm run test         # all green — 130 existing plus yours
+```
+
+All 130 existing tests must still pass. Do not edit another track's tests.
+
+## Report
+
+`reports/m1-e-seed.md`: ingredient count by category, which forms/conversions were modeled and
+why those, **your density sources**, the list of values you flagged as high-uncertainty and the
+reasoning, allergen tagging policy and any judgment calls, what `validateSeed()` enforces, and
+open questions — state them plainly, do not guess.
+
+Be explicit about anything you were **unsure of** rather than smoothing it over. A flagged
+uncertain density is useful; a confidently wrong one is a bug that hides for months.
+
+Work continuously; do not stall waiting for input.

@@ -1,0 +1,152 @@
+# BRIEF: M1 Track B — the pantry ledger, projection, and par levels
+
+## Context
+
+**My Pantry** — read `SPEC.md` at the repo root fully before writing code. The sections
+"The ledger — two event kinds, not one" and "De-duplication" are your authority and they were
+rewritten after an adversarial review found a real flaw. Do not design from first principles;
+implement what the spec settled.
+
+This is **the most correctness-critical code in the product.** It is the accounting system for
+someone's food. If it silently mis-merges, users see inventory that does not match their
+kitchen, stop trusting the app, and leave — which is how every pantry app on the market died.
+
+## Scope — you own exactly one directory
+
+`packages/core/src/pantry/**` and `packages/core/test/pantry/**`
+
+**Do NOT edit `packages/core/src/index.ts`** — another track is editing this package in
+parallel (it owns `src/units/`). Export from `packages/core/src/pantry/index.ts`; the
+architect wires the root barrel at integration. Do not touch `src/units/`, `src/seed/`, or
+`apps/`.
+
+You may need unit types from track A. **Do not import from `src/units/` — it is being written
+right now and will churn.** Define a minimal local structural type for what you need
+(`{ qtyBase: number; dim: Dimension }`) and note the seam in your report. The architect
+reconciles them at integration.
+
+## The core problem — understand this before coding
+
+The naive design ("append-only log, merge by union, no conflicts") is **wrong**, and the spec
+explains why. Union-merge is conflict-free only for *relative* deltas. Absolute writes do not
+commute:
+
+> Both phones offline, flour at 1000 g. Phone A recounts to 500. Phone B recounts to 800.
+> If both are expressed as deltas (−500, −200) and unioned, you get **300 g — a number
+> neither person believes and that matches no physical reality.**
+
+## What to build
+
+### 1. Two event kinds
+
+```ts
+type PantryTxn = {
+  id; clientTxnId; householdId; ingredientId; formId;
+  reason: 'purchase'|'cook'|'quick'|'waste'|'adjust_delta'|'recount';
+  refId?; unitPrice?;
+  occurredAt;   // client clock — NOT trustworthy alone
+  acceptedAt?;  // server clock
+  deviceId; userId;
+} & (
+  | { kind: 'relative'; deltaBase: number }
+  | { kind: 'absolute'; targetBase: number; basisCursor?: string }
+)
+```
+
+### 2. `foldLedger()` — deterministic, and the heart of the track
+
+1. Total-order the household's txns for an ingredient by `(occurredAt, deviceId, clientTxnId)`.
+   That triple must be a **total** order — no ties possible. Document it.
+2. Fold: `relative` → `acc += deltaBase`. `absolute` → `acc = targetBase`, **discarding all
+   prior history** for that ingredient.
+3. Concurrent absolutes: later in total order wins. **Both are retained**, and the fold reports
+   that a conflict occurred so the UI can surface it once.
+4. Duplicate `clientTxnId` is idempotent — folding it twice changes nothing.
+
+Return the quantity **and** metadata: whether a conflict occurred, the cursor of the last
+absolute (the checkpoint), and provenance (below).
+
+### 3. Projection cache with correct invalidation
+
+`PantryItem.qtyBase` is a **cache**, not the truth. Maintain it incrementally, but:
+
+> **Incremental `qty += delta` in arrival order is WRONG when sync inserts an out-of-order
+> transaction.** This is a named bug from the review, not a hypothetical.
+
+Provide `needsRefold(cachedCursor, incomingTxn)` returning true when the incoming txn sorts at
+or below the local watermark, **or is absolute**. On true, re-fold that ingredient — and note
+that absolutes act as checkpoints, so re-folding only needs to walk back to the last absolute,
+which bounds the cost. Implement that bounded walk-back; do not re-fold all history.
+
+### 4. Provenance — required by the design, not optional
+
+The UI must render `⚠ 3 cooks since last verified`, so compute per ingredient:
+`lastVerifiedAt` (last purchase/recount), `unverifiedCookCount` (relative consumption txns
+since), and a `confidence: 'verified' | 'drifting' | 'stale'` band. Define the thresholds and
+justify them in your report.
+
+### 5. Par levels and low/out — the review found the naive version generates alert fatigue
+
+- Par seeds from `PackageSpec`, then learns from **median purchase quantity** after 3+ purchases.
+- Also factor **median days-between-purchase**. A household buying 2 gallons of milk every
+  3 days must not read LOW constantly, and a bulk buyer with 25 lb of rice must not first hear
+  about it at 6 lb.
+- **Seasonal guard:** purchases more than ~4 months apart must not naively feed the median, or
+  a Thanksgiving turkey reads LOW in March. Handle it; document your rule.
+- `OUT` at `qty <= epsilon`; `LOW` at `qty / par <= threshold` (default 0.25, staples higher).
+- Provide a **batched** evaluation returning everything low/out at once, so the caller emits
+  one daily shopping brief rather than ten notifications. Do not design a per-item push API —
+  a notification storm gets alerts disabled and kills the whole feature.
+
+### 6. Negative stock
+
+Cooking more than you have must **not** silently clamp to zero and must not hide a negative.
+Return a distinct signal so the UI can ask *"still have some?"* — that recovers reality better
+than either alternative. Spec calls for prompting, not clamping.
+
+## Tests — this track lives or dies here
+
+`packages/core/test/pantry/`. Required:
+
+- **The named regression: 1000 g flour, A recounts to 500, B recounts to 800 → the fold must
+  NOT produce 300.** Assert the documented winner and that a conflict is reported.
+- Property test: for logs containing only relative txns, `fold(log) === sum(deltas)` for
+  arbitrary shuffles — order must not matter when no absolute is present.
+- Property test: `fold` is invariant under **arbitrary permutation of arrival order** — build a
+  log, shuffle it many times, assert one identical result every time.
+- Duplicate `clientTxnId` replay is idempotent.
+- Absolute-as-checkpoint: txns before an absolute do not affect the result.
+- `needsRefold` returns true for out-of-order and for absolutes; false for a strictly-newer
+  relative append.
+- Bounded walk-back re-folds from the last absolute, not from zero (assert it does not read
+  the whole log).
+- Par levels: cold start (0–2 purchases), seasonal turkey, bulk buyer, alternating package
+  sizes (12 oz / 32 oz coffee must not oscillate wildly).
+- Low/out boundaries exactly at threshold, at zero, and below zero.
+- Provenance counts increment on cooks and reset on purchase/recount.
+
+Use a seeded PRNG for property tests so failures reproduce. **`Math.random()` without a seed
+in a test that can fail is not acceptable** — a flaky ledger test is worse than none.
+
+## Conventions
+
+- Pure TypeScript. **Zero React, zero react-native, zero platform APIs.**
+- `strict`; no `any`; discriminated unions over optional-field soup.
+- Pure functions where possible — this module should be trivially testable with no I/O.
+- No new runtime deps without justifying it in the report.
+
+## Verification — run before reporting
+
+```
+npm run typecheck    # zero errors
+npm run test         # all green including existing M0 + track A tests
+```
+
+## Report
+
+Write `reports/m1-b-ledger.md`: the total-order and conflict-resolution rules as implemented,
+the provenance thresholds and why, the par-level formula including the seasonal guard, the
+re-fold bounding strategy, test coverage, deviations with reasoning, and open questions —
+**state them plainly rather than guessing.**
+
+Work continuously; do not stall waiting for input.

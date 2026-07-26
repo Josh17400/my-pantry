@@ -1,0 +1,16 @@
+{
+  "appId": "com.mypantry.app",
+  "appName": "My Pantry",
+  "webDir": "../apps/web/dist",
+  "zoomEnabled": false,
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "CapacitorSQLite": {
+      "iosDatabaseLocation": "Library/CapacitorDatabase",
+      "iosIsEncryption": false,
+      "androidIsEncryption": false
+    }
+  }
+}

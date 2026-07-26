@@ -1,0 +1,116 @@
+# BRIEF: M1 Track D — ingredient matching and household de-duplication
+
+## Context
+
+**My Pantry.** Read `SPEC.md` — sections "Key algorithms → Matching" and "De-duplication".
+Also skim `reports/redteam.md` findings **M2** (matching corruption) and **C2** (double-entry):
+this track exists because an adversarial review found both, and the spec's rules are the
+settled response. Implement the spec; do not redesign it.
+
+`packages/core` is live and green (130 tests). Use `src/domain/` for shapes (`Ingredient`,
+`Allergen`, `AllergenTags`, and the `allergensDisagree` / `canAutoMergeAllergens` helpers) and
+`src/pantry/` for ledger types. **Do not re-declare domain types.**
+
+## Scope — you own exactly these directories
+
+`packages/core/src/matching/**`, `packages/core/src/dedupe/**`, and tests under
+`packages/core/test/matching/**`, `packages/core/test/dedupe/**`.
+
+**Do NOT edit `packages/core/src/index.ts`.** Do not touch other tracks' directories
+(`units`, `pantry`, `domain`, `recipes`, `grocery`, `seed`) or `apps/**`.
+
+---
+
+## Part 1 — Matching
+
+A cascade from a raw string (receipt line, recipe free text, imported recipe) to a canonical
+`Ingredient`, cheapest step first:
+
+1. exact hit on a **user-learned** alias
+2. exact hit on a **global** alias
+3. normalized string (lowercase, strip brand / size / grade tokens, singularize)
+4. fuzzy (trigram + Levenshtein) above a confidence floor
+5. LLM fallback — **out of scope here**; return a `needs-llm` outcome for the caller
+6. ask the user — return `needs-user` with ranked candidates
+
+Return a discriminated result carrying the matched ingredient (if any), confidence, **which
+cascade step produced it**, and ranked alternates. The caller decides auto-accept vs prompt —
+this module never mutates anything.
+
+### The guards — this is the whole point of the track
+
+**These are non-negotiable and each needs a test:**
+
+- **Sibling exclusion.** *cream* / *sour cream* / *heavy cream* / *cream cheese* are
+  co-hyponyms with high trigram overlap and completely different behavior. Candidates sharing a
+  taxonomic parent must **never auto-accept from fuzzy** — they require exact, learned, or
+  LLM/user disambiguation. Same for *stock* / *broth* / *stock cube*.
+- **Fuzzy never auto-accepts on the receipt path.** High-confidence auto-accept is limited to
+  exact / learned / global-exact. Fuzzy is always at least one tap.
+- **Allergen veto.** If candidate and query allergen tags disagree — or either is unknown —
+  refuse the auto-merge regardless of string confidence. Use the `domain/` helpers. **No
+  confidence score may override this.** A peanut mismatch is a safety incident, not a UX
+  annoyance.
+- **No automatic global promotion.** User aliases stay user-scoped. Produce a
+  *promotion candidate* record (needs N independent households + a curation queue); never
+  auto-promote. Majority-vote promotion is a table-poisoning vector.
+
+### Adversarial fixture suite — required
+
+Build `test/matching/fixtures.ts` with real-world receipt strings mapped to expected
+ingredients, **including near-miss negatives** that must NOT match (`HVY CRM` must not resolve
+to plain cream; `CHKN BRTH` must not resolve to chicken stock cube).
+
+Compute and assert an aggregate **false-positive rate** as a tracked number with a failing
+threshold. Accuracy must be a release gate, not a vibe. Print the score in test output.
+
+---
+
+## Part 2 — De-duplication
+
+Union-merging a ledger is correct for a bank and **wrong for a pantry**: two people logging the
+same dinner deducts twice. `clientTxnId` only stops same-*device* replay.
+
+- **Cook de-dupe** — `findDuplicateCook(householdLog, candidate, window)`. Same `recipeId`
+  within a window (default 3h) → return the prior event so the UI can offer
+  *"Alex logged this 20 minutes ago — merge, or separate batch?"* **Merge is the default.**
+- **Receipt de-dupe** — `receiptFingerprint({store, date, total, lineCount})`. Exact match
+  blocks; near-match within 7 days warns. Define "near" explicitly and test the boundary.
+- **Trip reconciliation** — given a `shoppingTripId` with manually checked-off items and a
+  receipt committing against the same trip, produce a **reconciliation** (match, extra,
+  missing) rather than summing both. The same bag of rice arriving by both paths must land in
+  the pantry once.
+
+Pure functions returning decisions. **This module never writes transactions.**
+
+## Conventions
+
+- Pure TypeScript, **zero React / react-native / platform APIs**, `strict`, no `any`.
+- No I/O; inject `now` for testability. No new runtime deps (write your own trigram /
+  Levenshtein — they are small and a dependency here is not worth it).
+- Deterministic: same inputs → same ranking. Document tie-breaks.
+
+## Tests
+
+Beyond the fixture suite: sibling-exclusion cases, allergen veto overriding high confidence,
+learned-alias precedence over global, normalization (brand/size/grade stripping,
+singularization), promotion candidates never auto-applied, double-cook inside and outside the
+window, receipt fingerprint exact vs near vs distinct, trip reconciliation producing
+single-count for all three arrival paths.
+
+## Verification — run before reporting
+
+```
+npm run typecheck    # zero errors, full workspace
+npm run test         # all green — 130 existing plus yours
+```
+
+Existing tests must still pass; do not edit another track's tests.
+
+## Report
+
+`reports/m1-d-matching.md`: the cascade and its confidence model, exactly how each guard is
+enforced, the fixture suite's measured false-positive rate and threshold, de-dupe window
+choices with reasoning, deviations, and open questions — state them, do not guess.
+
+Work continuously; do not stall waiting for input.

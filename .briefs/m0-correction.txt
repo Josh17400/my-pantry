@@ -1,0 +1,102 @@
+# CORRECTION TO M0 — scope change, mid-flight
+
+Your previous run was **stopped deliberately by the architect**. Nothing you did was wrong;
+a product decision changed underneath you while you were working. Read this fully before
+touching anything, then re-orient by inspecting what is actually on disk — your process was
+killed mid-task, so do not trust your memory of the working tree over what you can read.
+
+## What changed
+
+You were fighting `expo-sqlite` on web ("Web fails on Drizzle's sync select path"). That
+fight is over, because **web SQLite has been cut from the product entirely.**
+
+Reason: `expo-sqlite` web is officially alpha and requires `Cross-Origin-Embedder-Policy` +
+`Cross-Origin-Opener-Policy` headers for `SharedArrayBuffer`. Those headers are **origin-wide**
+and break cross-origin popups and embeds — which means Google sign-in, AdSense, and Stripe.js
+all become problems later. Even if you had won that fight, we would not have shipped it.
+
+**`SPEC.md` has been rewritten (v2). Re-read it before you continue — the data model changed
+substantially too.** Do not work from your memory of v1.
+
+## The new platform shape
+
+| Target | Data layer |
+|---|---|
+| iOS / Android | `expo-sqlite` + Drizzle, offline-first. **This is the real app.** |
+| Web | **Supabase-direct + service-worker cache. NO local database.** Online companion. |
+
+Same codebase, same routes, same components. Web simply requires a connection.
+
+## Your tasks now
+
+1. **Rip out all sqlite-on-web work.** Remove wasm Metro config, any COOP/COEP headers, any
+   sqlite-wasm dependency, and the async-read workaround you added to fight it. If that
+   workaround also improves the native path, keep it and say so — but keep it because it is
+   good, not because web needed it.
+
+2. **Restructure the DB layer around the platform split.** Per SPEC v2:
+   ```
+   apps/mobile/src/db/
+     index.ts              picks the driver by platform
+     repository.ts         the platform-agnostic interface
+     drivers/native.ts     expo-sqlite + Drizzle
+     drivers/web.ts        Supabase-direct (stub is fine for M0 — no credentials yet)
+   ```
+   The web driver may be a typed stub that throws `NotConfiguredError` for now. It must
+   compile and satisfy the same interface. Do not delete it.
+
+3. **DB Health screen becomes native-only.** Keep all 7 steps for native. On web it renders
+   an honest "Not applicable — web is an online companion, no local database" panel. Do not
+   fake a pass on web.
+
+4. **Delete the Expo template boilerplate.** `components/EditScreenInfo.tsx`,
+   `ExternalLink.tsx`, `StyledText.tsx`, the demo tab content, `constants/Colors.ts` if
+   unused — anything that came from the starter template and is not ours. Leave the repo
+   clean. Keep `Themed.tsx` / `useColorScheme` only if actually wired in.
+
+5. **Report honestly on what you could NOT verify.** There is no Mac, no Xcode, no Android
+   emulator on this machine. You cannot run the native DB Health check. Do not claim you did.
+   Instead:
+   - Make the health check runnable and obviously correct by inspection.
+   - Additionally, prove the *SQL and schema logic* in Node against `better-sqlite3` (or
+     equivalent) as a `packages/core`-adjacent test, so migrations, transactions, the
+     1000-row insert, and the indexed aggregate are all proven — everything except the
+     expo-sqlite binding itself.
+   - State plainly that on-device verification is a handoff item for the owner's iPhone
+     via Expo Go.
+
+6. **NativeWind:** report exactly which version you pinned and whether it actually works with
+   SDK 57 / the Reanimated version in the tree. If it is fighting you, say so and fall back to
+   StyleSheet — do not burn time and do not silently substitute a different styling library.
+
+## Constraints (unchanged)
+
+- A `DESIGN.md` may appear in the repo while you work. **Ignore it.** Design system and
+  theming are M1 track F, not yours. Do not theme, do not add fonts, do not build components.
+- No product features. No pantry, no recipes, no grocery lists. M0 is foundation only.
+- Do NOT create a Supabase project or add credentials — owner's account. `.env.example` only.
+- No ads, no IAP, no analytics.
+- `git init` is fine; **create no commits.**
+- No secrets in the repo.
+
+## Verification — run these yourself
+
+1. `npm install` clean from root
+2. `npm run typecheck` — zero errors
+3. `npm run test` — vitest green, including the new better-sqlite3 schema/logic tests
+4. `npm run lint` — clean
+5. `npx expo export --platform web` — succeeds
+6. `npm run web` — loads in a browser; DB Health shows the honest web panel, not a fake pass
+7. `packages/core` contains no React / react-native import (grep and show the result)
+
+## Report
+
+Overwrite `C:\Users\joshu\Documents\Larder\reports\m0-scaffold.md`:
+
+- Versions pinned: Expo SDK, RN, React, expo-router, Drizzle, NativeWind (+ does NativeWind
+  actually work, yes/no).
+- What you removed in the web-sqlite teardown.
+- The better-sqlite3 proof: what it covers, what it does NOT cover (the binding).
+- Explicit list of what remains unverified and why.
+- Every deviation from this brief, with reasoning.
+- Open questions — state them; do not guess. You will get answers.

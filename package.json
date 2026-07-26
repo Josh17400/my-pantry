@@ -1,0 +1,20 @@
+{
+  "name": "larder",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @larder/web",
+    "build": "npm run build -w @larder/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test -w @larder/core && npm run test -w @larder/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "cap:sync": "npm run build && npm run sync --prefix native"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

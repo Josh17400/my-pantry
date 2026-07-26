@@ -1,0 +1,140 @@
+# Fastlane lanes for the My Pantry iOS app (Capacitor wrapper).
+#
+# Mirrored from euchre-game's proven Mac-free TestFlight pipeline.
+# Designed for GitHub Actions macOS runners — no local Mac, no `match` cert
+# repo. Signing uses a persistent Distribution cert (IOS_CERT_P12_B64) plus
+# App Store Connect API key for profile mint + upload.
+#
+# Run from native/ios:   fastlane ios beta
+#
+# Required env vars (CI passes these from repo secrets):
+#   ASC_KEY_ID      App Store Connect API key ID
+#   ASC_ISSUER_ID   App Store Connect API issuer ID (UUID)
+#   ASC_KEY_P8      base64-encoded contents of the AuthKey_XXXX.p8 file
+#   APPLE_TEAM_ID   Apple Developer Team ID
+#   IOS_CERT_P12_B64  base64 of the Apple Distribution .p12 (minted once)
+#   CERT_EXPORT_PASS  password for that .p12
+# Optional:
+#   BUILD_NUMBER    CI build number (CURRENT_PROJECT_VERSION); defaults to a
+#                   timestamp so local runs still produce unique builds.
+
+require "base64"
+require "tmpdir"
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Build the App scheme and upload to TestFlight (cloud-managed signing)"
+  lane :beta do
+    # On CI (CI=true) this creates a temporary default keychain so the
+    # cloud-created signing cert has somewhere to land. No-op locally.
+    setup_ci
+
+    # API key object for fastlane's own ASC calls (pilot upload).
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_P8"),
+      is_key_content_base64: true
+    )
+
+    build_number = ENV["BUILD_NUMBER"] || Time.now.strftime("%Y%m%d%H%M")
+    bundle_id = "com.mypantry.app"
+
+    # Xcode's AUTOMATIC signing archives with a Development profile first,
+    # which requires >=1 registered device — this team may have none (no Mac).
+    # App Store profiles need NO devices, so sign the archive manually with a
+    # distribution cert + App Store profile that fastlane creates via the API key.
+    keychain = File.expand_path("~/Library/Keychains/fastlane_tmp_keychain-db")
+    # Persistent signing identity. Ephemeral runners can't keep a cert's
+    # private key, and letting each run mint a fresh cert hits Apple's
+    # distribution-cert cap after 2 builds. The one cert lives (passwordless
+    # export is fragile; use CERT_EXPORT_PASS) in the IOS_CERT_P12_B64 secret.
+    p12_path = File.join(Dir.mktmpdir("cert"), "dist.p12")
+    File.binwrite(p12_path, Base64.decode64(ENV.fetch("IOS_CERT_P12_B64")))
+    import_certificate(
+      certificate_path: p12_path,
+      # legacy-format p12 with a real password: macOS `security import` fails
+      # MAC verification on OpenSSL-3-default / passwordless bundles.
+      certificate_password: ENV.fetch("CERT_EXPORT_PASS"),
+      keychain_path: keychain,
+      keychain_password: ""
+    )
+    # Apple's WWDR G3 intermediate (our cert's issuer) — without it in the
+    # keychain, a bare runner reports "no local code signing identities".
+    wwdr_path = File.join(Dir.mktmpdir("wwdr"), "AppleWWDRCAG3.cer")
+    sh("curl", "-fsSL", "https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer", "-o", wwdr_path)
+    import_certificate(
+      certificate_path: wwdr_path,
+      keychain_path: keychain,
+      keychain_password: ""
+    )
+    get_provisioning_profile(
+      api_key: api_key,
+      app_identifier: bundle_id,
+      force: true,
+      filename: "appstore.mobileprovision"
+    )
+    profile_name = lane_context[SharedValues::SIGH_NAME]
+
+    update_code_signing_settings(
+      path: "App/App.xcodeproj",
+      use_automatic_signing: false,
+      team_id: ENV.fetch("APPLE_TEAM_ID"),
+      targets: ["App"],
+      bundle_identifier: bundle_id,
+      code_sign_identity: "Apple Distribution",
+      profile_name: profile_name
+    )
+
+    build_app(
+      project: "App/App.xcodeproj",
+      scheme: "App",
+      configuration: "Release",
+      output_directory: "build",
+      output_name: "App.ipa",
+      # The runner's fastlane rejected the newer "app-store-connect" name.
+      export_method: "app-store",
+      export_options: {
+        signingStyle: "manual",
+        teamID: ENV.fetch("APPLE_TEAM_ID"),
+        provisioningProfiles: { bundle_id => profile_name },
+        uploadSymbols: true
+      },
+      xcargs: "CURRENT_PROJECT_VERSION=#{build_number}"
+    )
+
+    # FIRST-RUN NOTE: this fails with "Could not find app" until the app
+    # record (bundle id com.mypantry.app) exists in App Store Connect.
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "ONE-TIME: mint the Apple Distribution cert; saves build/dist_full.p12"
+  lane :mint_cert do
+    setup_ci
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_P8"),
+      is_key_content_base64: true
+    )
+    keychain = File.expand_path("~/Library/Keychains/fastlane_tmp_keychain-db")
+    # GOTCHA: cert()'s ".p12" output is actually a bare PEM private key, and
+    # the .cer is separate. Combine them into a real PKCS12 identity.
+    cert(
+      api_key: api_key,
+      output_path: "build",
+      keychain_path: keychain,
+      keychain_password: ""
+    )
+    key_file = Dir["build/*.p12"].reject { |f| f.end_with?("dist_full.p12") }.first
+    cer_file = Dir["build/*.cer"].first
+    UI.user_error!("cert() outputs not found in build/") unless key_file && cer_file
+    sh("openssl x509 -inform DER -in #{cer_file.shellescape} -out build/cert.pem")
+    # -passout env: keeps the password out of the logged command line.
+    sh("openssl pkcs12 -export -inkey #{key_file.shellescape} -in build/cert.pem -passout env:CERT_EXPORT_PASS -out build/dist_full.p12")
+  end
+end

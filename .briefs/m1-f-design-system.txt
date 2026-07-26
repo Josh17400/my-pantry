@@ -1,0 +1,123 @@
+# BRIEF: M1 Track F — the My Pantry design system
+
+## Context
+
+Read `DESIGN.md` (the visual authority) and look at the three reference images directly:
+`design/references/mockup-01-overview.jpg`, `mockup-02-home-stats.jpg`, `mockup-03-greeting.jpg`.
+**Actually open them.** The palette in `DESIGN.md` was sampled from these programmatically, but
+the spacing, hierarchy, and feel only come through by looking.
+
+The app is `apps/web` — React 19 + Vite + TypeScript + Tailwind, wrapped by Capacitor for iOS
+and Android. `packages/core` holds the domain logic (248 tests) — **do not touch it.**
+
+## Scope
+
+You own `apps/web/src/ui/**`, `apps/web/tailwind.config.*`, `apps/web/src/styles/**`, and a new
+route `apps/web/src/routes/DesignPage.tsx`.
+
+Do not touch `packages/core/**`, `apps/web/src/db/**`, `native/**`, or `.github/**`.
+
+## Build the system, not the app
+
+**No product screens.** No pantry list, no recipe views, no grocery list. Those come next and
+will be built *on* this. If you find yourself modelling pantry data, stop.
+
+### 1. Tailwind theme from the measured palette
+
+Take the exact values from `DESIGN.md` — they were sampled from the mockups and
+contrast-validated, so do not adjust them by eye:
+
+```
+bg #ECEAE4 · surface #F7F6F2 · surface-raised #FCFCFC
+primary #484C20 · primary-soft #585C2C · text #1F1D18
+fresh #3B602D · low #8F5410 · low-fill #C0741F · critical #9B4514 · text-muted #6E6A5A
+tints: sage #CCD4BC · tan #E0D8C0 · sky #CCD4D4 · cream #E0D4C8
+```
+
+**The primary is a yellow-olive (hue ≈ 68°), not a forest green.** Anything greener is wrong.
+Every neutral is warm-shifted; a cool gray will look broken.
+
+Note the split: `low` (#8F5410) is for **text**, `low-fill` (#C0741F) is for **bars, dots and
+icons only**. The vibrant one fails contrast at 3.03:1 and must never carry text.
+
+### 2. Typography
+
+- **Display serif** for headings and the wordmark — `Fraunces` or `Instrument Serif`
+  (both free, self-host via `@fontsource/*`; do **not** hotlink Google Fonts — this runs
+  offline inside a native app).
+- **Inter** for body and all UI.
+- Section headers are serif and generously sized; everything functional is sans. **That
+  contrast is the design — do not sand it down.**
+
+### 3. Components (match the mockups)
+
+- `Card` — ~16–20px radius, soft shadow, generous padding
+- `SegmentedControl` — pill style (Overview / Recipes / Fridge / Pantry)
+- `Rail` — horizontal scroller with a "See all" affordance
+- `TabBar` — bottom nav, **safe-area aware** (`env(safe-area-inset-bottom)`; this ships as a
+  native app and will otherwise collide with the iPhone home indicator)
+- `Fab` — floating olive `+`, centered over the tab bar
+- `FreshnessBar` — progress bar + day count ("3 days left"), colored by status band
+- `StatusBadge` / `StatusText` — fresh / low / critical, using the correct token split above
+- `ItemTile` and `PlaceholderThumb` — the placeholder is the leaf motif plus a bold ingredient
+  initial on a tint wash. It must look **deliberate**, never like a broken image, because real
+  food photography does not exist yet.
+- `Wordmark` — **"My Pantry"** in the display serif. Note it is longer than "Larder" (which is
+  what the mockups show) — **verify the header lockup at 320px width.**
+
+### 4. Reserve the ad slot now
+
+`DESIGN.md` flags this: the mockups have nowhere to put a banner, and a banner adjacent to the
+bottom tab bar is an AdMob accidental-click violation. Provide an `AdSlot` component that
+renders a correctly-sized placeholder **in the home feed** (an in-feed card, well clear of the
+tab bar), not pinned above the navigation. It renders nothing in the paid tier.
+Reserving the space now is far cheaper than retrofitting it into a tight layout later.
+
+### 5. `/design` gallery route — your deliverable for review
+
+A single page rendering **every** component in **every** state: all status bands, empty and
+loaded, short and long text, the placeholder thumbs, the ad slot, the tab bar and FAB. This is
+how the architect and owner review the system without a running product. Make it complete.
+
+### 6. Automated contrast test — a build gate, not a review note
+
+A vitest test that walks every foreground/background token pair the system actually uses and
+asserts WCAG AA (4.5:1 normal text, 3.0:1 large text and UI). It must **fail the build** on a
+violation.
+
+This exists because small colored status text ("2 days", "Getting low") is this product's core
+signal and is precisely what fails contrast. Include a deliberate check that `low-fill`
+(#C0741F) is *not* used as a text color anywhere.
+
+## Constraints
+
+- TypeScript `strict`, no `any`. Function components, no class components.
+- **Mobile-first.** Primary target is a phone in a kitchen: large tap targets (44px minimum),
+  one-handed reach, readable at arm's length.
+- Respect `prefers-reduced-motion`.
+- Self-host fonts; no external network requests at runtime — this is a native app.
+- No new heavy dependencies. `@fontsource/*` and `clsx`/`tailwind-merge` are fine; a component
+  library is not — we are matching a specific bespoke design.
+- Create no git commits.
+
+## Verification
+
+```
+npm run typecheck    # zero errors
+npm run test         # 248 core tests still green + your contrast test
+npm run build        # production build succeeds
+npm run dev          # /design renders every component
+```
+
+Take a screenshot of `/design` at phone width (390px) and save it to
+`reports/design-gallery.png` so the result can be reviewed without running anything.
+
+## Report
+
+`reports/m1-f-design-system.md`: the token structure, font choices and how they are self-hosted,
+the component inventory with the states each supports, the contrast test results table
+(every pair and its ratio), how the ad slot is positioned and why that satisfies AdMob
+placement policy, the "My Pantry" lockup at narrow widths, deviations, and open questions —
+state them, do not guess.
+
+Work continuously; do not stall waiting for input.

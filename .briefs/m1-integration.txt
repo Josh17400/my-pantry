@@ -1,0 +1,143 @@
+# BRIEF: M1 Integration — wire the core, reconcile the A/B seam, define shared domain types
+
+## Context
+
+**My Pantry** — read `SPEC.md` (design authority) and `.briefs/m1-integration-decisions.md`
+(architect rulings — these are decided, not open for re-litigation).
+
+Two parallel tracks just landed in `packages/core` and both are verified green:
+
+- **Track A** — `src/units/` — dimensions, forms, conversion graph, parse/format. 62 tests.
+- **Track B** — `src/pantry/` — two-kind ledger, deterministic fold, projection, par, stock. 48 tests.
+
+Full workspace is currently **110 tests green, typecheck clean**. Do not regress that.
+
+Neither track was allowed to touch the root barrel or each other's directory, so there are
+seams to close. That is your job, plus defining the shared domain types everything downstream
+needs.
+
+## Scope
+
+You own: `packages/core/src/index.ts`, `packages/core/src/units/**`,
+`packages/core/src/pantry/**`, and a new `packages/core/src/domain/**`.
+Do not touch `apps/**`.
+
+---
+
+## 1. Define the canonical domain types (new — `src/domain/`)
+
+**This is the most important part of this brief.** Neither track defined `Ingredient`, and
+every downstream track (seed data, matching, recipes, grocery) needs it. Extract the shapes
+from `SPEC.md` — do not invent them:
+
+```ts
+Ingredient      { id, name, category, allergens[], isStaple, defaultFormId }
+IngredientForm  { id, ingredientId, form, dim, densityGPerMl?, gramsPerCount?, uncertaintyPct }
+ConversionEdge  { fromFormId, toFormId, factor, uncertaintyPct, source, oneWay? }
+PackageSpec     { formId, label, netG, drainedG? }
+Location        { id, householdId, name, icon, tint, parentId?, sortOrder }
+```
+
+Plus a canonical **allergen** enum. Per SPEC, allergens are a **safety system, not a
+preference**: include at minimum the major declarable allergens (milk, egg, fish, shellfish,
+tree nut, peanut, wheat, soy, sesame) and a way to represent `unknownAllergens: true` for
+unmatched free text. Downstream matching must be able to refuse an auto-merge when allergen
+tags disagree — make that representable here.
+
+Track A currently owns `IngredientForm` / `ConversionEdge` / `PackageSpec` locally. Move them
+to `src/domain/` and have `src/units/` import them, so the domain vocabulary has one home.
+Keep `src/units/` owning the *math*; `src/domain/` owns the *shapes*.
+
+## 2. Close the A/B seam
+
+Track B deliberately declared local structural types rather than importing from `src/units/`
+while A was churning:
+
+```ts
+type Dimension = 'mass' | 'volume' | 'count';
+type QtyBase = { qtyBase: number; dim: Dimension };
+```
+
+Replace these with the real shared types. `Dimension` must have exactly one definition in the
+codebase. Verify with a grep that no duplicate definition survives.
+
+## 3. Wire the root barrel
+
+`packages/core/src/index.ts` currently exports only the M0 sqlite-health helpers. Export the
+public surface of `domain`, `units`, and `pantry`. Watch for name collisions — if two modules
+export the same identifier, resolve it deliberately (rename or namespace) rather than
+shadowing silently.
+
+## 4. Apply the four change requests
+
+All four are ruled on in `.briefs/m1-integration-decisions.md`. Read it for the reasoning;
+summarized here:
+
+**(a) Bidirectional conversion edges.** Add `oneWay?: boolean` (default false). `convert()`
+walks declared edges *plus* the inverse (`1/factor`) of every edge not marked `oneWay`.
+Inverted edges carry the same `uncertaintyPct` and a path key that makes the inversion visible
+(e.g. `b->a~inv`). Rationale: most culinary conversions are symmetric; forcing seed data to
+emit both directions doubles it and lets the directions drift apart. But some are physically
+lossy (whole chicken → boneless yield) and must stay one-way.
+**Tie-breaking must remain deterministic with inverse edges in play** — re-verify the existing
+graph tie-break tests still hold and add coverage for inverse-edge ties.
+
+**(b) Ranges expose low/high.** `parseQuantity("2-3 cloves")` currently collapses to a
+midpoint. Return `{ kind: 'quantity', qty: midpoint, low, high, isRange: true }` instead.
+Grocery/shortfall will want `high` (under-buying means a second trip); pantry deduction wants
+`midpoint` (deducting high drifts inventory low). Do not decide for the caller at parse time.
+
+**(c) `ambiguousLocale` flag.** Units whose US and Imperial definitions differ — `pint`,
+`quart`, `gallon`, `fl oz`, `cup` — get `ambiguousLocale: true` in their definition, surfaced
+through `parseQuantity`. We stay US-only, but a UK recipe's "1 pint" is 568 ml vs our 473 ml —
+a **20% silent inventory corruption**, reachable via M3 URL import. Flag it so the import path
+can ask. Do not reject, do not silently assume.
+
+**(d) Terminology fix.** Track A's code/report call `236.5882365 ml` the "US **legal** cup."
+It is the US **customary** cup (1/16 gallon). The legal cup is exactly 240 ml (FDA, nutrition
+labeling). **The value is correct — change only the comment.** Add a note that if nutrition
+panels are ever parsed, they need a separate unit id, not a redefinition of `cup`.
+
+## 5. Document a known limitation (do not necessarily fix)
+
+`detectAbsoluteConflicts` in `src/pantry/fold.ts` compares each prior absolute only against the
+**winner** (last in total order). With three absolutes A1, A2, A3 where A3 observed A2 but A2
+never observed A1, the genuine A1/A2 conflict is not reported. Quantity remains correct; only
+conflict *reporting* is incomplete.
+
+Add a clear comment documenting this. If a fix is cheap and does not complicate the common
+path, implement it and say so; if not, leave it documented and note it in your report. **Do
+not silently change fold semantics to chase it** — the quantity behavior is verified and must
+not regress.
+
+## Constraints
+
+- Pure TypeScript. **Zero React / react-native / platform APIs** in `packages/core`.
+- `strict`; no `any`; discriminated unions over optional-field soup.
+- No new runtime dependencies.
+- **All 110 existing tests must still pass.** If a change request legitimately requires
+  changing an existing test's expectations, change it and call it out explicitly in the report
+  with the reasoning. Silently rewriting a test to match new behavior is not acceptable.
+- Add tests for every change request — especially inverse-edge determinism and the range
+  low/high split.
+- `git init` exists; **create no commits.**
+
+## Verification — run before reporting
+
+```
+npm run typecheck    # zero errors, full workspace
+npm run test         # all green — 110 existing + your new ones
+```
+
+Also grep and show: only one definition of `Dimension` in the codebase; no react/react-native
+import under `packages/core`.
+
+## Report
+
+Write `reports/m1-integration.md`: the domain type layout and why those boundaries, how the
+seam was closed, the barrel's public surface and any collisions resolved, each change request
+with what you did and its tests, the conflict-reporting limitation (fixed or documented, with
+reasoning), any existing test whose expectations you changed and why, deviations, and open
+questions — **state them, do not guess.**
+
+Work continuously; do not stall waiting for input.

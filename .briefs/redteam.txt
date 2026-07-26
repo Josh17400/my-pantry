@@ -1,0 +1,139 @@
+# BRIEF: Adversarial red-team of the Larder app specification
+
+## Your role
+
+You are a hostile design reviewer. A full product spec has been written for a pantry /
+recipe / grocery app. NO CODE EXISTS YET. Your job is to break the design on paper, before
+a single line is written, because every flaw you find now costs hours instead of weeks.
+
+Do NOT be agreeable. Do NOT summarize the spec back. Do NOT praise it. Find what is wrong,
+what is missing, and what will not survive contact with real users. If a section is
+genuinely sound, say so in one line and move on — spend your effort on what breaks.
+
+## Required reading
+
+- `C:\Users\joshu\Documents\Larder\SPEC.md` — read it completely before writing anything.
+
+## The product in one sentence
+
+A universal Expo app (iOS + Android + web) that keeps an accurate live food inventory by
+subtracting ingredients when you cook a recipe and adding them when you photograph a
+grocery receipt, with low-stock flags, generated grocery lists, community recipes, and a
+paid-tier AI chef.
+
+## Attack surfaces — probe every one of these specifically
+
+1. **The unit model.** Three dimensions (mass/volume/count) normalized to g/ml/each, with
+   ingredient density for cross-dimension conversion. Where does this break? Consider:
+   "3 cloves garlic" vs a jar of minced garlic. "1 bunch cilantro." "1 can diced tomatoes"
+   (drained weight vs total). "A pinch of salt." "2 slices bacon." Whole vs boneless chicken.
+   Flour measured by scooping vs sifting (a real 20%+ variance). Is a 3-dimension model
+   actually sufficient, or is a 4th needed?
+
+2. **The ledger + projection model.** Append-only `PantryTxn`; `PantryItem.qtyBase` is a
+   materialized projection. Attack: what happens at 50,000 transactions? Does the projection
+   get rebuilt or incrementally maintained, and what happens when those disagree? What does
+   a `recount` txn do to a projection that syncs from another device that did NOT see the
+   recount? Is "union of an append-only log" actually conflict-free here, or does `recount`
+   secretly break that property? (Consider this carefully — I believe it may.)
+
+3. **Sync.** Two phones, same household, both offline. Phone A cooks spaghetti. Phone B
+   cooks the same spaghetti (one person cooked, both logged it). Both reconnect. What is the
+   pantry state and is it correct? Same question for: both scan the same receipt; A recounts
+   flour to 500g while B cooks with 200g of it.
+
+4. **The receipt pipeline.** What does it do with: a Costco receipt (item codes, no readable
+   names, 40+ lines)? A receipt where the same item appears 3 times? A faded thermal receipt?
+   A non-grocery receipt someone scans by accident? Items sold by weight with a price-per-lb?
+   Store loyalty discounts as negative lines? A receipt in a language other than English?
+   What is the worst-case user experience and how many taps is a bad scan?
+
+5. **Par levels / low-stock.** Par level seeds from typical package size and then "learns"
+   from median purchase quantity after 3+ purchases. Attack the cold-start (0-2 purchases),
+   the seasonal buyer (turkey once a year), the bulk buyer, and the person who buys the same
+   ingredient in two different sizes. Does "25% of par" produce useful alerts or alert
+   fatigue? What is the actual notification strategy and will users turn it off?
+
+6. **Ingredient matching.** A cascade of learned alias → global alias → normalized → fuzzy →
+   LLM → ask user. Attack: how does a global alias table get poisoned by wrong user input?
+   What is the fuzzy-match false-positive rate on things like "cream" vs "sour cream" vs
+   "cream cheese" vs "heavy cream" — these are genuinely different ingredients with similar
+   names, and a false match silently corrupts inventory. What is the guard?
+
+7. **The universal-platform bet.** Expo + react-native-web, one codebase, three targets.
+   Where does this actually hurt? Be specific about which planned dependencies have no web
+   story and what the fallbacks cost.
+
+8. **Scale and performance.** 500 pantry items, 2000 community recipes, 50k transactions,
+   on a 4-year-old Android phone. What is slow? What query is missing an index?
+
+9. **Retention and the real reason these apps fail.** Every pantry-tracking app on the
+   market has the same graveyard pattern: users love it for two weeks, the inventory drifts
+   out of sync with reality, and they abandon it. The spec's answer is receipt-in / recipe-out
+   automation plus a "recount" flow. Is that actually sufficient? What is the honest failure
+   mode, and what would meaningfully reduce it? THIS IS THE MOST IMPORTANT QUESTION IN THIS
+   BRIEF — spend real effort here.
+
+10. **Anything the spec does not mention at all.** Its own "gaps and oversights" section is
+    an explicit claim of completeness. Falsify that claim.
+
+## Also verify external facts (use web search, cite sources)
+
+The spec was written by a model with a mid-2026 knowledge cutoff. Confirm or correct:
+
+- Current stable Expo SDK version, and its React Native version.
+- `expo-sqlite` web support status TODAY: does it work, what does it require (OPFS?
+  COOP/COEP headers? a specific bundler config?), and what are people actually hitting?
+  This is flagged in the spec as the single highest-risk item — get a real answer.
+- Cheapest capable **vision** models on OpenRouter for receipt OCR → structured JSON, with
+  current per-image cost. Does the spec's ~$0.002/receipt estimate hold?
+- Open Food Facts API: current terms, rate limits, and whether commercial use in a
+  monetized app is permitted.
+- RevenueCat web billing support, and whether it is worth using over Stripe direct on web.
+- NativeWind v4 current status with the current Expo SDK — any known breakage.
+- AdMob policy specifics for banner placement in apps with full-screen "cooking mode" views.
+
+Flag anything in the spec that is factually stale or wrong. Cite your sources.
+
+## Deliverable
+
+Write ONE file: `C:\Users\joshu\Documents\Larder\reports\redteam.md`
+
+Structure it as:
+
+```
+## Verdict
+(3-5 sentences. Is this design sound enough to build on? What is the single biggest risk?)
+
+## Critical — will break the product if not fixed before M1
+For each: What breaks | Concrete failure scenario | Recommended fix | Cost now vs later
+
+## Major — will cause significant rework if not addressed
+(same structure)
+
+## Minor / polish
+(terse list)
+
+## Factual corrections to the spec
+(each with a cited source)
+
+## Questions only the product owner can answer
+(decisions you could not make yourself)
+```
+
+Rank findings by severity, most severe first. Be concrete: "this breaks" beats "this could
+be improved." A finding without a specific failure scenario is not a finding.
+
+## Constraints
+
+- ANALYSIS ONLY. Do not write, scaffold, or modify any application code. The only file you
+  create is `reports/redteam.md`.
+- Do not modify `SPEC.md`.
+- You may use subagents to parallelize the attack surfaces above — that is encouraged given
+  there are 10 of them plus fact-checking. Fact-checking and design attack are independent.
+
+## Verification before you report done
+
+- `reports/redteam.md` exists and covers all 10 attack surfaces plus the fact-check list.
+- Every Critical and Major finding has a concrete failure scenario, not a generality.
+- Every factual claim from web search has a cited source URL.

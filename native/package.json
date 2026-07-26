@@ -1,0 +1,22 @@
+{
+  "name": "larder-native",
+  "version": "1.0.0",
+  "description": "Capacitor native wrapper for My Pantry (Android + iOS)",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync",
+    "sync:android": "cap sync android",
+    "sync:ios": "cap sync ios",
+    "open:android": "cap open android",
+    "copy": "cap copy"
+  },
+  "dependencies": {
+    "@capacitor-community/sqlite": "^8.1.0",
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.1"
+  }
+}

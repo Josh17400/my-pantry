@@ -1,0 +1,137 @@
+# BRIEF: Re-platform the app shell — Expo → React + Vite + Capacitor
+
+## Why (read this, it prevents wrong assumptions)
+
+The owner has a **proven, debugged, Mac-free iOS pipeline** already shipping another app:
+Capacitor → GitHub Actions (`macos-26`) → fastlane → cloud signing via App Store Connect API
+key → TestFlight. Expo Go for SDK 57 is not on the App Store yet, which blocked device
+verification entirely, and standing up EAS would mean maintaining a second mobile pipeline.
+
+So we are switching the **shell only**. This is not a rewrite.
+
+## The single most important constraint
+
+> **`packages/core` IS NOT TO BE TOUCHED.** It contains 248 passing tests across 28 files —
+> the unit conversion graph, the two-kind ledger fold, par levels, provenance, matching with
+> allergen guards, de-duplication, recipes, grocery, and ~300 seeded ingredients. It is pure,
+> framework-agnostic TypeScript with zero React and zero platform APIs, which is exactly why
+> this migration is cheap.
+>
+> If you find yourself editing `packages/core`, stop — you have misunderstood the task.
+> The **only** permitted exception is `packages/core/src/sqlite-health.ts` if the health DDL
+> genuinely needs to move; justify it loudly in the report if so.
+
+`npm run test` must still report **248 passing** (plus any new shell tests) when you are done.
+
+## Reference implementation to mirror
+
+`C:\Users\joshu\euchre-game` — the owner's working Capacitor app. Study before building:
+
+- `native/capacitor.config.json` — config shape
+- `native/package.json` — Capacitor 8.x, `@capacitor-community/admob`, `@revenuecat/purchases-capacitor`
+- `.github/workflows/ios.yml` — the TestFlight workflow (manual trigger, four ASC secrets)
+- `CI_SETUP.md` — the secret-setup runbook
+
+**Mirror these conventions.** Do not invent a different structure. The owner already knows how
+to operate this one, and its failure modes are documented.
+
+## Target structure
+
+```
+Larder/
+  packages/core/          UNCHANGED — 248 tests
+  apps/web/               NEW: React + Vite + TypeScript app (the entire UI)
+    src/db/               repository interface + platform drivers
+      repository.ts       platform-agnostic interface (port from apps/mobile)
+      drivers/native.ts   @capacitor-community/sqlite via Drizzle
+      drivers/web.ts      Supabase-direct (stub is fine — same as before)
+    src/routes/           react-router (or TanStack Router — pick and justify)
+  native/                 NEW: Capacitor wrapper, webDir -> ../apps/web/dist
+  supabase/               unchanged
+  .github/workflows/ios.yml   NEW: mirrored from euchre-game
+```
+
+Then **delete `apps/mobile/` entirely** — but only after `apps/web` builds and runs. Port
+anything worth keeping first (the DB Health screen logic, the repository interface, the
+Supabase config module).
+
+## Stack
+
+- **React 19 + Vite + TypeScript strict**
+- **Tailwind CSS** — the design system in `DESIGN.md` is written for it, and NativeWind was
+  Tailwind-flavored anyway, so this is a simplification not a change
+- **Capacitor 8.x**, matching euchre-game's versions
+- **Drizzle** over `@capacitor-community/sqlite`. Drizzle has no official Capacitor driver —
+  use `drizzle-orm/sqlite-proxy`, which takes an async executor callback and fits the
+  Capacitor SQLite API cleanly. If you find a better-supported route, take it and justify it.
+- Keep `@supabase/supabase-js`. Keep the existing `.env` contract
+  (`EXPO_PUBLIC_*` names must be renamed to Vite's `VITE_*` convention — **the `.env` file at
+  `apps/mobile/.env` has real credentials in it; carry the values over, do not lose them, and
+  do not print them**).
+
+## The web dev-loop question — resolve with evidence, do not guess
+
+Web is an **online companion** (no local SQLite) — that decision stands. But the owner's dev
+loop is browser-first, and developing offline-first native code without a browser path is slow.
+
+`@capacitor-community/sqlite` ships a `jeep-sqlite` wasm web implementation intended for
+development. **Investigate whether it works without COOP/COEP headers** (that requirement is
+what killed the Expo web path — see `SPEC.md`). If it works cleanly, wire it as a
+**development-only** driver so the DB can be exercised in the browser. If it needs the same
+origin-wide headers, do not use it — report that and leave web on Supabase-direct.
+
+Report what you actually found, with evidence. This is the single highest-value unknown here.
+
+## Deliverables
+
+1. `apps/web` builds and runs in a browser (`npm run dev`, `npm run build`).
+2. **DB Health screen ported** — the same 7 steps (open → migrate → insert 1,000 in a
+   transaction → read back + checksum → indexed aggregate → close/reopen persistence → drop),
+   running against Capacitor SQLite on native. Honest "not applicable" panel on web if the
+   wasm path does not pan out. **Never fake a pass.**
+3. `native/` Capacitor project with `ios` and `android` platforms added, `appId`
+   `com.mypantry.app` (or state a better one), `appName` "My Pantry".
+4. `.github/workflows/ios.yml` mirrored from euchre-game, **manual trigger only**, same four
+   ASC secrets. Plus a `CI_SETUP.md` at the repo root adapted to this app.
+5. `apps/mobile/` deleted, and all root scripts updated (`dev`, `build`, `typecheck`, `test`,
+   `lint`) to point at the new layout.
+6. `packages/core` imported and used by the web app — prove the wiring with at least one real
+   call (e.g. render a converted quantity or a seeded ingredient count on the health screen).
+
+## Explicitly NOT in scope
+
+No product UI. No pantry screens, recipe screens, or grocery screens — that is M1 track F,
+which owns `DESIGN.md`. Build the shell, the routing skeleton, and the DB layer. Resist the
+urge to start the app.
+
+No ads, no IAP, no camera. Those land in M2/M4; just do not architect them out.
+
+## Constraints
+
+- `strict`, no `any`. No secrets committed; `.env*` stays gitignored.
+- **Create no git commits.** The owner reviews first.
+- Windows 11 / PowerShell, Node 22, npm workspaces.
+- Do not run `cap open` or anything needing Xcode — there is no Mac here. `cap add ios`
+  generates the project fine on Windows; building it is CI's job.
+
+## Verification — run all of these
+
+```
+npm run typecheck     # zero errors, full workspace
+npm run test          # 248 core tests still passing
+npm run build         # apps/web production build succeeds
+npm run dev           # dev server serves the app; DB Health route renders
+```
+
+Plus: confirm `packages/core` has **zero** uncommitted modifications (`git status` on that
+path must be clean) — that is the proof this migration stayed in its lane.
+
+## Report
+
+`reports/m1-replatform.md`: the structure built and how it mirrors euchre-game; the exact
+Capacitor/Drizzle wiring and why; **the jeep-sqlite web finding with evidence**; what was
+ported from `apps/mobile` versus discarded; the `.env` variable rename; the CI workflow and
+what one-time Apple setup the owner still must do; anything unverifiable without a Mac or
+device; deviations; and open questions — state them, do not guess.
+
+Work continuously; do not stall waiting for input.

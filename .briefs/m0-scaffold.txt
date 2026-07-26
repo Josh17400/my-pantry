@@ -1,0 +1,135 @@
+# BRIEF: M0 — Larder monorepo foundation
+
+## Goal
+
+Stand up an Expo universal monorepo that boots on iOS, Android, and web, and PROVE that
+SQLite + Drizzle works on all three targets. This is a scaffold-and-de-risk milestone.
+
+**Build NO product features.** No pantry, no recipes, no grocery lists. Anyone who writes a
+feature in this milestone has misread the brief. The single deliverable that matters is the
+answer to one question: *does our data layer actually work on all three platforms?*
+
+## Working directory
+
+`C:\Users\joshu\Documents\Larder` — currently contains only `SPEC.md`, `.briefs/`, `reports/`.
+
+Read `SPEC.md` first for full product context, especially the "Architecture" section. Build
+the layout it specifies. Do not deviate from that layout without saying so in your report.
+
+## Environment
+
+- Windows 11, PowerShell. Node v22.18.0, npm 11.15.0, git available. No pnpm/yarn installed
+  (use npm workspaces unless you have a strong, stated reason not to).
+- **Do not assume an Expo SDK version.** Check what is currently stable and pin it. The spec
+  was written against possibly-stale knowledge.
+- There is no Mac, no Xcode, no Android Studio on this machine. iOS/Android verification will
+  happen via **Expo Go on a physical iPhone** (QR code from `npx expo start`). Build for that
+  reality: do not add any dependency in M0 that requires a custom dev build. Native ad and
+  IAP libraries come in M4 — not now.
+
+## Deliverables
+
+### 1. Monorepo skeleton (npm workspaces)
+
+```
+Larder/
+  package.json            workspaces: ["packages/*", "apps/*"]
+  tsconfig.base.json      strict: true, no implicit any
+  .gitignore              node_modules, .expo, dist, *.local, .env*
+  packages/core/          pure TypeScript. ZERO React, ZERO react-native, ZERO platform APIs.
+    src/index.ts
+    package.json          vitest configured
+    vitest.config.ts
+    test/smoke.test.ts
+  apps/mobile/            the Expo app
+    app/                  expo-router routes
+    src/db/               Drizzle schema + repository interface + drivers
+```
+
+`packages/core` must be importable by `apps/mobile` through the workspace. Metro needs
+explicit monorepo config to resolve workspace packages — get this working, it is a known
+friction point and is exactly the kind of thing M0 exists to shake out.
+
+### 2. Expo app that boots on all three targets
+
+- expo-router with a minimal tab layout: `Home` and `DB Health`.
+- NativeWind v4 wired up (verify current compatibility with the SDK you pin — if it is
+  broken against the current SDK, DO NOT fight it: report that and use plain StyleSheet for
+  M0, and say so clearly in your report. Do not silently substitute something else.)
+- TypeScript strict, no errors.
+
+### 3. THE CRITICAL DELIVERABLE — the DB Health screen
+
+This is the go/no-go gate for the entire platform choice. Build a screen that, on demand,
+runs a self-test against the real local database and renders a visible PASS/FAIL per step:
+
+1. open/create the database
+2. run a Drizzle migration that creates a table
+3. insert 1,000 rows in a transaction (proves batching + transactions work)
+4. read them back and verify the count and checksum
+5. run an indexed aggregate query and report elapsed milliseconds
+6. close and reopen the DB, verify the data **persisted across reload** (this is the step
+   that most often fails on web — a DB that lives only in memory passes steps 1-5 and is
+   still worthless to us)
+7. delete the test table, leaving no residue
+
+Display each step's result and timing on screen. It must run identically on native and web.
+
+### 4. The repository interface — the whole point of this structure
+
+Define `PantryRepository` (or similarly named) in `apps/mobile/src/db/` as a
+platform-agnostic interface, with the concrete driver selected per platform. For M0 the
+interface only needs whatever the health check exercises — do not model the real domain yet.
+
+**This exists so that if SQLite-on-web fails, we swap ONE file instead of rewriting the app.**
+If `expo-sqlite` web support is broken, unstable, or requires server headers we cannot set on
+static hosting, then implement the web driver over a different backing store (IndexedDB via
+Dexie, wa-sqlite directly, OPFS, whatever actually works) behind the same interface — and
+say plainly in your report what you had to do and what it costs us.
+
+### 5. Scripts at the repo root
+
+- `npm run typecheck` — tsc --noEmit across all workspaces
+- `npm run test` — vitest in packages/core
+- `npm run lint`
+- `npm run web` — expo web dev server
+- `npm run start` — expo start (QR for Expo Go)
+
+### 6. `git init` + `.gitignore`. **Do not create any commits** — the repo owner reviews first.
+
+## Constraints / known traps
+
+- **Windows paths.** Metro and monorepo symlink resolution have Windows-specific failure
+  modes. If you hit one, fix it properly in config; do not work around it by flattening the
+  monorepo.
+- Check `npm config get os` — if it returns `linux` on this Windows machine, that is a known
+  local misconfiguration in `~/.npmrc` that breaks native npm packages. Report it if seen.
+- **Do NOT create a Supabase project or add Supabase credentials.** That requires the owner's
+  account. Add the client dependency and a config module that reads from env, leave the env
+  values empty, and note it as a handoff item.
+- Do not add analytics, crash reporting, ads, or IAP. Not this milestone.
+- No secrets in the repo. `.env*` is gitignored.
+
+## Verification — run ALL of these yourself before reporting done
+
+1. `npm install` completes clean from the repo root.
+2. `npm run typecheck` — zero errors.
+3. `npm run test` — vitest passes in packages/core.
+4. `npm run lint` — clean.
+5. `npx expo export --platform web` — succeeds and produces output.
+6. `npm run web` — dev server starts, app loads in a browser, **navigate to DB Health, run
+   the self-test, and confirm all 7 steps PASS, including the persistence-across-reload step.**
+   Actually reload the page and re-check. Do not assume — verify.
+7. Confirm `packages/core` has no React or react-native import anywhere (grep it).
+
+## Report
+
+Write `C:\Users\joshu\Documents\Larder\reports\m0-scaffold.md` covering:
+
+- Exact versions pinned: Expo SDK, React Native, React, expo-router, Drizzle, NativeWind.
+- **DB Health results on web**, verbatim, including timings and the persistence step.
+- What the web SQLite driver ended up being, and whether it required any headers, bundler
+  config, or compromise. Be blunt about this — it drives the next decision.
+- Anything you could not verify (iOS/Android on-device, since that needs the owner's phone).
+- Every deviation from this brief, with the reason.
+- Open questions / blockers. State them plainly rather than guessing — you will get answers.
