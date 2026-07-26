@@ -397,6 +397,49 @@ export function SettingsScreen() {
         </div>
       </Section>
 
+      {/*
+        Diagnostics. DB Health verifies the local SQLite layer on a real device -
+        open, migrate, insert 1,000 rows in a transaction, read back and
+        checksum, indexed aggregate, and (the one that matters) close, reopen
+        and confirm the data survived.
+
+        These routes existed but nothing linked to them, so on a native build -
+        where there is no address bar - they were unreachable.
+      */}
+      {/* /chef had no link anywhere — the paid tier's headline feature was
+          unreachable. Belongs on Home eventually; this at least opens the door. */}
+      <Section title="AI chef">
+        <Link
+          to="/chef"
+          className="min-h-tap inline-flex items-center rounded-card bg-surface px-4 text-sm font-semibold text-ink shadow-card"
+        >
+          Open AI chef
+        </Link>
+      </Section>
+
+      <Section title="Diagnostics">
+        <div className="flex flex-col gap-2">
+          <Link
+            to="/db-health"
+            className="min-h-tap inline-flex items-center rounded-card bg-surface px-4 text-sm font-semibold text-ink shadow-card"
+          >
+            DB Health — verify local database
+          </Link>
+          <Link
+            to="/barcode"
+            className="min-h-tap inline-flex items-center rounded-card bg-surface px-4 text-sm font-semibold text-ink shadow-card"
+          >
+            Barcode scanner
+          </Link>
+          <Link
+            to="/design"
+            className="min-h-tap inline-flex items-center rounded-card bg-surface px-4 text-sm font-semibold text-ink shadow-card"
+          >
+            Design gallery
+          </Link>
+        </div>
+      </Section>
+
       {status ? (
         <p className="text-sm text-ink-muted" role="status" data-settings-status>
           {status}

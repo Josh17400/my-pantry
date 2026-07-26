@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 import { BarcodePage } from './routes/BarcodePage';
@@ -52,13 +52,27 @@ const icon = {
       <path d="m4 6 1 1 1.5-2M4 12l1 1 1.5-2M4 18l1 1 1.5-2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+  me: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M4.5 20a7.5 7.5 0 0 1 15 0" strokeLinecap="round" />
+    </svg>
+  ),
 };
 
+/*
+  Five tabs, matching mockup-01 (Home · Recipes · Inventory · Lists · Me).
+  "Me" is not cosmetic: Settings was only linked from Paywall and Privacy, and
+  Privacy links back to Settings — a closed loop with no entrance. On a native
+  build there is no address bar, so Settings, DB Health, the barcode scanner and
+  the design gallery were all unreachable.
+*/
 const TABS = [
   { id: '/', label: 'Home', icon: icon.home },
   { id: '/recipes', label: 'Recipes', icon: icon.recipes },
   { id: '/pantry', label: 'Pantry', icon: icon.pantry },
   { id: '/grocery', label: 'Lists', icon: icon.lists },
+  { id: '/settings', label: 'Me', icon: icon.me },
 ] as const;
 
 /** Longest matching tab prefix, so /recipes/123/cook still highlights Recipes. */
@@ -69,9 +83,55 @@ function activeTabFor(pathname: string): string {
   return match?.id ?? '/';
 }
 
+/*
+  The FAB previously went straight to /quick, which left /scan reachable only
+  from the receipt review screen — itself reached from /scan. Receipt scanning,
+  the product's headline feature, had no entrance at all. The "+" is the
+  universal add affordance, so it offers the real choices.
+*/
+const ADD_ACTIONS = [
+  { to: '/scan', label: 'Scan a receipt', hint: 'Add a whole shop at once' },
+  { to: '/barcode', label: 'Scan a barcode', hint: 'One item, while putting away' },
+  { to: '/quick', label: 'Quick eat', hint: 'A yogurt, an apple, two eggs' },
+  { to: '/pantry', label: 'Add by hand', hint: 'Search the catalogue' },
+] as const;
+
+function AddSheet({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className="absolute inset-0 bg-ink/30"
+      />
+      <div className="relative mb-20 w-full max-w-md px-4">
+        <div className="overflow-hidden rounded-card bg-surface-raised shadow-card">
+          {ADD_ACTIONS.map((a) => (
+            <button
+              key={a.to}
+              type="button"
+              onClick={() => {
+                onClose();
+                void navigate(a.to);
+              }}
+              className="min-h-tap flex w-full flex-col items-start border-b border-black/[0.04] px-4 py-3 text-left last:border-b-0 hover:bg-surface"
+            >
+              <span className="text-sm font-semibold text-ink">{a.label}</span>
+              <span className="text-xs text-ink-muted">{a.hint}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const [addOpen, setAddOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -86,10 +146,11 @@ function AppShell({ children }: { children: ReactNode }) {
           tabs={TABS}
           activeId={activeTabFor(pathname)}
           onChange={(id) => navigate(id)}
-          onFabClick={() => navigate('/quick')}
-          fabLabel="Quick add"
+          onFabClick={() => setAddOpen(true)}
+          fabLabel="Add"
         />
       </div>
+      {addOpen ? <AddSheet onClose={() => setAddOpen(false)} /> : null}
     </div>
   );
 }
