@@ -1,0 +1,36 @@
+{
+  "message": "Here is a barley risotto that uses what you have.",
+  "intent": "generate_recipe",
+  "groundedPantryIds": ["chicken-breast"],
+  "recipe": {
+    "title": "Barley Chicken Risotto",
+    "servings": 4,
+    "prepMin": 10,
+    "cookMin": 40,
+    "ingredients": [
+      {
+        "ingredientId": "barley",
+        "rawText": "pearl barley",
+        "qty": 200,
+        "unit": "g",
+        "allergens": [],
+        "dietaryFlags": ["gluten"],
+        "unknownAllergens": false
+      },
+      {
+        "ingredientId": "chicken-breast",
+        "rawText": "chicken breast",
+        "qty": 400,
+        "unit": "g",
+        "allergens": [],
+        "dietaryFlags": [],
+        "unknownAllergens": false
+      }
+    ],
+    "steps": [
+      { "text": "Toast the barley in a pot." },
+      { "text": "Add stock and chicken; simmer until tender." }
+    ],
+    "tags": ["dinner"]
+  }
+}

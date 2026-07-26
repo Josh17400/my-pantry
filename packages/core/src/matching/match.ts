@@ -14,8 +14,11 @@
 
 import {
   canAutoMergeAllergens,
+  canAutoMergeDietaryFlags,
   knownAllergens,
+  knownDietaryFlags,
   type AllergenTags,
+  type DietaryTags,
   type Ingredient,
 } from '../domain';
 import { aliasKey, normalizeIngredientText } from './normalize';
@@ -75,13 +78,32 @@ function findIngredient(
   return catalog.ingredients.find((i) => i.id === id);
 }
 
+/**
+ * Safety veto: only axes present on the query are checked.
+ * Omitting dietary flags must not treat the query as "no flags" vs a
+ * gluten-flagged candidate (that would false-block every gluten item).
+ */
 function allergenVeto(
   queryAllergens: AllergenTags | undefined,
   ingredient: Ingredient,
+  queryDietaryFlags?: DietaryTags,
 ): boolean {
-  if (queryAllergens === undefined) return false;
-  const candidateTags = knownAllergens(ingredient.allergens);
-  return !canAutoMergeAllergens(queryAllergens, candidateTags);
+  if (queryAllergens === undefined && queryDietaryFlags === undefined) {
+    return false;
+  }
+  if (queryAllergens !== undefined) {
+    const candidateAllergens = knownAllergens(ingredient.allergens);
+    if (!canAutoMergeAllergens(queryAllergens, candidateAllergens)) {
+      return true;
+    }
+  }
+  if (queryDietaryFlags !== undefined) {
+    const candidateDietary = knownDietaryFlags(ingredient.dietaryFlags);
+    if (!canAutoMergeDietaryFlags(queryDietaryFlags, candidateDietary)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function compareCandidates(a: RankedCandidate, b: RankedCandidate): number {
@@ -205,6 +227,7 @@ function applyVetoes(
   input: {
     path: MatchInput['path'];
     queryAllergens?: AllergenTags;
+    queryDietaryFlags?: DietaryTags;
     catalog: MatchCatalog;
     indexed: IndexedIngredient[];
     step: CascadeStep;
@@ -213,7 +236,13 @@ function applyVetoes(
 ): { vetoes: MatchVeto[]; autoAccept: boolean } {
   const vetoes: MatchVeto[] = [...candidate.vetoes];
 
-  if (allergenVeto(input.queryAllergens, candidate.ingredient)) {
+  if (
+    allergenVeto(
+      input.queryAllergens,
+      candidate.ingredient,
+      input.queryDietaryFlags,
+    )
+  ) {
     if (!vetoes.includes('allergen')) vetoes.push('allergen');
   }
 
@@ -291,6 +320,7 @@ export function matchIngredient(input: MatchInput): MatchResult {
     const { vetoes, autoAccept } = applyVetoes(userHit, {
       path,
       queryAllergens: input.queryAllergens,
+      queryDietaryFlags: input.queryDietaryFlags,
       catalog: input.catalog,
       indexed,
       step: 'user-alias',
@@ -318,6 +348,7 @@ export function matchIngredient(input: MatchInput): MatchResult {
     const { vetoes, autoAccept } = applyVetoes(globalHit, {
       path,
       queryAllergens: input.queryAllergens,
+      queryDietaryFlags: input.queryDietaryFlags,
       catalog: input.catalog,
       indexed,
       step: 'global-alias',
@@ -372,6 +403,7 @@ export function matchIngredient(input: MatchInput): MatchResult {
       const { vetoes, autoAccept } = applyVetoes(hit, {
         path,
         queryAllergens: input.queryAllergens,
+      queryDietaryFlags: input.queryDietaryFlags,
         catalog: input.catalog,
         indexed,
         step: 'normalized',
@@ -444,6 +476,7 @@ export function matchIngredient(input: MatchInput): MatchResult {
       const { vetoes } = applyVetoes(c, {
         path,
         queryAllergens: input.queryAllergens,
+      queryDietaryFlags: input.queryDietaryFlags,
         catalog: input.catalog,
         indexed,
         step: 'fuzzy',
@@ -464,6 +497,7 @@ export function matchIngredient(input: MatchInput): MatchResult {
   const { vetoes, autoAccept } = applyVetoes(top, {
     path,
     queryAllergens: input.queryAllergens,
+    queryDietaryFlags: input.queryDietaryFlags,
     catalog: input.catalog,
     indexed,
     step: 'fuzzy',
@@ -481,6 +515,7 @@ export function matchIngredient(input: MatchInput): MatchResult {
       const v = applyVetoes(c, {
         path,
         queryAllergens: input.queryAllergens,
+      queryDietaryFlags: input.queryDietaryFlags,
         catalog: input.catalog,
         indexed,
         step: 'fuzzy',

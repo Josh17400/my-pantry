@@ -4,7 +4,7 @@
  * Used by fixtures.test.ts to compute false-positive rate as a release gate.
  */
 
-import type { Allergen, Ingredient } from '../../src/domain';
+import type { Allergen, DietaryFlag, Ingredient } from '../../src/domain';
 import type { IngredientAlias, MatchCatalog } from '../../src/matching';
 
 function ing(
@@ -13,14 +13,19 @@ function ing(
   opts: {
     category?: string;
     allergens?: readonly Allergen[];
+    dietaryFlags?: readonly DietaryFlag[];
     isStaple?: boolean;
   } = {},
 ): Ingredient {
+  const allergens = opts.allergens ?? [];
+  const flags = new Set<DietaryFlag>(opts.dietaryFlags ?? []);
+  if (allergens.includes('wheat')) flags.add('gluten');
   return {
     id,
     name,
     category: opts.category ?? 'other',
-    allergens: opts.allergens ?? [],
+    allergens,
+    dietaryFlags: [...flags].sort(),
     isStaple: opts.isStaple ?? false,
     defaultFormId: `${id}-default`,
   };

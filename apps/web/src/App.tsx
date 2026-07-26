@@ -2,12 +2,15 @@ import type { ReactNode } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 import { BarcodePage } from './routes/BarcodePage';
+import { ChefPage } from './routes/ChefPage';
+import { CommunityPage } from './routes/CommunityPage';
 import { CookPage } from './routes/CookPage';
 import { CookingModePage } from './routes/CookingModePage';
 import { DbHealthPage } from './routes/DbHealthPage';
 import { DesignPage } from './routes/DesignPage';
 import { GroceryPage } from './routes/GroceryPage';
 import { HomePage } from './routes/HomePage';
+import { ImportRecipePage } from './routes/ImportRecipePage';
 import { LocationsPage } from './routes/LocationsPage';
 import { PantryItemPage } from './routes/PantryItemPage';
 import { PantryPage } from './routes/PantryPage';
@@ -149,11 +152,16 @@ export function App() {
         <Route path="/recipes/:id/cook" element={<CookPage />} />
         <Route path="/recipes/:id/cooking" element={<CookingModePage />} />
 
+        <Route path="/community" element={<CommunityPage />} />
+        <Route path="/import" element={<ImportRecipePage />} />
+
         <Route path="/grocery" element={<GroceryPage />} />
         <Route path="/quick" element={<QuickAddPage />} />
 
         <Route path="/scan" element={<ScanPage />} />
         <Route path="/receipt/review" element={<ReceiptReviewPage />} />
+
+        <Route path="/chef" element={<ChefPage />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

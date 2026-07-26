@@ -54,6 +54,7 @@ export type SeedValidationCode =
   | 'form_missing_grams_per_count'
   | 'density_out_of_band'
   | 'invalid_allergen'
+  | 'invalid_dietary_flag'
   | 'empty_id'
   | 'invalid_factor'
   | 'invalid_uncertainty';

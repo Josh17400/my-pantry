@@ -356,8 +356,10 @@ const rest = mergeBundles(
     packages: [{ label: 'jar_13oz', netG: 13 * OZ_G }],
   }),
   simpleVolume('oat-milk', 'Oat milk', 'dairy', 1.03, {
-    // May contain gluten depending on brand — tag wheat conservatively for many US brands
+    // Conventional oat milk often uses non-GF oats (cross-contamination).
+    // Certified GF brands exist — we under-assume safety, not over-clear.
     allergens: [],
+    dietaryFlags: ['gluten'],
     aliases: ['OAT MILK', 'OATMILK'],
     packages: [{ label: 'half_gallon', netG: (GALLON_ML / 2) * 1.03 }],
   }),

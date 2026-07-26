@@ -153,3 +153,54 @@ describe('allergen tagging spot checks', () => {
     expect(allergensOf('oil-sesame')).toContain('sesame');
   });
 });
+
+describe('dietary flag / gluten gap', () => {
+  function flagsOf(id: string) {
+    return expectIngredient(id).dietaryFlags;
+  }
+
+  function allergensOf(id: string) {
+    return expectIngredient(id).allergens;
+  }
+
+  it('barley is gluten-flagged and NOT faked as FALCPA wheat', () => {
+    expect(flagsOf('barley')).toContain('gluten');
+    expect(allergensOf('barley')).not.toContain('wheat');
+  });
+
+  it('rye is gluten-flagged without wheat allergen', () => {
+    expect(flagsOf('rye')).toContain('gluten');
+    expect(allergensOf('rye')).not.toContain('wheat');
+  });
+
+  it('wheat flour has wheat allergen and gluten flag', () => {
+    expect(allergensOf('flour-ap')).toContain('wheat');
+    expect(flagsOf('flour-ap')).toContain('gluten');
+  });
+
+  it('soy sauce has gluten (via wheat)', () => {
+    expect(flagsOf('soy-sauce')).toContain('gluten');
+  });
+
+  it('conventional oats are gluten-flagged (cross-contamination)', () => {
+    expect(flagsOf('oats-rolled')).toContain('gluten');
+    expect(flagsOf('oats-steel-cut')).toContain('gluten');
+  });
+
+  it('malt extract is gluten-flagged without wheat allergen', () => {
+    expect(flagsOf('malt-extract')).toContain('gluten');
+    expect(allergensOf('malt-extract')).not.toContain('wheat');
+  });
+
+  it('spelt and farro are wheat + gluten', () => {
+    expect(allergensOf('spelt')).toContain('wheat');
+    expect(flagsOf('spelt')).toContain('gluten');
+    expect(allergensOf('farro')).toContain('wheat');
+    expect(flagsOf('farro')).toContain('gluten');
+  });
+
+  it('pork and beef meats carry dietary flags', () => {
+    expect(flagsOf('bacon')).toContain('pork');
+    expect(flagsOf('ground-beef')).toContain('beef');
+  });
+});

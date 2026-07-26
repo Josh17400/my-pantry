@@ -179,8 +179,28 @@ export const baking: SeedCategoryBundle = mergeBundles(
     // Alcoholic extract density ~0.88 g/ml (culinary; varies by brand strength)
     uncertaintyPct: 10,
     isStaple: true,
+    dietaryFlags: ['alcohol'],
     aliases: ['VANILLA', 'VANILLA EXTRACT', 'PURE VANILLA'],
     packages: [{ label: 'bottle_2oz', netG: 2 * 29.5735295625 * 0.88 }],
+  }),
+  simpleMass('malt-extract', 'Malt extract / malt syrup', 'baking', {
+    densityGPerMl: 1.4,
+    uncertaintyPct: 15,
+    // Barley malt — gluten, not FALCPA wheat.
+    allergens: [],
+    dietaryFlags: ['gluten'],
+    aliases: ['MALT', 'MALT EXTRACT', 'MALT SYRUP', 'BARLEY MALT'],
+    packages: [{ label: 'jar_12oz', netG: 12 * OZ_G }],
+  }),
+  simpleMass('yeast-brewers', "Brewer's yeast", 'baking', {
+    densityGPerMl: 0.5,
+    uncertaintyPct: 20,
+    // Brewer's yeast is often a byproduct of beer brewing (barley) — gluten risk.
+    // Not the same as nutritional yeast (typically GF); do not alias those together.
+    allergens: [],
+    dietaryFlags: ['gluten'],
+    aliases: ['BREWERS YEAST', "BREWER'S YEAST"],
+    packages: [{ label: 'jar_8oz', netG: 8 * OZ_G }],
   }),
   simpleMass('shortening', 'Vegetable shortening', 'baking', {
     densityGPerMl: 0.92,

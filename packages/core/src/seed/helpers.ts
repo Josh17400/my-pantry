@@ -3,7 +3,7 @@
  * Keep ids deterministic slugs; never generate at runtime beyond pure functions.
  */
 
-import type { Allergen } from '../domain/allergens';
+import type { Allergen, DietaryFlag } from '../domain/allergens';
 import type {
   ConversionEdge,
   Dimension,
@@ -17,17 +17,31 @@ export type IngredientDef = {
   readonly name: string;
   readonly category: string;
   readonly allergens?: readonly Allergen[];
+  readonly dietaryFlags?: readonly DietaryFlag[];
   readonly isStaple?: boolean;
   readonly defaultFormId: string;
   readonly aliases?: readonly string[];
 };
 
+/**
+ * Build a seed ingredient.
+ *
+ * Wheat (FALCPA) always implies dietary `gluten` — celiac users avoid gluten,
+ * not only labeled wheat. Non-wheat gluten sources (barley, rye, oats, malt)
+ * must still set `dietaryFlags: ['gluten']` explicitly.
+ */
 export function ingredient(def: IngredientDef): SeedIngredient {
+  const allergens = def.allergens ?? [];
+  const flags = new Set<DietaryFlag>(def.dietaryFlags ?? []);
+  if (allergens.includes('wheat')) {
+    flags.add('gluten');
+  }
   return {
     id: def.id,
     name: def.name,
     category: def.category,
-    allergens: def.allergens ?? [],
+    allergens,
+    dietaryFlags: [...flags].sort(),
     isStaple: def.isStaple ?? false,
     defaultFormId: def.defaultFormId,
     aliases: def.aliases ?? [],
@@ -174,6 +188,7 @@ export function simpleMass(
     densityGPerMl?: number;
     uncertaintyPct?: number;
     allergens?: readonly Allergen[];
+    dietaryFlags?: readonly DietaryFlag[];
     isStaple?: boolean;
     aliases?: readonly string[];
     packages?: readonly Omit<PackageSpec, 'formId'>[];
@@ -186,6 +201,7 @@ export function simpleMass(
     name,
     category,
     allergens: opts.allergens,
+    dietaryFlags: opts.dietaryFlags,
     isStaple: opts.isStaple,
     defaultFormId: formId,
     aliases: opts.aliases,
@@ -209,6 +225,7 @@ export function simpleVolume(
     formName?: string;
     uncertaintyPct?: number;
     allergens?: readonly Allergen[];
+    dietaryFlags?: readonly DietaryFlag[];
     isStaple?: boolean;
     aliases?: readonly string[];
     packages?: readonly Omit<PackageSpec, 'formId'>[];
@@ -221,6 +238,7 @@ export function simpleVolume(
     name,
     category,
     allergens: opts.allergens,
+    dietaryFlags: opts.dietaryFlags,
     isStaple: opts.isStaple,
     defaultFormId: formId,
     aliases: opts.aliases,
@@ -241,6 +259,7 @@ export function simpleCount(
     formName?: string;
     uncertaintyPct?: number;
     allergens?: readonly Allergen[];
+    dietaryFlags?: readonly DietaryFlag[];
     isStaple?: boolean;
     aliases?: readonly string[];
     packages?: readonly Omit<PackageSpec, 'formId'>[];
@@ -253,6 +272,7 @@ export function simpleCount(
     name,
     category,
     allergens: opts.allergens,
+    dietaryFlags: opts.dietaryFlags,
     isStaple: opts.isStaple,
     defaultFormId: formId,
     aliases: opts.aliases,

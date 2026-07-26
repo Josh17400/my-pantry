@@ -81,6 +81,7 @@ describe('validateSeed rules', () => {
     name: 'Test Ingredient',
     category: 'test',
     allergens: [],
+    dietaryFlags: [],
     isStaple: false,
     defaultFormId: 'test-ing-bulk',
     aliases: [],

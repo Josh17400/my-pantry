@@ -99,6 +99,7 @@ function seedIngredientModels() {
     name: ing.name,
     category: ing.category,
     allergens: ing.allergens,
+    dietaryFlags: ing.dietaryFlags,
     isStaple: ing.isStaple,
     defaultFormId: ing.defaultFormId,
   }));

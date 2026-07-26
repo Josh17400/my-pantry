@@ -1,0 +1,16 @@
+{
+  "name": "chef",
+  "version": "0.1.0",
+  "exports": "./index.ts",
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.window", "deno.unstable"]
+  },
+  "tasks": {
+    "test": "deno test --allow-read --allow-env tests/",
+    "check": "deno check index.ts"
+  },
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.49.1"
+  }
+}

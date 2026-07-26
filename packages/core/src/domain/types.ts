@@ -6,7 +6,7 @@
  * unit registry. `src/pantry/` owns ledger fold / projection / stock.
  */
 
-import type { Allergen } from './allergens';
+import type { Allergen, DietaryFlag } from './allergens';
 
 // ── Shared primitives ───────────────────────────────────────────────────────
 
@@ -25,12 +25,20 @@ export type BaseUnit = 'g' | 'ml' | 'each';
 /**
  * Canonical ingredient. Allergens are a safety system, not a preference.
  * Matching refuses auto-merge across disagreeing allergen tags.
+ *
+ * `dietaryFlags` is a separate practical axis (gluten, pork, alcohol, …).
+ * Do not put gluten-only grains on the FALCPA wheat allergen list.
  */
 export interface Ingredient {
   readonly id: string;
   readonly name: string;
   readonly category: string;
   readonly allergens: readonly Allergen[];
+  /**
+   * Practical dietary flags (not FALCPA). Empty when none apply.
+   * Always present so callers need not null-check.
+   */
+  readonly dietaryFlags: readonly DietaryFlag[];
   readonly isStaple: boolean;
   /** Default form for stocking / display when none is specified. */
   readonly defaultFormId: string;

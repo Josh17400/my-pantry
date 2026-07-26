@@ -75,6 +75,7 @@ export const meatSeafood: SeedCategoryBundle = mergeBundles(
   }),
   simpleMass('ground-beef', 'Ground beef', 'meat-seafood', {
     isStaple: true,
+    dietaryFlags: ['beef'],
     aliases: [
       'GROUND BEEF',
       'GRND BF',
@@ -91,14 +92,17 @@ export const meatSeafood: SeedCategoryBundle = mergeBundles(
     ],
   }),
   simpleMass('beef-steak', 'Beef steak', 'meat-seafood', {
+    dietaryFlags: ['beef'],
     aliases: ['STEAK', 'BEEF STEAK', 'RIBEYE', 'SIRLOIN STEAK', 'NY STRIP'],
     packages: [{ label: 'pack_1lb', netG: LB_G }],
   }),
   simpleMass('beef-roast', 'Beef roast', 'meat-seafood', {
+    dietaryFlags: ['beef'],
     aliases: ['BEEF ROAST', 'CHUCK ROAST', 'POT ROAST', 'RUMP ROAST'],
     packages: [{ label: 'roast_3lb', netG: 3 * LB_G }],
   }),
   simpleMass('beef-stew-meat', 'Beef stew meat', 'meat-seafood', {
+    dietaryFlags: ['beef'],
     aliases: ['STEW MEAT', 'BEEF STEW MEAT', 'BEEF CUBES'],
     packages: [{ label: 'pack_1lb', netG: LB_G }],
   }),
@@ -111,19 +115,23 @@ export const meatSeafood: SeedCategoryBundle = mergeBundles(
     packages: [{ label: 'pack_1_5lb', netG: 1.5 * LB_G }],
   }),
   simpleMass('pork-chop', 'Pork chop', 'meat-seafood', {
+    dietaryFlags: ['pork'],
     aliases: ['PORK CHOP', 'PORK CHOPS', 'BONELESS PORK CHOP'],
     packages: [{ label: 'pack_1_5lb', netG: 1.5 * LB_G }],
   }),
   simpleMass('pork-loin', 'Pork loin', 'meat-seafood', {
+    dietaryFlags: ['pork'],
     aliases: ['PORK LOIN', 'PORK TENDERLOIN', 'PORK LOIN ROAST'],
     packages: [{ label: 'pack_1_5lb', netG: 1.5 * LB_G }],
   }),
   simpleMass('ground-pork', 'Ground pork', 'meat-seafood', {
+    dietaryFlags: ['pork'],
     aliases: ['GROUND PORK', 'GRND PORK'],
     packages: [{ label: 'pack_1lb', netG: LB_G }],
   }),
   simpleMass('bacon', 'Bacon', 'meat-seafood', {
     isStaple: true,
+    dietaryFlags: ['pork'],
     aliases: ['BACON', 'SMOKED BACON', 'THICK CUT BACON'],
     packages: [
       { label: 'pack_12oz', netG: 12 * OZ_G },
@@ -131,14 +139,18 @@ export const meatSeafood: SeedCategoryBundle = mergeBundles(
     ],
   }),
   simpleMass('sausage-breakfast', 'Breakfast sausage', 'meat-seafood', {
+    // US breakfast sausage is typically pork unless labeled turkey/chicken.
+    dietaryFlags: ['pork'],
     aliases: ['BREAKFAST SAUSAGE', 'SAUSAGE LINKS', 'SAUSAGE PATTIES'],
     packages: [{ label: 'pack_12oz', netG: 12 * OZ_G }],
   }),
   simpleMass('sausage-italian', 'Italian sausage', 'meat-seafood', {
+    dietaryFlags: ['pork'],
     aliases: ['ITALIAN SAUSAGE', 'ITAL SAUSAGE', 'MILD ITALIAN SAUSAGE'],
     packages: [{ label: 'pack_1lb', netG: LB_G }],
   }),
   simpleMass('ham', 'Ham', 'meat-seafood', {
+    dietaryFlags: ['pork'],
     aliases: ['HAM', 'SPIRAL HAM', 'HAM STEAK'],
     packages: [{ label: 'slice_8oz', netG: 8 * OZ_G }, { label: 'half_ham_5lb', netG: 5 * LB_G }],
   }),
@@ -147,10 +159,13 @@ export const meatSeafood: SeedCategoryBundle = mergeBundles(
     packages: [{ label: 'pack_8oz', netG: 8 * OZ_G }],
   }),
   simpleMass('deli-ham', 'Deli ham', 'meat-seafood', {
+    dietaryFlags: ['pork'],
     aliases: ['DELI HAM', 'SLICED HAM'],
     packages: [{ label: 'pack_8oz', netG: 8 * OZ_G }],
   }),
   simpleMass('hot-dog', 'Hot dogs', 'meat-seafood', {
+    // Often pork+beef blend; beef franks exist — flag both conservatively.
+    dietaryFlags: ['pork', 'beef'],
     aliases: ['HOT DOGS', 'HOTDOGS', 'FRANKS', 'BEEF FRANKS'],
     packages: [{ label: 'pack_12oz', netG: 12 * OZ_G }],
   }),

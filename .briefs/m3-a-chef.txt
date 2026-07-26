@@ -1,0 +1,114 @@
+# BRIEF: M3 Track A — AI chef (paid tier) + the gluten safety gap
+
+## Context
+
+**The Good Pantry.** Read `SPEC.md` — "AI chef (M3, paid)" and the Allergens section — plus
+`reports/redteam.md` finding **M7** (allergen liability), which is why this brief leads with
+safety rather than features.
+
+Existing and relevant:
+- `supabase/functions/parse-receipt/` — the pattern to mirror for an Edge Function (auth,
+  quota, dollar budget, OpenRouter call, strict schema, fixture tests). **Read it first.**
+- `packages/core/src/domain/allergens.ts` — `Allergen`, `AllergenTags`, `allergensDisagree`,
+  `canAutoMergeAllergens`.
+- `packages/core` — `planCook`, `findCookableRecipes`, conversion. 248 tests.
+
+## Scope — note the unusual permission
+
+You own:
+- `supabase/functions/chef/**`
+- `apps/web/src/features/chef/**` and `apps/web/src/routes/ChefPage.tsx`
+- **`packages/core/src/domain/allergens.ts`** — explicitly granted, see task 1
+- **`packages/core/src/seed/`** — *only* to add dietary flags to existing rows
+
+`packages/core` is otherwise read-only. Do not touch other feature folders, `src/ui/**`,
+`src/db/**`, or other Edge Functions. Any test you break, you fix.
+
+---
+
+## Task 1 — close the gluten gap FIRST, before any chef work
+
+The seed track made a defensible call and flagged it honestly: **barley is untagged** because
+it contains gluten but is not a FALCPA "wheat" allergen. That is technically correct and
+practically dangerous — gluten is precisely what a celiac user needs to avoid, and this track
+is about to ship something that recommends food to people.
+
+Add a **dietary-flag axis separate from the FALCPA allergen list**:
+
+```ts
+type DietaryFlag = 'gluten' | 'pork' | 'alcohol' | 'beef' | 'shellfish-derived' | ...
+```
+
+- Tag gluten-containing grains: wheat, barley, rye, spelt, farro, malt, brewer's yeast,
+  conventional oats (cross-contamination — flag with a note), soy sauce (contains wheat).
+- Keep `Allergen` as the regulatory list; `DietaryFlag` is the practical one. Do not conflate
+  them — they answer different questions.
+- Extend `allergensDisagree` / `canAutoMergeAllergens` (or add siblings) so matching refuses to
+  auto-merge across disagreeing dietary flags too.
+- Add tests. Barley must be gluten-flagged. A gluten-free user must never be auto-matched into
+  a gluten-containing ingredient.
+
+**Report what you tagged and what you were unsure about.** Under-tagging is a safety failure;
+over-tagging is merely annoying.
+
+---
+
+## Task 2 — the chef Edge Function
+
+`supabase/functions/chef/` mirroring the parse-receipt structure.
+
+- Auth required. **Entitlement-gated** — paid tier only. Free users get a clear upsell, never a
+  broken screen.
+- **Dollar-denominated budget per user per month**, not a message count. Same reasoning as
+  receipts: one user with a script must not run up an unbounded bill.
+- Rate limit per user.
+- Context: pantry snapshot, dietary profile (allergens **and** the new dietary flags), and the
+  current recipe when relevant.
+- `OPENROUTER_API_KEY` from function secrets only. Never in the client, never `VITE_`-prefixed.
+- Cheap Flash-class model for chat and substitutions; step up only for recipe generation.
+
+### The hard allergen gate — non-negotiable
+
+- The chef **may not** recommend anything containing a flagged allergen or dietary flag.
+- Free-text recipe lines that did not resolve carry `unknownAllergens: true` — **treat unknown
+  as unsafe, never as clear.**
+- Filter server-side, after the model responds. **A prompt instruction is not a safety
+  control** — models do not reliably obey, and this is the one place that matters. Enforce it
+  in code, and test that a model response containing a flagged ingredient is blocked.
+
+### Capabilities
+"What can I make tonight" (grounded in the real pantry, not invented), substitutions with
+ratios, guided cooking Q&A, and recipe generation that saves as a **real `Recipe` with mapped
+ingredients** so it can be cooked and deducted like any other.
+
+---
+
+## Task 3 — chat UI
+
+`/chef` route. Streaming responses if practical. Clear paid-tier gating. Show which pantry
+items the answer was grounded in — an assistant that says "you have chicken" when you do not is
+worse than useless. Suggested prompts for the empty state.
+
+## Constraints
+
+TypeScript `strict`, no `any`. Deno for the function, React for the UI. Mobile-first.
+Fixture-based tests — no live OpenRouter calls in tests. Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run test && npm run test:functions && npm run build
+```
+
+248 core (plus your new allergen tests) + 170 web + 39 function tests must stay green.
+
+**Required test: a model response recommending a flagged ingredient is blocked server-side.**
+That is the test that matters most in this track.
+
+## Report
+
+`reports/m3-a-chef.md`: what you tagged for gluten and what you were unsure about, the
+allergen/dietary gate and **how it is enforced in code rather than by prompt**, the entitlement
+and budget model, the grounding approach, deviations, and open questions.
+
+Work continuously; do not stall waiting for input.

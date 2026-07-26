@@ -1,0 +1,9 @@
+{
+  "message": "With the chicken breast and rice in your pantry, you can make a simple lemon chicken bowl tonight.",
+  "intent": "what_can_i_make",
+  "groundedPantryIds": ["chicken-breast", "rice-white"],
+  "suggestedPrompts": [
+    "How do I cook the chicken?",
+    "What sauce works without dairy?"
+  ]
+}

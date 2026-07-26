@@ -42,6 +42,7 @@ export const condiments: SeedCategoryBundle = mergeBundles(
   simpleVolume('soy-sauce', 'Soy sauce', 'condiments', 1.12, {
     uncertaintyPct: 8,
     isStaple: true,
+    // Wheat → gluten auto-derived in ingredient(); explicit for clarity.
     allergens: ['wheat', 'soy'],
     aliases: ['SOY SAUCE', 'SOY', 'SHOYU', 'LIGHT SOY SAUCE'],
     packages: [
@@ -52,7 +53,9 @@ export const condiments: SeedCategoryBundle = mergeBundles(
   simpleVolume('soy-sauce-tamari', 'Tamari', 'condiments', 1.12, {
     uncertaintyPct: 8,
     allergens: ['soy'],
-    // Traditional tamari is wheat-free; some brands add wheat — conservative soy only.
+    // Traditional tamari is wheat-free / often GF; some brands add wheat.
+    // Do not tag gluten by default — over-tagging GF-labeled tamari is annoying;
+    // under-tagging is worse only when wheat is present (those brands should match soy-sauce).
     aliases: ['TAMARI', 'GLUTEN FREE SOY SAUCE'],
     packages: [{ label: 'bottle_10oz', netG: 10 * 29.5735295625 * 1.12 }],
   }),
@@ -100,6 +103,7 @@ export const condiments: SeedCategoryBundle = mergeBundles(
   simpleVolume('oyster-sauce', 'Oyster sauce', 'condiments', 1.2, {
     uncertaintyPct: 12,
     allergens: ['shellfish', 'wheat', 'soy'],
+    dietaryFlags: ['shellfish-derived'], // also shellfish allergen; flag for non-allergic shellfish avoiders
     aliases: ['OYSTER SAUCE'],
     packages: [{ label: 'bottle_9oz', netG: 9 * OZ_G }],
   }),

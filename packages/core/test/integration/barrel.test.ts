@@ -66,6 +66,7 @@ describe('root barrel wiring', () => {
       name: 'X',
       category: 'other',
       allergens: [],
+      dietaryFlags: [],
       isStaple: true,
       defaultFormId: 'x-whole',
     };

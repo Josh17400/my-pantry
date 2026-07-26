@@ -1,0 +1,16 @@
+{
+  "message": "You can swap heavy cream with full-fat coconut milk at a 1:1 ratio for this sauce.",
+  "intent": "substitute",
+  "groundedPantryIds": [],
+  "substitutions": [
+    {
+      "forIngredient": "heavy cream",
+      "suggestion": "full-fat coconut milk",
+      "ratio": "1:1",
+      "ingredientId": "coconut-milk",
+      "allergens": ["tree_nut"],
+      "dietaryFlags": [],
+      "unknownAllergens": false
+    }
+  ]
+}

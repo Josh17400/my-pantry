@@ -6,7 +6,7 @@
  * decides auto-accept vs prompt from `autoAccept` + vetoes.
  */
 
-import type { AllergenTags, Ingredient } from '../domain';
+import type { AllergenTags, DietaryTags, Ingredient } from '../domain';
 
 /** Where the raw string came from — gates fuzzy auto-accept. */
 export type MatchPath = 'receipt' | 'recipe' | 'import' | 'general';
@@ -117,6 +117,11 @@ export type MatchInput = {
    * When present, disagreeing or unknown tags veto auto-accept.
    */
   readonly queryAllergens?: AllergenTags;
+  /**
+   * Optional dietary flags on the query (gluten, pork, …).
+   * Disagreeing or unknown flags veto auto-accept together with allergens.
+   */
+  readonly queryDietaryFlags?: DietaryTags;
   /**
    * When set, only user aliases for this household are considered
    * (plus all global aliases).

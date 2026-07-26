@@ -23,6 +23,7 @@ export function buildSeedMatchCatalog(
     name: s.name,
     category: s.category,
     allergens: s.allergens,
+    dietaryFlags: s.dietaryFlags,
     isStaple: s.isStaple,
     defaultFormId: s.defaultFormId,
   }));

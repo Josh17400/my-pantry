@@ -89,6 +89,9 @@ export const grainsPasta: SeedCategoryBundle = mergeBundles(
     densityGPerMl: 89 / 236.5882365,
     uncertaintyPct: 12,
     isStaple: true,
+    // Conventional oats: high gluten cross-contamination risk (shared mills).
+    // Pure GF-certified oats exist but we cannot assume that at retail default.
+    dietaryFlags: ['gluten'],
     aliases: ['OATS', 'ROLLED OATS', 'OLD FASHIONED OATS', 'OATMEAL'],
     packages: [
       { label: 'canister_42oz', netG: 42 * OZ_G },
@@ -98,13 +101,15 @@ export const grainsPasta: SeedCategoryBundle = mergeBundles(
   simpleMass('oats-steel-cut', 'Steel-cut oats', 'grains-pasta', {
     densityGPerMl: 160 / 236.5882365,
     uncertaintyPct: 12,
+    dietaryFlags: ['gluten'], // same conventional-oats cross-contamination note
     aliases: ['STEEL CUT OATS', 'IRISH OATS'],
     packages: [{ label: 'canister_24oz', netG: 24 * OZ_G }],
   }),
   simpleMass('cereal-cheerios', 'Cheerios-style cereal', 'grains-pasta', {
     densityGPerMl: 0.15,
     uncertaintyPct: 20,
-    // Original oat toasted cereal is not wheat; brand variants differ.
+    // Oat cereal — conventional oats often gluten cross-contaminated.
+    dietaryFlags: ['gluten'],
     aliases: ['CHEERIOS', 'TOASTED OAT CEREAL'],
     packages: [{ label: 'box_12oz', netG: 12 * OZ_G }],
   }),
@@ -180,11 +185,34 @@ export const grainsPasta: SeedCategoryBundle = mergeBundles(
   simpleMass('barley', 'Pearl barley', 'grains-pasta', {
     densityGPerMl: 200 / 236.5882365,
     uncertaintyPct: 12,
-    allergens: ['wheat'], // barley has gluten; not wheat but related — FALCPA wheat only
-    // Barley is not "wheat" under FALCPA but contains gluten. We only have wheat tag.
-    // Tag wheat as closest major allergen for celiac-adjacent safety? Spec says major allergens.
-    // Conservative: do NOT fake wheat; celiac users need barley awareness later.
+    // Barley is NOT FALCPA "wheat" — do not fake the allergen. It does contain gluten.
+    allergens: [],
+    dietaryFlags: ['gluten'],
     aliases: ['BARLEY', 'PEARL BARLEY'],
+    packages: [{ label: 'bag_16oz', netG: 16 * OZ_G }],
+  }),
+  simpleMass('rye', 'Rye flour / rye grain', 'grains-pasta', {
+    densityGPerMl: 102 / 236.5882365,
+    uncertaintyPct: 15,
+    allergens: [],
+    dietaryFlags: ['gluten'],
+    aliases: ['RYE', 'RYE FLOUR', 'RYE BERRIES'],
+    packages: [{ label: 'bag_2lb', netG: 2 * LB_G }],
+  }),
+  simpleMass('spelt', 'Spelt flour', 'grains-pasta', {
+    densityGPerMl: KNOWN_DENSITIES.ap_flour_g_per_ml,
+    uncertaintyPct: 15,
+    // Spelt is a wheat species — FALCPA wheat + gluten.
+    allergens: ['wheat'],
+    aliases: ['SPELT', 'SPELT FLOUR'],
+    packages: [{ label: 'bag_2lb', netG: 2 * LB_G }],
+  }),
+  simpleMass('farro', 'Farro', 'grains-pasta', {
+    densityGPerMl: 190 / 236.5882365,
+    uncertaintyPct: 12,
+    // Farro is wheat (emmer/einkorn/spelt family) — FALCPA wheat + gluten.
+    allergens: ['wheat'],
+    aliases: ['FARRO', 'EMMER'],
     packages: [{ label: 'bag_16oz', netG: 16 * OZ_G }],
   }),
 );

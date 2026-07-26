@@ -5,7 +5,7 @@
  * against this data. Silent corruption here is the worst failure class.
  */
 
-import { isAllergen } from '../domain/allergens';
+import { isAllergen, isDietaryFlag } from '../domain/allergens';
 import type { ConversionEdge, IngredientForm } from '../domain/types';
 import type {
   SeedCatalog,
@@ -84,6 +84,17 @@ export function validateSeed(
           issue(
             'invalid_allergen',
             `ingredient "${ing.id}" has invalid allergen "${a}"`,
+            ing.id,
+          ),
+        );
+      }
+    }
+    for (const d of ing.dietaryFlags) {
+      if (!isDietaryFlag(d)) {
+        issues.push(
+          issue(
+            'invalid_dietary_flag',
+            `ingredient "${ing.id}" has invalid dietary flag "${d}"`,
             ing.id,
           ),
         );

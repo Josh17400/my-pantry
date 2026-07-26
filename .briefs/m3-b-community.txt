@@ -1,0 +1,91 @@
+# BRIEF: M3 Track B — community recipes, URL import, cost per meal
+
+## Context
+
+**The Good Pantry.** Read `SPEC.md` — "Community + catalog (M3)" and "Cost per meal" — and
+`supabase/migrations/*.sql` (the `recipes` table already has `visibility` with a partial index
+for public reads, and RLS allowing public read where `visibility = 'public'`).
+
+Read-only: `packages/core` (248 tests — `matchIngredient` with its guards, `planCook`,
+conversion), the design system, and the stores.
+
+## Scope
+
+You own `apps/web/src/features/community/**`, `apps/web/src/features/import/**`,
+`apps/web/src/features/cost/**`, and routes `CommunityPage.tsx`, `ImportRecipePage.tsx`.
+You may add a migration under `supabase/migrations/` **only** for moderation tables.
+
+**Do NOT touch** `packages/core/**`, `supabase/functions/**`, `src/ui/**`, `src/db/**`, or
+other feature folders. Another track is running in `features/chef` and `packages/core/domain`.
+
+---
+
+## Part 1 — Community recipes
+
+Browse, search (by ingredient, tag, time), publish, and fork public recipes.
+
+- Publishing sets `visibility = 'public'`. Forking copies into the user's own book with
+  `forkedFrom` set.
+- Imported free-text ingredient lines run through `matchIngredient`; anything unresolved keeps
+  `unknownAllergens: true`. **Never assume a stranger's recipe is allergen-clear.**
+- **Moderation ships with the feature, not after it**: a report flow, publish rate limits, and
+  an author profile. A community feature without moderation is a liability the day it works.
+
+---
+
+## Part 2 — URL recipe import
+
+People will paste links constantly. Most recipe sites publish **schema.org `Recipe` JSON-LD**,
+so this is a parse, not a scrape.
+
+- Extract JSON-LD (and microdata as fallback); map name, servings, times, ingredients, steps.
+- Run ingredient lines through `matchIngredient`; show the user what resolved and what did not
+  before saving.
+- **Locale trap — this is why it matters:** `parseQuantity` exposes `ambiguousLocale` on units
+  that differ between US and Imperial (`pint`, `quart`, `gallon`, `fl oz`, `cup`). A UK recipe's
+  "1 pint" is 568 ml against our 473 ml — a silent 20% inventory error. When importing, **detect
+  the source locale where possible and prompt when ambiguous.** Do not guess.
+- Handle sites with no structured data gracefully: offer manual paste rather than failing.
+
+> ⚖️ Import is **for the user's own book only**. Do not auto-publish imported recipes to the
+> community — recipe prose and photos are copyrighted, and republishing someone else's is a
+> takedown. Block publishing of imported-with-source recipes, or require the user to rewrite
+> the steps first.
+
+---
+
+## Part 3 — Cost per meal
+
+Receipts capture `unitPrice` on purchase txns; the ledger records consumption. So this is
+mostly arithmetic over data we already have.
+
+- Cost of a cooked meal from the actual txns under its `cookEventId`.
+- Per-serving cost; recent trend; most expensive recurring ingredients.
+- **Be honest about incomplete data.** If some ingredients have no recorded price, say
+  "estimated from 6 of 9 ingredients" rather than presenting a confident wrong number. Same
+  principle as the provenance layer: never render false precision.
+
+---
+
+## Constraints
+
+TypeScript `strict`, no `any`. Mobile-first. No new heavy deps — write the JSON-LD parsing
+yourself, it is a JSON walk. Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run test && npm run build
+```
+
+248 core + 170 web must stay green. Tests for: JSON-LD extraction from real-world shapes
+(including `@graph` and arrays), ambiguous-locale detection on a UK recipe, fork copying,
+moderation report creation, and cost calculation with **partial** price data.
+
+## Report
+
+`reports/m3-b-community.md`: the community model and moderation, JSON-LD coverage and what
+shapes fail, **how locale ambiguity is surfaced**, the copyright stance on imports, cost
+methodology and how incompleteness is shown, deviations, and open questions.
+
+Work continuously; do not stall waiting for input.

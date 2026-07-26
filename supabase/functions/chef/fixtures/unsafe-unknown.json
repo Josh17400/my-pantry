@@ -1,0 +1,13 @@
+{
+  "message": "Try this mystery spice blend.",
+  "intent": "substitute",
+  "groundedPantryIds": [],
+  "substitutions": [
+    {
+      "forIngredient": "paprika",
+      "suggestion": "special house spice mix from the market",
+      "ratio": "1:1",
+      "unknownAllergens": true
+    }
+  ]
+}

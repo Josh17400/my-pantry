@@ -55,6 +55,7 @@ function toIngredient(s: SeedIngredient): Ingredient {
     name: s.name,
     category: s.category,
     allergens: s.allergens,
+    dietaryFlags: s.dietaryFlags,
     isStaple: s.isStaple,
     defaultFormId: s.defaultFormId,
   };

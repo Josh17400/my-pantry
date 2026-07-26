@@ -28,6 +28,8 @@ export type {
   AllergenTags,
   BaseUnit,
   ConversionEdge,
+  DietaryFlag,
+  DietaryTags,
   Dimension,
   Ingredient,
   IngredientForm,
@@ -39,11 +41,21 @@ export type {
 export {
   ALLERGENS,
   ALLERGEN_SET,
+  DIETARY_FLAGS,
+  DIETARY_FLAG_SET,
   allergensDisagree,
   canAutoMergeAllergens,
+  canAutoMergeDietaryFlags,
+  canAutoMergeSafety,
+  dietaryFlagsDisagree,
+  ingredientHitsAvoidList,
   isAllergen,
+  isDietaryFlag,
   knownAllergens,
+  knownDietaryFlags,
+  safetyTagsDisagree,
   unknownAllergenTags,
+  unknownDietaryTags,
 } from './domain';
 
 // ── Units (math + registry + parse/format) ──────────────────────────────────

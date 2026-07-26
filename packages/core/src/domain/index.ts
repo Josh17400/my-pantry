@@ -16,13 +16,28 @@ export type {
   QtyBase,
 } from './types';
 
-export type { Allergen, AllergenTags } from './allergens';
+export type {
+  Allergen,
+  AllergenTags,
+  DietaryFlag,
+  DietaryTags,
+} from './allergens';
 export {
   ALLERGENS,
   ALLERGEN_SET,
+  DIETARY_FLAGS,
+  DIETARY_FLAG_SET,
   allergensDisagree,
   canAutoMergeAllergens,
+  canAutoMergeDietaryFlags,
+  canAutoMergeSafety,
+  dietaryFlagsDisagree,
+  ingredientHitsAvoidList,
   isAllergen,
+  isDietaryFlag,
   knownAllergens,
+  knownDietaryFlags,
+  safetyTagsDisagree,
   unknownAllergenTags,
+  unknownDietaryTags,
 } from './allergens';

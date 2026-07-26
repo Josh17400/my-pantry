@@ -9,17 +9,19 @@ import type {
 import { knownAllergens } from '../../src/domain';
 
 describe('domain shapes (structural smoke)', () => {
-  it('Ingredient carries allergens and defaultFormId', () => {
+  it('Ingredient carries allergens, dietaryFlags, and defaultFormId', () => {
     const allergens = ['milk'] as const;
     const ing: Ingredient = {
       id: 'parmesan',
       name: 'Parmesan',
       category: 'dairy',
       allergens,
+      dietaryFlags: [],
       isStaple: false,
       defaultFormId: 'parmesan-grated',
     };
     expect(ing.allergens).toContain('milk');
+    expect(ing.dietaryFlags).toEqual([]);
     expect(ing.defaultFormId).toBe('parmesan-grated');
     // knownAllergens helper is the closed-tag constructor for matching
     expect(knownAllergens(allergens).unknownAllergens).toBe(false);
