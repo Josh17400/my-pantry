@@ -1,5 +1,5 @@
 import { type ReactNode,useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import type { RecipeDetail, RecipeSummary } from '../db/types';
 import {
@@ -37,11 +37,21 @@ export function RecipesPage() {
     clearError,
   } = useRecipes();
   const pantry = usePantry();
-  const [filter, setFilter] = useState<FilterMode>('all');
+  const [searchParams] = useSearchParams();
+  const initialFilter: FilterMode =
+    searchParams.get('filter') === 'can-make' ? 'can-make' : 'all';
+  const [filter, setFilter] = useState<FilterMode>(initialFilter);
   const [query, setQuery] = useState('');
   const [details, setDetails] = useState<RecipeDetail[]>([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
+
+  // Keep segment in sync when arriving via home cook-now CTA.
+  useEffect(() => {
+    if (searchParams.get('filter') === 'can-make') {
+      setFilter('can-make');
+    }
+  }, [searchParams]);
 
   // Stable actions from getState — do not put the whole store in deps
   // (that re-runs every item update and livelocks the page).
@@ -245,6 +255,8 @@ export function RecipesPage() {
 
 function PageShell({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-lg pb-24 pt-2">{children}</div>
+    <div className="mx-auto w-full min-w-0 max-w-lg overflow-x-hidden px-4 pb-24 pt-2">
+      {children}
+    </div>
   );
 }

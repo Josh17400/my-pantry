@@ -52,6 +52,7 @@ export function ItemTile({
       <button
         type="button"
         onClick={onClick}
+        data-testid="item-tile"
         className={cn(
           'flex w-full min-h-tap items-center gap-3 rounded-2xl bg-surface px-3 py-2.5 text-left shadow-card transition-colors',
           'hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
@@ -89,6 +90,7 @@ export function ItemTile({
     <button
       type="button"
       onClick={onClick}
+      data-testid="item-tile"
       className={cn(
         'flex w-[7.5rem] shrink-0 flex-col rounded-card bg-surface p-2.5 text-left shadow-card transition-colors',
         'hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',

@@ -10,6 +10,11 @@ export {
   shortIngredientName,
   toItemDisplay,
 } from './display';
-export { fullGreeting, greetingPeriod, greetingPhrase } from './greeting';
+export {
+  displayNameFromUser,
+  fullGreeting,
+  greetingPeriod,
+  greetingPhrase,
+} from './greeting';
 export { HomeScreen } from './HomeScreen';
 export { useHomeScreenData } from './useHomeScreenData';

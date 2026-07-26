@@ -123,9 +123,17 @@ export function VirtualList<T>({
           const index = start + i;
           const top = offsets[index]!;
           const height = heights[index]!;
+          // Prefer a stable identity key when rows expose one (FlatRow.key).
+          const rowKey =
+            item &&
+            typeof item === 'object' &&
+            'key' in item &&
+            typeof (item as { key: unknown }).key === 'string'
+              ? (item as { key: string }).key
+              : String(index);
           return (
             <div
-              key={index}
+              key={rowKey}
               role="listitem"
               style={{
                 position: 'absolute',

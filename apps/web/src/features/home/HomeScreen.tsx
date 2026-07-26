@@ -2,16 +2,19 @@
  * Home / Overview screen — matches mockups 01–03.
  *
  * Layout (top → bottom):
- * 1. Header — Wordmark + greeting + search
- * 2. At a Glance — location cards
- * 3. Cook-now banner — findCookableRecipes count
- * 4. Recipe Inspiration — use-up prioritised rail
- * 5. Fridge Highlights / Pantry Staples — ItemTiles with provenance
- * 6. AdSlot — in-feed, free tier only
+ * 1. Header — greeting (+ settings). Wordmark is the boot splash only.
+ * 2. Segmented control — filters the home body (or navigates for Recipes)
+ * 3. At a Glance — location cards → pantry filtered by location
+ * 4. Cook-now banner → cookable recipes list
+ * 5. Recipe Inspiration → recipe detail / list
+ * 6. Fridge Highlights / Pantry Staples → item detail / filtered pantry
+ * 7. AdSlot — in-feed, free tier only
  */
 
 import { useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
+import { DEFAULT_LOCATION_IDS } from '../../db/constants';
 import type { SegmentOption } from '../../ui';
 import {
   AdSlot,
@@ -23,26 +26,30 @@ import {
   Rail,
   SegmentedControl,
   StatusBadge,
-  Wordmark,
 } from '../../ui';
 import { formatUseUpLine } from './cookable';
 import { fullGreeting } from './greeting';
-import { type GlanceCard, type HighlightItem,useHomeScreenData } from './useHomeScreenData';
+import {
+  type GlanceCard,
+  type HighlightItem,
+  useHomeScreenData,
+} from './useHomeScreenData';
 
-const OVERVIEW_SEGMENTS: SegmentOption<'overview' | 'recipes' | 'fridge' | 'pantry'>[] =
-  [
-    { value: 'overview', label: 'Overview' },
-    { value: 'recipes', label: 'Recipes' },
-    { value: 'fridge', label: 'Fridge' },
-    { value: 'pantry', label: 'Pantry' },
-  ];
+type HomeSegment = 'overview' | 'recipes' | 'fridge' | 'pantry';
 
-function SearchButton({ onClick }: { onClick?: () => void }) {
+const OVERVIEW_SEGMENTS: SegmentOption<HomeSegment>[] = [
+  { value: 'overview', label: 'Overview' },
+  { value: 'recipes', label: 'Recipes' },
+  { value: 'fridge', label: 'Fridge' },
+  { value: 'pantry', label: 'Pantry' },
+];
+
+function SettingsButton() {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Search"
+    <Link
+      to="/settings"
+      aria-label="Settings"
+      data-testid="home-settings"
       className="flex h-11 w-11 min-h-tap min-w-tap shrink-0 items-center justify-center rounded-full bg-surface shadow-card transition-colors hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       <svg
@@ -53,10 +60,10 @@ function SearchButton({ onClick }: { onClick?: () => void }) {
         strokeWidth="1.75"
         aria-hidden
       >
-        <circle cx="11" cy="11" r="6.5" />
-        <path d="M16 16l4 4" strokeLinecap="round" />
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M4.5 20a7.5 7.5 0 0 1 15 0" strokeLinecap="round" />
       </svg>
-    </button>
+    </Link>
   );
 }
 
@@ -64,8 +71,10 @@ function HomeHeader({ greeting }: { greeting: string }) {
   return (
     <header className="flex items-start justify-between gap-3 pt-safe">
       <div className="min-w-0 flex-1">
-        <Wordmark size="sm" showTagline tagline="Everything in its place." />
-        <h1 className="mt-3 font-display text-2xl font-semibold tracking-tight text-ink sm:text-[1.75rem]">
+        <h1
+          className="font-display text-2xl font-semibold tracking-tight text-ink sm:text-[1.75rem]"
+          data-testid="home-greeting"
+        >
           {greeting}
           <LeafIcon className="ml-1.5 inline-block h-5 w-5 align-[-0.15em] text-primary" />
         </h1>
@@ -73,49 +82,68 @@ function HomeHeader({ greeting }: { greeting: string }) {
           Everything you have. Everything you love to make.
         </p>
       </div>
-      <SearchButton />
+      <SettingsButton />
     </header>
   );
 }
 
-function GlanceCardView({ card }: { card: GlanceCard }) {
+function GlanceCardView({
+  card,
+  onClick,
+}: {
+  card: GlanceCard;
+  onClick?: () => void;
+}) {
   return (
-    <Card
-      tint={card.tint}
-      padding="sm"
-      className="flex min-h-[5.5rem] flex-col justify-between"
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={`glance-${card.id}`}
+      className="min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-ink">
-            {card.name}
+      <Card
+        tint={card.tint}
+        padding="sm"
+        className="flex min-h-[5.5rem] w-full flex-col justify-between transition-transform active:scale-[0.99] motion-reduce:active:scale-100"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-ink">
+              {card.name}
+            </div>
+            <div className="mt-0.5 text-xs text-ink-muted">
+              {card.count === 0
+                ? 'No items'
+                : `${card.count} item${card.count === 1 ? '' : 's'}`}
+            </div>
           </div>
-          <div className="mt-0.5 text-xs text-ink-muted">
-            {card.count === 0
-              ? 'No items'
-              : `${card.count} item${card.count === 1 ? '' : 's'}`}
-          </div>
+          {card.kind === 'favorites' ? (
+            <span className="text-primary" aria-hidden>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+                <path d="M12 21s-6.5-4.35-9.3-8.2C.8 10.2 1.2 6.8 4 5.2c2.1-1.2 4.4-.5 5.7 1.1L12 8.2l2.3-1.9c1.3-1.6 3.6-2.3 5.7-1.1 2.8 1.6 3.2 5 1.3 7.6C18.5 16.65 12 21 12 21z" />
+              </svg>
+            </span>
+          ) : (
+            <LeafIcon className="h-5 w-5 shrink-0 text-primary/40" />
+          )}
         </div>
-        {card.kind === 'favorites' ? (
-          <span className="text-primary" aria-hidden>
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-              <path d="M12 21s-6.5-4.35-9.3-8.2C.8 10.2 1.2 6.8 4 5.2c2.1-1.2 4.4-.5 5.7 1.1L12 8.2l2.3-1.9c1.3-1.6 3.6-2.3 5.7-1.1 2.8 1.6 3.2 5 1.3 7.6C18.5 16.65 12 21 12 21z" />
-            </svg>
-          </span>
-        ) : (
-          <LeafIcon className="h-5 w-5 shrink-0 text-primary/40" />
-        )}
-      </div>
-      <div className="mt-2">
-        <StatusBadge status={card.status} label={card.statusWord} showDot />
-      </div>
-    </Card>
+        <div className="mt-2">
+          <StatusBadge status={card.status} label={card.statusWord} showDot />
+        </div>
+      </Card>
+    </button>
   );
 }
 
-function AtAGlance({ cards }: { cards: GlanceCard[] }) {
+function AtAGlance({
+  cards,
+  onCardClick,
+}: {
+  cards: GlanceCard[];
+  onCardClick: (card: GlanceCard) => void;
+}) {
   return (
-    <section>
+    <section data-testid="at-a-glance">
       <div className="mb-3 flex items-baseline justify-between gap-3 px-1">
         <h2 className="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl">
           At a Glance
@@ -126,7 +154,11 @@ function AtAGlance({ cards }: { cards: GlanceCard[] }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         {cards.map((card) => (
-          <GlanceCardView key={card.id} card={card} />
+          <GlanceCardView
+            key={card.id}
+            card={card}
+            onClick={() => onCardClick(card)}
+          />
         ))}
       </div>
     </section>
@@ -145,6 +177,7 @@ function CookNowBanner({
     <button
       type="button"
       onClick={onClick}
+      data-testid="cook-now-cta"
       className={cn(
         'flex w-full min-h-tap items-center gap-3 rounded-card bg-primary px-4 py-3.5 text-left text-white shadow-card',
         'transition-transform active:scale-[0.99]',
@@ -194,13 +227,20 @@ function RecipeCard({
   title,
   useUp,
   imageUrl,
+  onClick,
 }: {
   title: string;
   useUp: string | null;
   imageUrl?: string;
+  onClick?: () => void;
 }) {
   return (
-    <article className="relative h-[9.5rem] w-[16.5rem] shrink-0 overflow-hidden rounded-card shadow-card">
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid="recipe-inspiration-card"
+      className="relative h-[9.5rem] w-[16.5rem] shrink-0 overflow-hidden rounded-card text-left shadow-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
       {imageUrl ? (
         <img
           src={imageUrl}
@@ -233,32 +273,41 @@ function RecipeCard({
           <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </span>
-    </article>
+    </button>
   );
 }
 
 function ItemRail({
   title,
   items,
+  onSeeAll,
+  onItemClick,
+  testId,
 }: {
   title: string;
   items: HighlightItem[];
+  onSeeAll?: () => void;
+  onItemClick?: (item: HighlightItem) => void;
+  testId?: string;
 }) {
   if (items.length === 0) return null;
   return (
-    <Rail title={title} onSeeAll={() => undefined}>
-      {items.map((item) => (
-        <div key={item.key} title={item.display.provenanceLabel}>
-          <ItemTile
-            name={item.name}
-            quantity={item.display.quantity}
-            status={item.display.status}
-            statusLabel={item.display.statusLabel}
-            tint={item.tint}
-          />
-        </div>
-      ))}
-    </Rail>
+    <div data-testid={testId}>
+      <Rail title={title} onSeeAll={onSeeAll}>
+        {items.map((item) => (
+          <div key={item.key} title={item.display.provenanceLabel}>
+            <ItemTile
+              name={item.name}
+              quantity={item.display.quantity}
+              status={item.display.status}
+              statusLabel={item.display.statusLabel}
+              tint={item.tint}
+              onClick={onItemClick ? () => onItemClick(item) : undefined}
+            />
+          </div>
+        ))}
+      </Rail>
+    </div>
   );
 }
 
@@ -310,9 +359,9 @@ function HomeError({
   );
 }
 
-function HomeEmptyState() {
+function HomeEmptyState({ onAddFirst }: { onAddFirst: () => void }) {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" data-testid="home-empty">
       <Card tint="sage" padding="lg" className="text-center">
         <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-surface-raised shadow-card">
           <LeafIcon className="h-7 w-7 text-primary" />
@@ -326,6 +375,8 @@ function HomeEmptyState() {
         </p>
         <button
           type="button"
+          onClick={onAddFirst}
+          data-testid="home-add-first"
           className="mt-5 inline-flex min-h-tap items-center justify-center rounded-pill bg-primary px-6 text-sm font-semibold text-white shadow-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           Add your first item
@@ -339,16 +390,42 @@ function HomeEmptyState() {
         <div className="grid grid-cols-2 gap-3">
           {(
             [
-              { name: 'Fridge', tint: 'sky' as const },
-              { name: 'Pantry', tint: 'tan' as const },
-              { name: 'Around the House', tint: 'cream' as const },
-              { name: 'Favorites', tint: 'sage' as const },
+              {
+                name: 'Fridge',
+                tint: 'sky' as const,
+                location: DEFAULT_LOCATION_IDS.fridge,
+              },
+              {
+                name: 'Pantry',
+                tint: 'tan' as const,
+                location: DEFAULT_LOCATION_IDS.pantry,
+              },
+              {
+                name: 'Around the House',
+                tint: 'cream' as const,
+                location: DEFAULT_LOCATION_IDS.aroundHouse,
+              },
+              {
+                name: 'Favorites',
+                tint: 'sage' as const,
+                location: 'favorites',
+              },
             ] as const
           ).map((loc) => (
-            <Card key={loc.name} tint={loc.tint} padding="sm" className="min-h-[5rem]">
-              <div className="text-sm font-semibold text-ink">{loc.name}</div>
-              <div className="mt-1 text-xs text-ink-muted">Ready when you are</div>
-            </Card>
+            <Link
+              key={loc.name}
+              to={
+                loc.location === 'favorites'
+                  ? '/pantry?filter=favorites'
+                  : `/pantry?location=${encodeURIComponent(loc.location)}`
+              }
+              className="min-w-0"
+            >
+              <Card tint={loc.tint} padding="sm" className="min-h-[5rem]">
+                <div className="text-sm font-semibold text-ink">{loc.name}</div>
+                <div className="mt-1 text-xs text-ink-muted">Ready when you are</div>
+              </Card>
+            </Link>
           ))}
         </div>
       </section>
@@ -370,18 +447,48 @@ function HomeEmptyState() {
  */
 export function HomeScreen() {
   const data = useHomeScreenData();
-  const [segment, setSegment] = useState<'overview' | 'recipes' | 'fridge' | 'pantry'>(
-    'overview',
-  );
+  const navigate = useNavigate();
+  const [segment, setSegment] = useState<HomeSegment>('overview');
 
   const greeting = useMemo(
     () => fullGreeting(data.greetingName),
     [data.greetingName],
   );
 
+  const openPantryLocation = (locationId: string) => {
+    void navigate(`/pantry?location=${encodeURIComponent(locationId)}`);
+  };
+
+  const openPantryItem = (ingredientId: string, formId: string) => {
+    void navigate(
+      `/pantry/${encodeURIComponent(ingredientId)}/${encodeURIComponent(formId)}`,
+    );
+  };
+
+  const onGlanceClick = (card: GlanceCard) => {
+    if (card.kind === 'favorites') {
+      void navigate('/pantry?filter=favorites');
+      return;
+    }
+    openPantryLocation(card.id);
+  };
+
+  const onSegmentChange = (next: HomeSegment) => {
+    setSegment(next);
+    // Recipes segment is a real destination; other segments filter the home body.
+    if (next === 'recipes') {
+      void navigate('/recipes');
+    }
+  };
+
+  const showOverview = segment === 'overview';
+  const showRecipes = segment === 'overview' || segment === 'recipes';
+  const showFridge = segment === 'overview' || segment === 'fridge';
+  const showPantry = segment === 'overview' || segment === 'pantry';
+
   return (
     <div
-      className="mx-auto flex w-full max-w-lg flex-col gap-6 pb-8"
+      className="mx-auto flex w-full min-w-0 max-w-lg flex-col gap-6 overflow-x-hidden px-4 pb-8"
       data-home-screen
       data-demo={data.isDemo ? 'true' : 'false'}
       data-phase={data.phase}
@@ -395,15 +502,11 @@ export function HomeScreen() {
       ) : null}
 
       {data.phase === 'empty' ? (
-        <>
-          <SegmentedControl
-            options={OVERVIEW_SEGMENTS}
-            value={segment}
-            onChange={setSegment}
-            aria-label="Home sections"
-          />
-          <HomeEmptyState />
-        </>
+        <HomeEmptyState
+          onAddFirst={() => {
+            void navigate('/pantry');
+          }}
+        />
       ) : null}
 
       {data.phase === 'ready' ? (
@@ -411,41 +514,76 @@ export function HomeScreen() {
           <SegmentedControl
             options={OVERVIEW_SEGMENTS}
             value={segment}
-            onChange={setSegment}
+            onChange={onSegmentChange}
             aria-label="Home sections"
+            className="min-w-0 w-full max-w-full"
           />
 
-          <AtAGlance cards={data.glance} />
-
-          <CookNowBanner count={data.cookNow.fullyCookableCount} />
-
-          {data.cookNow.inspiration.length > 0 ? (
-            <Rail title="Recipe Inspiration" onSeeAll={() => undefined}>
-              {data.cookNow.inspiration.map((match) => (
-                <RecipeCard
-                  key={match.recipe.id}
-                  title={match.recipe.title}
-                  useUp={formatUseUpLine(match)}
-                  imageUrl={match.recipe.imageUrl}
-                />
-              ))}
-            </Rail>
+          {showOverview ? (
+            <AtAGlance cards={data.glance} onCardClick={onGlanceClick} />
           ) : null}
 
-          <ItemRail title="Fridge Highlights" items={data.fridgeHighlights} />
-          <ItemRail title="Pantry Staples" items={data.pantryStaples} />
+          {showRecipes ? (
+            <CookNowBanner
+              count={data.cookNow.fullyCookableCount}
+              onClick={() => {
+                void navigate('/recipes?filter=can-make');
+              }}
+            />
+          ) : null}
+
+          {showRecipes && data.cookNow.inspiration.length > 0 ? (
+            <div data-testid="recipe-inspiration">
+              <Rail
+                title="Recipe Inspiration"
+                onSeeAll={() => {
+                  void navigate('/recipes');
+                }}
+              >
+                {data.cookNow.inspiration.map((match) => (
+                  <RecipeCard
+                    key={match.recipe.id}
+                    title={match.recipe.title}
+                    useUp={formatUseUpLine(match)}
+                    imageUrl={match.recipe.imageUrl}
+                    onClick={() => {
+                      void navigate(`/recipes/${encodeURIComponent(match.recipe.id)}`);
+                    }}
+                  />
+                ))}
+              </Rail>
+            </div>
+          ) : null}
+
+          {showFridge ? (
+            <ItemRail
+              title="Fridge Highlights"
+              testId="fridge-highlights"
+              items={data.fridgeHighlights}
+              onSeeAll={() => openPantryLocation(DEFAULT_LOCATION_IDS.fridge)}
+              onItemClick={(item) => openPantryItem(item.ingredientId, item.formId)}
+            />
+          ) : null}
+
+          {showPantry ? (
+            <ItemRail
+              title="Pantry Staples"
+              testId="pantry-staples"
+              items={data.pantryStaples}
+              onSeeAll={() => openPantryLocation(DEFAULT_LOCATION_IDS.pantry)}
+              onItemClick={(item) => openPantryItem(item.ingredientId, item.formId)}
+            />
+          ) : null}
 
           {/* In-feed ad — well clear of tab bar (AdMob policy). Free tier only. */}
-          {/* paidTier omitted — AdSlot reads entitlement store (free shows, Pro hides) */}
-          <AdSlot className="mt-1" />
+          {showOverview ? <AdSlot className="mt-1" /> : null}
 
           {data.isDemo ? (
             <p className="px-1 text-center text-[0.65rem] text-ink-muted/80">
-              Demo pantry (track G fixtures) · web has no local SQLite
+              Demo pantry · design review fixtures (dev only)
             </p>
           ) : null}
 
-          {/* Provenance legend for drifted tiles — trust layer */}
           <p className="px-1 text-center text-[0.65rem] text-ink-muted">
             Quantities marked ⚠ or ~ are estimates — open an item to re-verify
           </p>

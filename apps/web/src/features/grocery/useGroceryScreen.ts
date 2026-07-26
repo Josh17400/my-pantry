@@ -121,7 +121,7 @@ export function useGroceryScreen(): GroceryScreenState {
   const groceryError = useGroceryStore((s) => s.error);
   const pantryError = usePantryStore((s) => s.error);
 
-  const [mode, setMode] = useState<GroceryScreenMode>('demo');
+  const [mode, setMode] = useState<GroceryScreenMode>('live');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<GroceryListItemRow[]>([]);
@@ -302,18 +302,34 @@ export function useGroceryScreen(): GroceryScreenState {
     try {
       if (hasActiveRepository()) {
         await buildLive();
-      } else {
+      } else if (import.meta.env.DEV) {
+        // Demo list only for local design review — production first-run is empty.
         buildDemo();
+      } else {
+        setMode('live');
+        setItems([]);
+        setShoppingTripId(null);
+        setReorderPending([]);
+        setError(null);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      try {
-        buildDemo();
-        setError(`Live data unavailable — showing demo. (${msg})`);
-      } catch (demoErr) {
-        setError(
-          demoErr instanceof Error ? demoErr.message : String(demoErr),
-        );
+      // Never fall back to fabricated groceries outside DEV.
+      if (import.meta.env.DEV) {
+        try {
+          buildDemo();
+          setError(`Live data unavailable — showing demo. (${msg})`);
+        } catch (demoErr) {
+          setError(
+            demoErr instanceof Error ? demoErr.message : String(demoErr),
+          );
+        }
+      } else {
+        setMode('live');
+        setItems([]);
+        setShoppingTripId(null);
+        setReorderPending([]);
+        setError(msg);
       }
     } finally {
       setLoading(false);

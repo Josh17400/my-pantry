@@ -1,6 +1,6 @@
 import { DEFAULT_LOW_THRESHOLD_PCT } from '@larder/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { useLocations, usePantry } from '../../state';
 import { hasActiveRepository } from '../../state';
@@ -44,6 +44,10 @@ export type PantryScreenProps = {
  * Pantry list — grouped by location, searchable, filterable, virtualized.
  */
 export function PantryScreen({ nowMs }: PantryScreenProps) {
+  const [searchParams] = useSearchParams();
+  const locationFilter = searchParams.get('location');
+  const favoritesOnly = searchParams.get('filter') === 'favorites';
+
   const {
     items,
     loading,
@@ -78,10 +82,38 @@ export function PantryScreen({ nowMs }: PantryScreenProps) {
     void refresh();
   }, [refresh]);
 
-  const filtered = useMemo(
-    () => filterPantryItems(items, { query, filter, nowMs }),
-    [items, query, filter, nowMs],
-  );
+  // Location ids for a root + its children (Around the House includes spices etc.)
+  const locationScopeIds = useMemo(() => {
+    if (!locationFilter) return null;
+    const childIds = locations
+      .filter((l) => l.parentId === locationFilter)
+      .map((l) => l.id);
+    return new Set([locationFilter, ...childIds]);
+  }, [locationFilter, locations]);
+
+  const locationTitle = useMemo(() => {
+    if (favoritesOnly) return 'Favorites';
+    if (!locationFilter) return null;
+    return locations.find((l) => l.id === locationFilter)?.name ?? null;
+  }, [favoritesOnly, locationFilter, locations]);
+
+  const filtered = useMemo(() => {
+    let pool = items;
+    if (locationScopeIds) {
+      pool = pool.filter(
+        (i) => i.locationId != null && locationScopeIds.has(i.locationId),
+      );
+    }
+    if (favoritesOnly) {
+      pool = pool.filter(
+        (i) =>
+          i.qtyBase > 0 &&
+          i.unverifiedCookCount === 0 &&
+          i.lastVerifiedAt != null,
+      );
+    }
+    return filterPantryItems(pool, { query, filter, nowMs });
+  }, [items, query, filter, nowMs, locationScopeIds, favoritesOnly]);
 
   const flatRows = useMemo(() => {
     const groups = groupByLocation(filtered, locations);
@@ -142,15 +174,25 @@ export function PantryScreen({ nowMs }: PantryScreenProps) {
   const showError = Boolean(error || locError);
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col bg-bg pb-safe-b pt-safe-t">
+    <div className="relative flex min-h-[100dvh] min-w-0 flex-col overflow-x-hidden bg-bg pb-safe-b pt-safe-t">
       <header className="shrink-0 px-4 pb-3 pt-4">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h1 className="font-display text-2xl font-semibold text-ink">
-            Pantry
-          </h1>
+          <div className="min-w-0">
+            <h1 className="font-display text-2xl font-semibold text-ink">
+              {locationTitle ?? 'Pantry'}
+            </h1>
+            {locationTitle ? (
+              <Link
+                to="/pantry"
+                className="text-xs font-medium text-primary"
+              >
+                All locations
+              </Link>
+            ) : null}
+          </div>
           <Link
             to="/locations"
-            className="min-h-tap rounded-pill px-3 text-sm font-medium text-primary"
+            className="min-h-tap shrink-0 rounded-pill px-3 text-sm font-medium text-primary"
           >
             Locations
           </Link>

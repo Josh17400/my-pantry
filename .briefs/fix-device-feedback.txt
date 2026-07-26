@@ -1,0 +1,122 @@
+# BRIEF: Fix defects found testing on a real iPhone
+
+## Context
+
+**The Good Pantry** is installed on the owner's device via TestFlight and they walked the app.
+Everything below is a **confirmed real defect**, reproduced in code — not speculation. The
+screens were built by parallel tracks and never wired together, so much of the app is a
+static mockup with demo data.
+
+Read `SPEC.md`, `DESIGN.md`, and the mockups in `design/references/`.
+
+## Scope
+
+`apps/web/src/**` — features, routes, `App.tsx`, `main.tsx`.
+**Do NOT touch** `packages/core/**` (279 tests, read-only), `supabase/**`, or `native/**`.
+
+---
+
+## 1. Demo data ships to real users — CRITICAL
+
+`main.tsx:39` calls `repo.initialize({ loadFixtures: true })` **unconditionally**. A brand-new
+user opens the app and finds a stranger's groceries in their pantry, fridge and "around the
+house", plus fake grocery lists.
+
+- Load fixtures **only** when `import.meta.env.DEV` (browser dev), never in a production or
+  native build.
+- A real first run must start **empty**, with a genuine first-run experience that invites
+  adding items — not a blank screen of zeros. `SPEC.md` calls the cold start out explicitly:
+  an empty pantry is the default state, not an edge case.
+
+## 2. "Alex" is hardcoded
+
+`greeting.ts` has `DEFAULT_NAME = 'Alex'` and `useHomeScreenData.ts:509` passes `'Alex'`.
+
+- Use the signed-in user's name when there is one.
+- When there is not, greet **without** a name — "Good afternoon" alone. Do not invent one.
+
+## 3. The splash/header sequence
+
+Owner's words: *"on load up it should say The Good Pantry, and then once the app loads it
+should just say Good afternoon, <name>."*
+
+Right now the header shows the wordmark **and** tagline **and** greeting stacked together,
+which is why it reads as cluttered. Show the wordmark during boot, then the greeting as the
+screen header once loaded.
+
+## 4. The entire home screen is inert — CRITICAL
+
+Nothing on Home navigates. Every one of these is dead:
+
+- **At a Glance** location cards (Fridge / Pantry / Around the House / Favorites)
+  → must open that location's filtered pantry view
+- **"Make something amazing — you have everything for N recipes"**
+  → must open the cookable-recipes list
+- **Recipe Inspiration** cards and **See all** → recipe detail / recipe list
+- **Fridge Highlights** cards and **See all** → item detail / filtered pantry
+- **Pantry Staples** cards and **See all** → same
+
+`HomeScreen.tsx` defines optional `onClick?` props that are never passed. Wire them all.
+
+## 5. The segmented control does nothing
+
+Overview / Recipes / Fridge / Pantry changes nothing when tapped. Either make it filter the
+home view for real, or remove it. **Do not ship a control that does nothing** — it is worse
+than absent, because it teaches users the app is broken.
+
+## 6. Pantry list is wrong
+
+- Rows show **"fridge" repeated** instead of the item name — a field is being rendered from
+  the wrong property.
+- Tapping a row **navigates to Home** instead of the item detail. Check the route: it should
+  be `/pantry/:id`.
+
+## 7. Horizontal overflow
+
+The screen scrolls left/right. Something exceeds the viewport width. Find it and fix it —
+add an overflow guard so it cannot regress. Every screen must fit 320px with no horizontal
+scroll; only deliberately horizontal rails may scroll, inside their own container.
+
+## 8. Tab bar: back to 4 tabs + FAB
+
+Adding a 5th tab ("Me") broke the layout — `TabBar` splits `mid = ceil(n/2)`, so with 5 tabs
+the FAB overlaps the third tab and reads as a duplicate add button.
+
+The mockups show **either** 5 tabs and no FAB **or** 4 tabs with a FAB. Take the latter:
+
+- Tabs: Home · Recipes · Pantry · Lists, FAB centred.
+- Move **Settings/Me** to an icon in the app header (mockup-01 and -03 both have a top-right
+  icon there).
+- Settings must stay reachable — it is the only route to Diagnostics → DB Health, and before
+  this it was completely stranded. **Verify it is reachable after your change.**
+
+## 9. Lists shows fabricated data
+
+Same root cause as 1 — fixtures. Once fixtures are dev-only, verify the grocery list starts
+empty with a sensible empty state.
+
+---
+
+## Verification — a passing route walk is NOT sufficient
+
+`screenshot-routes.mjs` reported every route "ok" while the home screen was entirely inert,
+because it only checks for rendered text. That is the exact failure this round is correcting.
+
+**Extend it, or add a companion script, that asserts INTERACTIVITY:**
+- click each At a Glance card, the cook-now CTA, each See all, and a pantry row
+- assert the URL actually changed
+- assert no horizontal overflow (`scrollWidth <= clientWidth`) on every route at 320px
+- assert a fresh profile (no fixtures) shows empty states, not demo groceries
+
+Then:
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+```
+279 core + 231 web must stay green.
+
+## Report
+
+`reports/fix-device-feedback.md`: each numbered defect, what caused it, what you changed, and
+how the new checks prove it. Note anything you could not reproduce.
+
+Work continuously; do not stall waiting for input.

@@ -8,12 +8,16 @@
   html {
     -webkit-tap-highlight-color: transparent;
     text-size-adjust: 100%;
+    /* Global overflow guard — only intentional rails may scroll sideways. */
+    overflow-x: hidden;
   }
 
   html,
   body,
   #root {
     min-height: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   body {

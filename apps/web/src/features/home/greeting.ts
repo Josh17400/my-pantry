@@ -1,11 +1,9 @@
 /**
- * Time-of-day greeting — "Good morning, Alex".
- * Pure; accepts injected clock for tests.
+ * Time-of-day greeting — "Good morning, Sam" or "Good afternoon" alone.
+ * Pure; accepts injected clock for tests. Never invents a default name.
  */
 
 export type GreetingPeriod = 'morning' | 'afternoon' | 'evening' | 'night';
-
-const DEFAULT_NAME = 'Alex';
 
 export function greetingPeriod(now: Date = new Date()): GreetingPeriod {
   const hour = now.getHours();
@@ -30,11 +28,38 @@ export function greetingPhrase(
   }
 }
 
+/**
+ * Full greeting. When `name` is missing/blank, returns the period phrase alone
+ * ("Good afternoon") — never invents "Alex" or any placeholder person.
+ */
 export function fullGreeting(
-  name: string = DEFAULT_NAME,
+  name?: string | null,
   now: Date = new Date(),
 ): string {
-  return `${greetingPhrase(greetingPeriod(now))}, ${name}`;
+  const phrase = greetingPhrase(greetingPeriod(now));
+  const trimmed = name?.trim();
+  if (!trimmed) return phrase;
+  return `${phrase}, ${trimmed}`;
 }
 
-export const DEFAULT_USER_DISPLAY_NAME = DEFAULT_NAME;
+/**
+ * Best-effort display name from auth fields.
+ * Prefers explicit display name; otherwise email local-part (capitalized).
+ * Returns null when nothing usable is available.
+ */
+export function displayNameFromUser(user: {
+  email?: string | null;
+  displayName?: string | null;
+} | null | undefined): string | null {
+  if (!user) return null;
+  const explicit = user.displayName?.trim();
+  if (explicit) return explicit;
+  const email = user.email?.trim();
+  if (!email) return null;
+  const local = email.split('@')[0]?.trim();
+  if (!local) return null;
+  // "jane.doe" → "Jane"
+  const first = local.split(/[._+-]/)[0] ?? local;
+  if (!first) return null;
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}

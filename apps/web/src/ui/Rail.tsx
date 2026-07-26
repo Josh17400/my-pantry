@@ -35,13 +35,15 @@ export function Rail({
             <button
               type="button"
               onClick={onSeeAll}
+              data-testid="rail-see-all"
               className="min-h-tap shrink-0 px-1 text-sm font-medium text-ink-muted transition-colors hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               {seeAllLabel}
             </button>
           ) : null)}
       </div>
-      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 scrollbar-none">
+      {/* Intentional horizontal rail only — page shell must not scroll sideways. */}
+      <div className="-mx-1 flex max-w-full gap-3 overflow-x-auto px-1 pb-1 scrollbar-none">
         {children}
       </div>
     </section>

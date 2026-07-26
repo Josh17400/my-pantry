@@ -12,18 +12,43 @@ import {
   locationStatusWord,
   toItemDisplay,
 } from './display';
-import { fullGreeting, greetingPeriod } from './greeting';
+import {
+  displayNameFromUser,
+  fullGreeting,
+  greetingPeriod,
+} from './greeting';
 
 describe('greeting', () => {
-  it('returns morning before noon', () => {
+  it('returns morning before noon with a name', () => {
     const d = new Date('2026-07-26T09:00:00');
     expect(greetingPeriod(d)).toBe('morning');
-    expect(fullGreeting('Alex', d)).toBe('Good morning, Alex');
+    expect(fullGreeting('Sam', d)).toBe('Good morning, Sam');
   });
 
   it('returns afternoon midday', () => {
     const d = new Date('2026-07-26T14:00:00');
     expect(greetingPeriod(d)).toBe('afternoon');
+  });
+
+  it('omits the name when none is provided', () => {
+    const d = new Date('2026-07-26T14:00:00');
+    expect(fullGreeting(null, d)).toBe('Good afternoon');
+    expect(fullGreeting(undefined, d)).toBe('Good afternoon');
+    expect(fullGreeting('  ', d)).toBe('Good afternoon');
+  });
+
+  it('never invents a default name', () => {
+    const d = new Date('2026-07-26T09:00:00');
+    expect(fullGreeting(null, d)).not.toMatch(/Alex/i);
+    expect(fullGreeting(null, d)).toBe('Good morning');
+  });
+
+  it('derives a display name from email local-part', () => {
+    expect(displayNameFromUser({ email: 'jane.doe@example.com' })).toBe('Jane');
+    expect(
+      displayNameFromUser({ email: 'x@y.com', displayName: 'Alexandra' }),
+    ).toBe('Alexandra');
+    expect(displayNameFromUser(null)).toBeNull();
   });
 });
 

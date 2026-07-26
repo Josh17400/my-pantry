@@ -33,7 +33,8 @@ export function SegmentedControl<T extends string = string>({
       role="tablist"
       aria-label={ariaLabel}
       className={cn(
-        'flex gap-1 overflow-x-auto rounded-pill bg-surface p-1 shadow-card scrollbar-none',
+        // min-w-0 keeps the pill rail from expanding the page (flex overflow trap).
+        'flex min-w-0 w-full max-w-full gap-1 overflow-x-auto rounded-pill bg-surface p-1 shadow-card scrollbar-none',
         className,
       )}
     >
@@ -47,7 +48,7 @@ export function SegmentedControl<T extends string = string>({
             aria-selected={selected}
             onClick={() => onChange(opt.value)}
             className={cn(
-              'inline-flex min-h-tap shrink-0 items-center justify-center gap-1.5 rounded-pill px-3.5 py-2 text-sm font-medium transition-colors',
+              'inline-flex min-h-tap min-w-0 flex-1 items-center justify-center gap-1.5 rounded-pill px-2 py-2 text-xs font-medium transition-colors sm:px-3.5 sm:text-sm',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
               selected
                 ? 'bg-primary text-white shadow-sm'

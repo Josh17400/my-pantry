@@ -6,10 +6,21 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#fafafa" />
+    <!-- Matches the app canvas so the status bar and PWA chrome blend in. -->
+    <meta name="theme-color" content="#ECEAE4" />
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
     <title>The Good Pantry</title>
   </head>
-  <body class="bg-zinc-50 text-zinc-900 antialiased">
+  <!--
+    bg-bg / text-ink are the design-system tokens (warm cream #ECEAE4, warm
+    near-black #1F1D18). This previously carried Vite's default bg-zinc-50
+    text-zinc-900 — cool zinc grey, which fights the warm palette everywhere.
+  -->
+  <body class="bg-bg text-ink antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

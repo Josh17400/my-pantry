@@ -33,6 +33,13 @@ export function PantryItemRow({
   className,
   onSelect,
 }: PantryItemRowProps) {
+  // Always the catalog ingredient name — never locationName / location id.
+  // Fallback chain if a join failed: explicit name → ingredientId (humanized).
+  const displayName =
+    (item.ingredientName && item.ingredientName.trim()) ||
+    item.ingredientId.replace(/-/g, ' ') ||
+    'Item';
+
   const fields = {
     lastVerifiedAt: item.lastVerifiedAt,
     unverifiedCookCount: item.unverifiedCookCount,
@@ -52,13 +59,16 @@ export function PantryItemRow({
   const body = (
     <>
       <PlaceholderThumb
-        name={item.ingredientName}
-        tint={tintFor(item.ingredientName)}
+        name={displayName}
+        tint={tintFor(displayName)}
         size="sm"
       />
       <div className="min-w-0 flex-1">
-        <div className="truncate font-sans text-sm font-semibold text-ink">
-          {item.ingredientName}
+        <div
+          className="truncate font-sans text-sm font-semibold text-ink"
+          data-testid="pantry-item-name"
+        >
+          {displayName}
         </div>
         <div className="flex min-w-0 items-baseline gap-1.5">
           <span className="shrink-0 text-xs tabular-nums text-ink-muted">
@@ -79,12 +89,16 @@ export function PantryItemRow({
     className,
   );
 
+  // Detail route is /pantry/:ingredientId/:formId (composite pantry key).
+  const detailTo = `/pantry/${encodeURIComponent(item.ingredientId)}/${encodeURIComponent(item.formId)}`;
+
   if (onSelect) {
     return (
       <button
         type="button"
         className={rowClass}
         onClick={() => onSelect(item)}
+        data-testid="pantry-item-row"
       >
         {body}
       </button>
@@ -92,10 +106,7 @@ export function PantryItemRow({
   }
 
   return (
-    <Link
-      to={`/pantry/${encodeURIComponent(item.ingredientId)}/${encodeURIComponent(item.formId)}`}
-      className={rowClass}
-    >
+    <Link to={detailTo} className={rowClass} data-testid="pantry-item-row">
       {body}
     </Link>
   );

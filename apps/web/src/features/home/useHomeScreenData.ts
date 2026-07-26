@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { Recipe } from '../../../../../packages/core/src/recipes/types.ts';
+import { getAuthClient } from '../../auth';
 import { DEFAULT_LOCATION_IDS } from '../../db/constants';
 import type { LocationRow, PantryItemView } from '../../db/types';
 import {
@@ -31,6 +32,7 @@ import {
   shortIngredientName,
   toItemDisplay,
 } from './display';
+import { displayNameFromUser } from './greeting';
 
 /** Stable empty fallbacks so demo-mode deps don't change identity every render. */
 const EMPTY_PANTRY_ITEMS: PantryItemView[] = [];
@@ -50,6 +52,8 @@ export type GlanceCard = {
 export type HighlightItem = {
   key: string;
   name: string;
+  ingredientId: string;
+  formId: string;
   display: ItemDisplay;
   tint: 'sage' | 'tan' | 'sky' | 'cream';
 };
@@ -59,7 +63,8 @@ export type HomeScreenData = {
   error: string | null;
   /** true when using fixture demo (no active repo) */
   isDemo: boolean;
-  greetingName: string;
+  /** Signed-in display name, or null → greet without a name */
+  greetingName: string | null;
   glance: GlanceCard[];
   cookNow: CookNowResult;
   fridgeHighlights: HighlightItem[];
@@ -268,6 +273,8 @@ function pickHighlights(
   return pool.slice(0, limit).map((item, i) => ({
     key: `${item.ingredientId}:${item.formId}`,
     name: shortIngredientName(item.ingredientName),
+    ingredientId: item.ingredientId,
+    formId: item.formId,
     display: toItemDisplay(item, nowMs),
     tint: TINT_CYCLE[i % TINT_CYCLE.length]!,
   }));
@@ -283,8 +290,9 @@ function shouldUseDemo(): boolean {
       return false; // force empty via no demo + no data
     }
   }
-  // Web companion: no repo → demo fixtures for design review
-  return !hasActiveRepository();
+  // Demo fixtures only in browser DEV when no repo — never ship stranger's groceries
+  // to production or native first-run users.
+  return import.meta.env.DEV && !hasActiveRepository();
 }
 
 export function useHomeScreenData(): HomeScreenData {
@@ -298,8 +306,26 @@ export function useHomeScreenData(): HomeScreenData {
   );
   const [bootstrapped, setBootstrapped] = useState(false);
   const [recipeLoadError, setRecipeLoadError] = useState<string | null>(null);
+  const [greetingName, setGreetingName] = useState<string | null>(null);
 
   const useDemo = shouldUseDemo();
+
+  // Resolve signed-in name when available; never invent a default.
+  useEffect(() => {
+    const auth = getAuthClient();
+    let cancelled = false;
+    void auth.initialize().then((state) => {
+      if (cancelled) return;
+      setGreetingName(displayNameFromUser(state.session?.user ?? null));
+    });
+    const unsub = auth.subscribe((state) => {
+      setGreetingName(displayNameFromUser(state.session?.user ?? null));
+    });
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, []);
 
   const reload = useCallback(() => {
     setBootstrapped(false);
@@ -506,7 +532,7 @@ export function useHomeScreenData(): HomeScreenData {
     phase,
     error: storeError,
     isDemo: useDemo,
-    greetingName: 'Alex',
+    greetingName,
     glance,
     cookNow,
     fridgeHighlights,

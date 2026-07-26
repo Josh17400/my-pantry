@@ -52,27 +52,18 @@ const icon = {
       <path d="m4 6 1 1 1.5-2M4 12l1 1 1.5-2M4 18l1 1 1.5-2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
-  me: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <circle cx="12" cy="8" r="3.5" />
-      <path d="M4.5 20a7.5 7.5 0 0 1 15 0" strokeLinecap="round" />
-    </svg>
-  ),
 };
 
 /*
-  Five tabs, matching mockup-01 (Home · Recipes · Inventory · Lists · Me).
-  "Me" is not cosmetic: Settings was only linked from Paywall and Privacy, and
-  Privacy links back to Settings — a closed loop with no entrance. On a native
-  build there is no address bar, so Settings, DB Health, the barcode scanner and
-  the design gallery were all unreachable.
+  Four tabs + centre FAB (mockup-03 style). Five tabs + FAB overlaps the third
+  tab because TabBar splits mid = ceil(n/2). Settings/Me lives in the home
+  header (and remains linked from Privacy/Paywall).
 */
 const TABS = [
   { id: '/', label: 'Home', icon: icon.home },
   { id: '/recipes', label: 'Recipes', icon: icon.recipes },
   { id: '/pantry', label: 'Pantry', icon: icon.pantry },
   { id: '/grocery', label: 'Lists', icon: icon.lists },
-  { id: '/settings', label: 'Me', icon: icon.me },
 ] as const;
 
 /** Longest matching tab prefix, so /recipes/123/cook still highlights Recipes. */
@@ -134,14 +125,17 @@ function AppShell({ children }: { children: ReactNode }) {
   const [addOpen, setAddOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg">
+    <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-bg">
       {/*
         Phone-first: the column stays phone-width even on a desktop browser.
         pb-10 clears the FAB, which is translated up over the tab bar and would
         otherwise clip the last row of any scrolling list.
+        overflow-x-hidden + min-w-0 guard against horizontal page scroll at 320px.
       */}
-      <main className="mx-auto w-full max-w-md flex-1 pb-10">{children}</main>
-      <div className="sticky bottom-0 mx-auto w-full max-w-md">
+      <main className="mx-auto w-full min-w-0 max-w-md flex-1 overflow-x-hidden pb-10">
+        {children}
+      </main>
+      <div className="sticky bottom-0 mx-auto w-full min-w-0 max-w-md">
         <TabBar
           tabs={TABS}
           activeId={activeTabFor(pathname)}
@@ -205,7 +199,11 @@ export function App() {
         <Route path="/" element={<HomePage />} />
 
         <Route path="/pantry" element={<PantryPage />} />
-        <Route path="/pantry/:id" element={<PantryItemPage />} />
+        {/* Composite key: ingredient + form — matches PantryItemRow + PantryItemScreen */}
+        <Route
+          path="/pantry/:ingredientId/:formId"
+          element={<PantryItemPage />}
+        />
         <Route path="/locations" element={<LocationsPage />} />
         <Route path="/barcode" element={<BarcodePage />} />
 

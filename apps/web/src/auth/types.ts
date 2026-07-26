@@ -6,6 +6,8 @@
 export type AuthUser = {
   id: string;
   email: string | null;
+  /** Optional profile name from provider metadata (may be null). */
+  displayName?: string | null;
 };
 
 export type AuthSession = {
