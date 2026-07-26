@@ -1,0 +1,97 @@
+# BRIEF: M1 Track L — a browser dev driver so the app is reviewable without a device
+
+## The problem
+
+Every product screen is built (home, pantry, recipes, cook flow, grocery, quick items) and all
+routes render. But in a browser they all show *"Pantry unavailable — the data layer is not
+connected on this surface yet."*
+
+That is architecturally correct: web is an online companion and `drivers/web.ts` is a Supabase
+stub that throws `NotConfiguredError`. But the practical consequence is that **the app cannot
+be reviewed or iterated on at all without a native device build** — and the iOS build is
+currently blocked on a missing certificate password.
+
+That is unacceptable for the dev loop. Fix it.
+
+## The solution — and why this one
+
+Do **not** revisit sqlite-wasm. A previous track already investigated `jeep-sqlite` and
+documented the outcome in `reports/m1-replatform.md`: it does **not** need COOP/COEP (good
+news), but it fails under Vite with a `WebAssembly.instantiate` `LinkError` from a sql.js
+glue/wasm mismatch. Do not re-fight that.
+
+Instead, implement the repository interface **in plain TypeScript over IndexedDB** (or in
+memory with an IndexedDB persistence layer). No SQLite, no wasm, no bundler archaeology.
+
+`apps/web/src/db/repository.ts` exists exactly so the storage engine can be swapped. This is
+that swap. It is the cheapest correct answer.
+
+## Scope
+
+You own:
+- `apps/web/src/db/drivers/dev.ts` (new) and any helpers it needs
+- `apps/web/src/db/index.ts` (driver selection only)
+- tests for the above
+
+**Do NOT touch** `packages/core/**` (248 tests — read-only), `drivers/native.ts` (the real
+offline path), `src/ui/**`, `src/features/**`, `src/routes/**`, or `App.tsx`.
+
+## Requirements
+
+1. **Implement the full `PantryRepository` interface** — whatever the native driver implements,
+   this must too. Same method signatures, same semantics, same return shapes.
+
+2. **Semantics must match the native driver.** In particular the ledger projection must be
+   computed by calling **`foldLedger` from `@larder/core`**, exactly as the native driver does.
+   Do not approximate it, and do not write a second fold. If screens behave differently between
+   dev and native, this driver is worse than useless because it will teach us wrong things.
+
+3. **Selection rule:** native (`Capacitor.isNativePlatform()`) → `drivers/native.ts`, unchanged.
+   Browser → this dev driver **in development only**. In a production web build, keep the
+   existing Supabase-direct companion behavior — do not ship a fake local database to real
+   users. Gate on `import.meta.env.DEV` (state clearly in the report what you gated on).
+
+4. **Seeded on first use** with the same `packages/core` seed data the native path uses, plus
+   the dev fixture pantry from track G, so screens open onto a realistic kitchen rather than an
+   empty one.
+
+5. **Persist across reloads** via IndexedDB, so iterating on a screen does not reset state every
+   refresh. Provide an obvious reset (a `?reset` query param or an exported function) and say
+   which in the report.
+
+## Verification — this is the real acceptance test
+
+After wiring, run the route walker and confirm the screens show **real content**, not the
+unavailable panel:
+
+```
+npm run build
+node scripts/screenshot-routes.mjs        # from apps/web
+```
+
+Every route must render actual data. `/pantry` must list items; `/recipes` must list recipes;
+`/grocery` must show a list. Screenshots land in `reports/screens/`.
+
+Then exercise the highest-value path end to end in the browser and confirm it works:
+**open a recipe → cook → preview shows need/have/short → confirm → the pantry quantity actually
+decreases.** That loop is the entire product thesis. If it does not work, say so plainly.
+
+Also:
+```
+npm run typecheck && npm run test      # 248 core + 102 web must stay green
+```
+
+## Constraints
+
+TypeScript `strict`, no `any`. No new heavy dependencies — `idb` is acceptable if it genuinely
+helps; raw IndexedDB is fine too. Create no git commits.
+
+## Report
+
+`reports/m1-l-devdriver.md`: the storage design, exactly how driver selection is gated, how
+projection parity with native is guaranteed, seeding and reset, the end-to-end cook-loop result
+(with the before/after pantry quantity), any screen that turned out broken once real data
+appeared — **report those honestly, they are the point of this exercise** — deviations, and
+open questions.
+
+Work continuously; do not stall waiting for input.

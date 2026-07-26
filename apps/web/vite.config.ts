@@ -31,5 +31,13 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: true,
+    rollupOptions: {
+      // Standalone grocery preview for screenshot (shell wiring is another track)
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        groceryPreview: path.resolve(__dirname, 'grocery-preview.html'),
+        pantryPreview: path.resolve(__dirname, 'pantry-preview.html'),
+      },
+    },
   },
 });
