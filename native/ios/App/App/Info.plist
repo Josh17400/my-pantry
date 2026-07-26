@@ -49,6 +49,35 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+
+	<!--
+	  REQUIRED BY THE GOOGLE MOBILE ADS SDK.
+
+	  If GADApplicationIdentifier is missing, the SDK raises an uncaught
+	  exception during application launch and iOS kills the process. This is a
+	  hard crash on startup, not a degraded ad — it is what crashed the first
+	  TestFlight build.
+
+	  This is Google's PUBLIC TEST app id. Replace it with the real one from
+	  the AdMob console before shipping to the App Store; leaving the test id in
+	  a production release serves no ads and violates AdMob policy.
+	-->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+
+	<!--
+	  iOS terminates an app that touches these capabilities without a usage
+	  string. Each of these is reachable in the product, so each must be present
+	  even before the feature is used.
+	-->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>The Good Pantry asks permission so ads shown in the free version can be more relevant. Declining changes nothing about how the app works.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>The Good Pantry uses the camera to scan grocery receipts and barcodes so items are added to your pantry automatically.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>The Good Pantry can read a receipt photo from your library so you can add groceries without retaking it.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>The Good Pantry can save a photo of a recipe you create.</string>
 </dict>
 </plist>
 
