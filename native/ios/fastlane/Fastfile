@@ -39,7 +39,7 @@ platform :ios do
     )
 
     build_number = ENV["BUILD_NUMBER"] || Time.now.strftime("%Y%m%d%H%M")
-    bundle_id = "com.mypantry.app"
+    bundle_id = "com.josh17400.mypantry"
 
     # Xcode's AUTOMATIC signing archives with a Development profile first,
     # which requires >=1 registered device — this team may have none (no Mac).
@@ -105,7 +105,7 @@ platform :ios do
     )
 
     # FIRST-RUN NOTE: this fails with "Could not find app" until the app
-    # record (bundle id com.mypantry.app) exists in App Store Connect.
+    # record (bundle id com.josh17400.mypantry) exists in App Store Connect.
     upload_to_testflight(
       api_key: api_key,
       skip_waiting_for_build_processing: true

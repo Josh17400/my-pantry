@@ -1,4 +1,4 @@
-package com.mypantry.app;
+package com.josh17400.mypantry;
 
 import com.getcapacitor.BridgeActivity;
 

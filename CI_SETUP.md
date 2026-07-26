@@ -13,7 +13,7 @@ secrets, same cert-persistence pattern, same failure modes.
 | Field | Value |
 |---|---|
 | App name | My Pantry |
-| Bundle id | `com.mypantry.app` |
+| Bundle id | `com.josh17400.mypantry` |
 | Capacitor config | `native/capacitor.config.json` |
 | Fastlane Appfile | `native/ios/fastlane/Appfile` |
 
@@ -69,7 +69,7 @@ automatically each run via the API key.
 
 ## 3. One-time App Store Connect setup
 
-1. Register bundle id `com.mypantry.app` (developer.apple.com → Identifiers).
+1. Register bundle id `com.josh17400.mypantry` (developer.apple.com → Identifiers).
    Cloud signing can often auto-register it, but doing it manually avoids a
    first-run surprise.
 2. Create the app record in App Store Connect (My Apps → "+") with that

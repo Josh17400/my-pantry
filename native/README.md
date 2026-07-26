@@ -5,7 +5,7 @@ inside it).
 
 | Item | Value |
 |---|---|
-| appId | `com.mypantry.app` |
+| appId | `com.josh17400.mypantry` |
 | appName | My Pantry |
 | webDir | `../apps/web/dist` |
 | Capacitor | 8.x |
