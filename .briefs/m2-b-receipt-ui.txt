@@ -1,0 +1,98 @@
+# BRIEF: M2 Track B — receipt capture and review UI
+
+## Context
+
+**The Good Pantry.** Read `SPEC.md` — "Receipt → pantry (M2)" — and `reports/redteam.md`
+finding **M1**, which is the reason this brief exists.
+
+The server half is done: `supabase/functions/parse-receipt/` returns structured line items
+(39 tests passing). Read its `lib/types.ts` for the exact response shape you consume.
+
+Available and **read-only to you**: the design system (`apps/web/src/ui/**`, see `/design`),
+stores (`apps/web/src/state/**`), and `@larder/core` — in particular `matchIngredient` with its
+sibling-exclusion and allergen guards, and the dedupe module's `receiptFingerprint`.
+
+## Scope
+
+You own `apps/web/src/features/receipt/**` and routes `ScanPage.tsx`, `ReceiptReviewPage.tsx`.
+
+**Do NOT touch** `packages/core/**`, `supabase/**`, `src/ui/**`, `src/state/**`, `src/db/**`,
+or other feature folders. Other tracks run in parallel.
+
+## The problem this track must solve
+
+The red-team's finding, verbatim in spirit: *a 40-line Costco receipt at one confirmation per
+line is 80–120 taps. That is not a wow feature, it is QuickBooks.*
+
+**If the review screen requires per-line confirmation, this feature has failed.** Design for
+bulk first and per-line as the exception.
+
+## Build
+
+### 1. Capture
+`@capacitor/camera` on native, `<input type="file" capture>` on web. Downscale and compress
+client-side **before** upload — resolution costs money per scan and adds nothing to accuracy.
+Support appending a second photo for long receipts.
+
+### 2. Duplicate guard
+Before sending, compute `receiptFingerprint` and check against recent receipts.
+Exact match → block with an explanation. Near match within 7 days → warn, allow override.
+Two people scanning the same trip is the household double-count bug; catch it here.
+
+### 3. Review screen — bulk-first
+
+- **High-confidence lines auto-accept** and are shown collapsed as a summary
+  ("28 items matched — review"), not as 28 rows demanding attention.
+- **Bulk actions**: accept all high-confidence · apply a default to a whole category ·
+  dismiss all non-food in one tap.
+- **Per-line review only for**: medium/low confidence, size ambiguity, and anything the
+  allergen guard vetoed.
+- **Ambiguity prompts** are the SPEC's example: *"16 oz or 24 oz?"* — offered as choices from
+  the ingredient's known package specs, not a free-text box.
+- **Non-food, tax, discount and total lines** are filtered but shown collapsed —
+  **never silently dropped.** A user must be able to see what was ignored.
+- Unresolved lines create a **learned user alias** on confirmation, so the same store string
+  resolves next time. That compounding is what makes scanning improve with use.
+
+### 4. Commit
+Write `purchase` txns carrying `shoppingTripId` and `unitPrice`. Only on commit does the
+server-side quota charge — do not charge on parse.
+
+Tell the user plainly what happened: *"Added 31 items · 3 skipped."*
+
+### 5. Failure paths — these are the real UX
+- Parse failed / unreadable → offer retake, and **do not consume a scan**
+- Not a grocery receipt → say so before spending the quota
+- Offline → queue the image and scan when connectivity returns
+
+## Non-negotiables
+
+- **Nothing enters the pantry unconfirmed.**
+- Allergen-vetoed lines can never be bulk-accepted. No bulk action may bypass a safety guard.
+- Show the running tap count during development so the 40-line case can be measured, and
+  **report the actual number**. "Feels fast" is not a metric.
+
+## Constraints
+
+TypeScript `strict`, no `any`. Mobile-first, 44px tap targets. No new heavy deps.
+Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run test && npm run build
+```
+
+248 core + 134 web tests stay green. Add tests for: bulk accept, duplicate fingerprint
+blocking, allergen veto surviving bulk actions, and the non-food collapse.
+
+**Measure and report the tap count to commit a synthetic 40-line receipt** where 28 lines are
+high confidence, 8 medium, and 4 non-food. That number is this track's headline result.
+
+## Report
+
+`reports/m2-b-receipt-ui.md`: the review-screen interaction model, **the measured tap count**,
+bulk actions and what they cannot bypass, duplicate handling, alias learning, failure paths,
+deviations, and open questions.
+
+Work continuously; do not stall waiting for input.

@@ -285,26 +285,40 @@ export function RecipeDetailPage() {
       ) : null}
 
       <div className="fixed bottom-0 left-0 right-0 border-t border-black/[0.04] bg-surface-raised/95 px-4 py-3 pb-safe backdrop-blur">
-        <div className="mx-auto flex max-w-lg gap-2">
-          <button
-            type="button"
-            disabled={groceryBusy}
-            onClick={() => void addMissingToGrocery()}
-            className={cn(
-              'min-h-tap flex-1 rounded-pill border border-black/[0.08] bg-surface px-3 text-sm font-semibold text-ink',
-              'disabled:opacity-50',
-            )}
-          >
-            Add missing to grocery
-          </button>
+        <div className="mx-auto flex max-w-lg flex-col gap-2">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={groceryBusy}
+              onClick={() => void addMissingToGrocery()}
+              className={cn(
+                'min-h-tap flex-1 rounded-pill border border-black/[0.08] bg-surface px-3 text-sm font-semibold text-ink',
+                'disabled:opacity-50',
+              )}
+            >
+              Add missing to grocery
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  `/recipes/${detail.id}/cooking?servings=${servings}`,
+                )
+              }
+              className="min-h-tap flex-1 rounded-pill bg-primary px-3 text-sm font-semibold text-white"
+              data-testid="start-cooking"
+            >
+              Start cooking
+            </button>
+          </div>
           <button
             type="button"
             onClick={() =>
               navigate(`/recipes/${detail.id}/cook?servings=${servings}`)
             }
-            className="min-h-tap flex-1 rounded-pill bg-primary px-3 text-sm font-semibold text-white"
+            className="min-h-tap w-full rounded-pill border border-primary/25 bg-primary/10 px-3 text-sm font-semibold text-primary"
           >
-            Cook
+            Log cook (skip steps)
           </button>
         </div>
       </div>

@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
+import { BarcodePage } from './routes/BarcodePage';
 import { CookPage } from './routes/CookPage';
+import { CookingModePage } from './routes/CookingModePage';
 import { DbHealthPage } from './routes/DbHealthPage';
 import { DesignPage } from './routes/DesignPage';
 import { GroceryPage } from './routes/GroceryPage';
@@ -10,9 +12,11 @@ import { LocationsPage } from './routes/LocationsPage';
 import { PantryItemPage } from './routes/PantryItemPage';
 import { PantryPage } from './routes/PantryPage';
 import { QuickAddPage } from './routes/QuickAddPage';
+import { ReceiptReviewPage } from './routes/ReceiptReviewPage';
 import { RecipeDetailPage } from './routes/RecipeDetailPage';
 import { RecipeEditPage } from './routes/RecipeEditPage';
 import { RecipesPage } from './routes/RecipesPage';
+import { ScanPage } from './routes/ScanPage';
 import { TabBar } from './ui';
 
 /** Tab icons. Kept inline and minimal — the design system owns LeafIcon only. */
@@ -119,6 +123,15 @@ export function App() {
     );
   }
 
+  // Cooking mode is a focused, hands-busy full-screen — no tab bar, no ads shell.
+  if (pathname.includes('/cooking')) {
+    return (
+      <Routes>
+        <Route path="/recipes/:id/cooking" element={<CookingModePage />} />
+      </Routes>
+    );
+  }
+
   return (
     <AppShell>
       <Routes>
@@ -127,15 +140,20 @@ export function App() {
         <Route path="/pantry" element={<PantryPage />} />
         <Route path="/pantry/:id" element={<PantryItemPage />} />
         <Route path="/locations" element={<LocationsPage />} />
+        <Route path="/barcode" element={<BarcodePage />} />
 
         <Route path="/recipes" element={<RecipesPage />} />
         <Route path="/recipes/new" element={<RecipeEditPage />} />
         <Route path="/recipes/:id" element={<RecipeDetailPage />} />
         <Route path="/recipes/:id/edit" element={<RecipeEditPage />} />
         <Route path="/recipes/:id/cook" element={<CookPage />} />
+        <Route path="/recipes/:id/cooking" element={<CookingModePage />} />
 
         <Route path="/grocery" element={<GroceryPage />} />
         <Route path="/quick" element={<QuickAddPage />} />
+
+        <Route path="/scan" element={<ScanPage />} />
+        <Route path="/receipt/review" element={<ReceiptReviewPage />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

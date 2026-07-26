@@ -28,6 +28,9 @@ const ROUTES = [
   ['recipe-new', '/recipes/new'],
   ['grocery', '/grocery'],
   ['quick', '/quick'],
+  ['scan', '/scan'],
+  ['receipt-review', '/receipt/review'],
+  ['barcode', '/barcode'],
   ['db-health', '/db-health'],
 ];
 

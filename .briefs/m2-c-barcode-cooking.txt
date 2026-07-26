@@ -1,0 +1,94 @@
+# BRIEF: M2 Track C — barcode lookup and cooking mode
+
+## Context
+
+**The Good Pantry.** Read `SPEC.md` — "Barcode / Open Food Facts (M2) — licensing constrained"
+and "Cooking-mode ergonomics".
+
+Read-only to you: the design system (`apps/web/src/ui/**`), stores (`apps/web/src/state/**`),
+and `@larder/core` (`matchIngredient`, `planCook`, unit conversion).
+
+## Scope
+
+You own `apps/web/src/features/barcode/**`, `apps/web/src/features/cooking/**`, and routes
+`BarcodePage.tsx`, `CookingModePage.tsx`.
+
+**Do NOT touch** `packages/core/**`, `supabase/**`, `src/ui/**`, `src/state/**`, `src/db/**`,
+or other feature folders. Other tracks run in parallel.
+
+---
+
+## Part 1 — Barcode
+
+Scan a UPC/EAN and resolve it to a product, primarily for **put-away** (scanning items as you
+unpack them) and as a fallback when a receipt line is unreadable.
+
+Use `@capacitor/barcode-scanner` (or the ML Kit equivalent) on native; on web fall back to
+`BarcodeDetector` where available and degrade gracefully where it is not.
+
+### Open Food Facts — read this carefully
+
+SPEC corrected an earlier over-simplification. OFF is **ODbL share-alike** with attribution,
+**15 product reads/min/IP**, and requires a **custom User-Agent**. It is not "free, no strings".
+
+Therefore:
+- Set a descriptive User-Agent identifying this app.
+- Respect the rate limit — client-side throttle, and degrade politely rather than hammering.
+- **Tag every OFF-derived row as OFF-sourced and keep it segregated** from our canonical seed
+  data. Do not merge OFF fields into canonical ingredient rows. Share-alike can attach to a
+  derived database, and mixing makes that impossible to unwind later.
+- Ship attribution in-app (a credit line in settings/about).
+- Cache lookups locally so a repeat scan costs no request.
+
+Resolution flow: barcode → OFF product (name, brand, quantity) → `matchIngredient` against our
+catalog → user confirms → `purchase` txn. Unknown barcodes offer manual entry and remember the
+mapping for next time.
+
+---
+
+## Part 2 — Cooking mode
+
+A focused, hands-busy view for actually cooking a recipe. This is a kitchen, not a desk.
+
+- **Screen stays awake** (`@capacitor/keep-awake`). Nothing is more annoying than a screen
+  sleeping with wet hands.
+- **Large type, high contrast, one step at a time**, big next/back targets. Assume the phone
+  is propped on a counter at arm's length.
+- **Step timers** — a step with a duration gets a start/pause timer with a notification when
+  it finishes. Multiple concurrent timers must be possible; cooking is parallel.
+- **Ingredient checklist** for the current step, scaled to the chosen servings.
+- **NO ADS in cooking mode** — both AdMob policy (ads during focused tasks) and basic decency.
+  The `AdSlot` component must not appear on this route.
+- Exit leads into the existing cook → deduct preview flow; do not duplicate that logic.
+- Respect `prefers-reduced-motion`; keep transitions minimal.
+
+---
+
+## Constraints
+
+TypeScript `strict`, no `any`. Mobile-first, 44px+ tap targets (larger in cooking mode).
+Native plugins must degrade gracefully on web — the browser is where this gets reviewed, so
+neither feature may hard-crash without a device. No new heavy deps beyond the Capacitor
+plugins. Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run test && npm run build
+```
+
+248 core + 134 web tests stay green. Add tests for: OFF response → ingredient mapping, the
+rate-limit throttle, barcode cache hits, timer state transitions, and that `AdSlot` is absent
+from cooking mode.
+
+Confirm in a browser that both routes render and degrade sensibly without native plugins.
+Screenshot cooking mode at 390px into `reports/cooking-mode.png`.
+
+## Report
+
+`reports/m2-c-barcode-cooking.md`: the OFF integration including **exactly how derived data is
+segregated and attributed** (this is a licensing question, be precise), rate-limit handling,
+the cooking-mode interaction model, timer behavior, web degradation, deviations, and open
+questions.
+
+Work continuously; do not stall waiting for input.
