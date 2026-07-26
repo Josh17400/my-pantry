@@ -1,0 +1,93 @@
+{
+  "storeName": "Costco Wholesale",
+  "storeAddress": null,
+  "receiptDate": "2026-07-18",
+  "currency": "USD",
+  "locale": "en-US",
+  "isGroceryReceipt": true,
+  "groceryConfidence": 0.94,
+  "lines": [
+    {
+      "rawText": "1478234 KS ORG EGGS 24CT",
+      "guessedName": "Kirkland Organic Eggs 24ct",
+      "quantity": 1,
+      "unit": "each",
+      "packageSize": "24 ct",
+      "unitPrice": 8.99,
+      "totalPrice": 8.99,
+      "confidence": 0.85,
+      "lineType": "food",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "9801234567890 ROTISSERIE CHICKEN",
+      "guessedName": "Rotisserie Chicken",
+      "quantity": 1,
+      "unit": "each",
+      "packageSize": null,
+      "unitPrice": 4.99,
+      "totalPrice": 4.99,
+      "confidence": 0.91,
+      "lineType": "food",
+      "upc": "9801234567890",
+      "parentRawText": null
+    },
+    {
+      "rawText": "3812345 PAPER TOWELS 12PK",
+      "guessedName": "Paper Towels 12pk",
+      "quantity": 1,
+      "unit": "pk",
+      "packageSize": "12 pk",
+      "unitPrice": 18.99,
+      "totalPrice": 18.99,
+      "confidence": 0.9,
+      "lineType": "non-food",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "5521346 KS OLIVE OIL 2L",
+      "guessedName": "Kirkland Olive Oil",
+      "quantity": 2,
+      "unit": "l",
+      "packageSize": "2 L",
+      "unitPrice": 14.99,
+      "totalPrice": 14.99,
+      "confidence": 0.87,
+      "lineType": "food",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "TAX",
+      "guessedName": "Tax",
+      "quantity": null,
+      "unit": null,
+      "packageSize": null,
+      "unitPrice": null,
+      "totalPrice": 1.89,
+      "confidence": 0.99,
+      "lineType": "tax",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "TOTAL",
+      "guessedName": "Total",
+      "quantity": null,
+      "unit": null,
+      "packageSize": null,
+      "unitPrice": null,
+      "totalPrice": 49.85,
+      "confidence": 0.99,
+      "lineType": "total",
+      "upc": null,
+      "parentRawText": null
+    }
+  ],
+  "subtotal": 47.96,
+  "tax": 1.89,
+  "total": 49.85,
+  "notes": null
+}

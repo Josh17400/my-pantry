@@ -1,0 +1,7 @@
+{
+  "store": "Broken Mart",
+  "items": [
+    { "name": "Milk", "price": 3.5 }
+  ],
+  "total": 3.5
+}

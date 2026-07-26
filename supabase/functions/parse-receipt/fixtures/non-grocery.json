@@ -1,0 +1,67 @@
+{
+  "storeName": "Home Depot",
+  "storeAddress": "500 Tool Ave",
+  "receiptDate": "2026-07-15",
+  "currency": "USD",
+  "locale": "en-US",
+  "isGroceryReceipt": false,
+  "groceryConfidence": 0.08,
+  "lines": [
+    {
+      "rawText": "3/8 IN DRILL BIT SET",
+      "guessedName": "Drill Bit Set",
+      "quantity": 1,
+      "unit": "each",
+      "packageSize": null,
+      "unitPrice": 19.97,
+      "totalPrice": 19.97,
+      "confidence": 0.9,
+      "lineType": "non-food",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "PVC PIPE 10FT",
+      "guessedName": "PVC Pipe",
+      "quantity": 2,
+      "unit": "each",
+      "packageSize": "10 ft",
+      "unitPrice": 8.45,
+      "totalPrice": 16.9,
+      "confidence": 0.88,
+      "lineType": "non-food",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "TAX",
+      "guessedName": "Tax",
+      "quantity": null,
+      "unit": null,
+      "packageSize": null,
+      "unitPrice": null,
+      "totalPrice": 2.95,
+      "confidence": 0.99,
+      "lineType": "tax",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "TOTAL",
+      "guessedName": "Total",
+      "quantity": null,
+      "unit": null,
+      "packageSize": null,
+      "unitPrice": null,
+      "totalPrice": 39.82,
+      "confidence": 0.99,
+      "lineType": "total",
+      "upc": null,
+      "parentRawText": null
+    }
+  ],
+  "subtotal": 36.87,
+  "tax": 2.95,
+  "total": 39.82,
+  "notes": "Hardware store receipt"
+}

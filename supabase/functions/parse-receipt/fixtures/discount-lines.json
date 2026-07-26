@@ -1,0 +1,93 @@
+{
+  "storeName": "Super Saver",
+  "storeAddress": null,
+  "receiptDate": "2026-07-21",
+  "currency": "USD",
+  "locale": "en-US",
+  "isGroceryReceipt": true,
+  "groceryConfidence": 0.97,
+  "lines": [
+    {
+      "rawText": "PEPSI 12PK",
+      "guessedName": "Pepsi 12-pack",
+      "quantity": 1,
+      "unit": "pk",
+      "packageSize": "12 pk",
+      "unitPrice": 7.99,
+      "totalPrice": 7.99,
+      "confidence": 0.9,
+      "lineType": "food",
+      "upc": "012000001234",
+      "parentRawText": null
+    },
+    {
+      "rawText": "   MFR COUPON PEPSI",
+      "guessedName": "Pepsi coupon",
+      "quantity": null,
+      "unit": null,
+      "packageSize": null,
+      "unitPrice": null,
+      "totalPrice": -1.0,
+      "confidence": 0.88,
+      "lineType": "discount",
+      "upc": null,
+      "parentRawText": "PEPSI"
+    },
+    {
+      "rawText": "CEREAL FLAKES 18OZ",
+      "guessedName": "Cereal Flakes",
+      "quantity": 1,
+      "unit": "each",
+      "packageSize": "18 oz",
+      "unitPrice": 4.49,
+      "totalPrice": 4.49,
+      "confidence": 0.87,
+      "lineType": "food",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "   STORE COUPON -1.50",
+      "guessedName": "Store coupon",
+      "quantity": null,
+      "unit": null,
+      "packageSize": null,
+      "unitPrice": null,
+      "totalPrice": -1.5,
+      "confidence": 0.8,
+      "lineType": "discount",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "3 FOR 5.00 BANANAS BUNCH",
+      "guessedName": "Bananas Bunch",
+      "quantity": 3,
+      "unit": "each",
+      "packageSize": null,
+      "unitPrice": 1.67,
+      "totalPrice": 5.0,
+      "confidence": 0.84,
+      "lineType": "food",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "TOTAL",
+      "guessedName": "Total",
+      "quantity": null,
+      "unit": null,
+      "packageSize": null,
+      "unitPrice": null,
+      "totalPrice": 14.98,
+      "confidence": 0.99,
+      "lineType": "total",
+      "upc": null,
+      "parentRawText": null
+    }
+  ],
+  "subtotal": 14.98,
+  "tax": 0,
+  "total": 14.98,
+  "notes": null
+}

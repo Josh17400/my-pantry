@@ -1,0 +1,6 @@
+{
+  "isGroceryReceipt": false,
+  "groceryConfidence": 0.12,
+  "reason": "Home Depot hardware purchase, no grocery items",
+  "storeHint": "Home Depot"
+}

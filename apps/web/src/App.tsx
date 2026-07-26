@@ -65,8 +65,12 @@ function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
-      {/* Phone-first: the column stays phone-width even on a desktop browser. */}
-      <main className="mx-auto w-full max-w-md flex-1 pb-4">{children}</main>
+      {/*
+        Phone-first: the column stays phone-width even on a desktop browser.
+        pb-10 clears the FAB, which is translated up over the tab bar and would
+        otherwise clip the last row of any scrolling list.
+      */}
+      <main className="mx-auto w-full max-w-md flex-1 pb-10">{children}</main>
       <div className="sticky bottom-0 mx-auto w-full max-w-md">
         <TabBar
           tabs={TABS}

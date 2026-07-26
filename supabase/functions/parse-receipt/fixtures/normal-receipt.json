@@ -1,0 +1,80 @@
+{
+  "storeName": "Corner Market",
+  "storeAddress": "100 Main St",
+  "receiptDate": "2026-07-20",
+  "currency": "USD",
+  "locale": "en-US",
+  "isGroceryReceipt": true,
+  "groceryConfidence": 0.96,
+  "lines": [
+    {
+      "rawText": "ORG MILK 1GAL",
+      "guessedName": "Organic Milk 1 Gallon",
+      "quantity": 1,
+      "unit": "each",
+      "packageSize": "1 gal",
+      "unitPrice": 4.99,
+      "totalPrice": 4.99,
+      "confidence": 0.92,
+      "lineType": "food",
+      "upc": "000111222333",
+      "parentRawText": null
+    },
+    {
+      "rawText": "EGGS LARGE 12CT",
+      "guessedName": "Large Eggs",
+      "quantity": 12,
+      "unit": "ct",
+      "packageSize": "12 ct",
+      "unitPrice": 3.49,
+      "totalPrice": 3.49,
+      "confidence": 0.9,
+      "lineType": "food",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "WHOLE WHEAT BREAD",
+      "guessedName": "Whole Wheat Bread",
+      "quantity": 1,
+      "unit": "each",
+      "packageSize": null,
+      "unitPrice": 2.79,
+      "totalPrice": 2.79,
+      "confidence": 0.88,
+      "lineType": "food",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "TAX",
+      "guessedName": "Tax",
+      "quantity": null,
+      "unit": null,
+      "packageSize": null,
+      "unitPrice": null,
+      "totalPrice": 0.72,
+      "confidence": 0.99,
+      "lineType": "tax",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "TOTAL",
+      "guessedName": "Total",
+      "quantity": null,
+      "unit": null,
+      "packageSize": null,
+      "unitPrice": null,
+      "totalPrice": 11.99,
+      "confidence": 0.99,
+      "lineType": "total",
+      "upc": null,
+      "parentRawText": null
+    }
+  ],
+  "subtotal": 11.27,
+  "tax": 0.72,
+  "total": 11.99,
+  "notes": null
+}

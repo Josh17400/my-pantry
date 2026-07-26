@@ -1,0 +1,103 @@
+# BRIEF: M1 Track N — the client sync layer (completes M1)
+
+## Context
+
+**The Good Pantry.** This is the last piece of M1.
+
+Read, in this order:
+1. `supabase/SYNC.md` — **the contract you implement.** Written by the schema track. Follow it.
+2. `supabase/migrations/*.sql` — the remote schema and RLS.
+3. `SPEC.md` — "The ledger" and "De-duplication".
+4. `apps/web/src/db/` — local schema, repositories, and the native/dev/web driver split.
+
+The local side is done and working: the core loop is verified end to end (cook a recipe, the
+pantry decrements correctly with provenance). `packages/core` has 248 tests and is
+**read-only** to you.
+
+Supabase is live: auth reachable, email signup enabled, REST verified. Credentials are in
+`apps/web/.env` as `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
+
+**The migrations have NOT been applied yet** — the owner runs `supabase db push`. Write against
+the schema as committed, and make the code fail clearly (not mysteriously) if tables are absent.
+
+## Scope
+
+You own `apps/web/src/sync/**` and `apps/web/src/auth/**`, plus their tests.
+
+**Do NOT touch** `packages/core/**`, `apps/web/src/db/drivers/**`, `src/ui/**`,
+`src/features/**`, or `supabase/**`.
+
+## What to build
+
+### 1. Auth
+Email sign-in/sign-up via Supabase, session persistence, sign-out. A signed-out user must still
+have a **fully working local app** — offline-first means auth is optional, not a gate. Do not
+put a login wall in front of the pantry.
+
+### 2. Push
+Insert local txns not yet acknowledged. `ON CONFLICT (household_id, client_txn_id) DO NOTHING`
+— idempotent by construction, so a retry after a dropped connection is free. Mark rows
+acknowledged only after the server confirms.
+
+### 3. Pull
+Rows where `accepted_at > cursor`, ordered by `accepted_at`, paged. Persist the cursor locally.
+
+### 4. The part that is easy to get wrong
+
+`SYNC.md` spells this out and it is the crux of the track:
+
+> The fold orders by `(occurred_at, device_id, client_txn_id)` — the **client** clock.
+> The pull cursor orders by `accepted_at` — the **server** clock.
+> **These are different orderings. Arrival order is not fold order.**
+
+So after a pull you may **not** simply append and increment. For each affected ingredient, call
+**`needsRefold(watermark, incomingTxn)`** from `@larder/core`; when it returns true, re-fold
+that ingredient via `foldLedger`. Both functions already exist — call them.
+
+**Write a test for exactly this**: pull a txn whose `occurred_at` sorts *before* the local
+watermark and assert the projection matches a full re-fold. That is the bug this track exists
+to prevent, and it only ever appears on a second device.
+
+### 5. Metadata sync
+Recipes, par levels, locations: last-write-wins on `updated_at`. Only the ledger needs union
+semantics.
+
+### 6. Conflict surfacing
+When `foldLedger` reports `conflict: true` (two concurrent recounts), surface it **once** —
+don't spam, don't hide it. The fold already detects this; you just need to route it.
+
+### 7. Sync UX
+Background sync on app focus and after local writes. Visible state: synced / syncing / offline
+/ error. **Never block the UI on the network** — the grocery store is the offline case and it
+is the whole point.
+
+## Constraints
+
+- TypeScript `strict`, no `any`.
+- Offline-first: every failure path leaves the app fully usable locally.
+- Never log tokens or credentials.
+- No new heavy dependencies (`@supabase/supabase-js` is already installed).
+- Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run test && npm run build
+```
+
+248 core + 111 web tests must stay green.
+
+Tests to add, at minimum: push idempotency under retry; pull cursor advancement; **the
+out-of-order re-fold case above**; LWW metadata resolution; offline queueing then draining.
+Use a mocked Supabase client — do not require a live project for tests to pass.
+
+If you can reach the live project, say what you actually exercised. If you cannot (tables not
+yet created), **say that plainly** rather than implying it was verified.
+
+## Report
+
+`reports/m1-n-sync.md`: the sync loop, how re-fold is triggered and tested, auth and the
+offline-without-account path, conflict surfacing, what you verified live vs mocked,
+deviations, and open questions.
+
+Work continuously; do not stall waiting for input.

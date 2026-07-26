@@ -1,0 +1,6 @@
+{
+  "isGroceryReceipt": true,
+  "groceryConfidence": 0.94,
+  "reason": "Supermarket receipt with food items and tax",
+  "storeHint": "Corner Market"
+}

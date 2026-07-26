@@ -1,0 +1,80 @@
+{
+  "storeName": "Fresh Foods",
+  "storeAddress": null,
+  "receiptDate": "2026-07-19",
+  "currency": "USD",
+  "locale": "en-US",
+  "isGroceryReceipt": true,
+  "groceryConfidence": 0.95,
+  "lines": [
+    {
+      "rawText": "BANANAS 2.14 LB @ 0.59",
+      "guessedName": "Bananas",
+      "quantity": 2.14,
+      "unit": "lb",
+      "packageSize": null,
+      "unitPrice": 0.59,
+      "totalPrice": 1.26,
+      "confidence": 0.93,
+      "lineType": "food",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "GALA APPLES 3.05 LB @ 1.49",
+      "guessedName": "Gala Apples",
+      "quantity": 3.05,
+      "unit": "lb",
+      "packageSize": null,
+      "unitPrice": 1.49,
+      "totalPrice": 4.54,
+      "confidence": 0.91,
+      "lineType": "food",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "CHICKEN BREAST 1.82 LB @ 3.99",
+      "guessedName": "Chicken Breast",
+      "quantity": 1.82,
+      "unit": "lb",
+      "packageSize": null,
+      "unitPrice": 3.99,
+      "totalPrice": 7.26,
+      "confidence": 0.89,
+      "lineType": "food",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "2 @ 3.49 YOGURT CUPS",
+      "guessedName": "Yogurt Cups",
+      "quantity": 2,
+      "unit": "each",
+      "packageSize": null,
+      "unitPrice": 3.49,
+      "totalPrice": 6.98,
+      "confidence": 0.86,
+      "lineType": "food",
+      "upc": null,
+      "parentRawText": null
+    },
+    {
+      "rawText": "TOTAL",
+      "guessedName": "Total",
+      "quantity": null,
+      "unit": null,
+      "packageSize": null,
+      "unitPrice": null,
+      "totalPrice": 20.04,
+      "confidence": 0.99,
+      "lineType": "total",
+      "upc": null,
+      "parentRawText": null
+    }
+  ],
+  "subtotal": 20.04,
+  "tax": 0,
+  "total": 20.04,
+  "notes": null
+}

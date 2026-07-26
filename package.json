@@ -11,6 +11,8 @@
     "build": "npm run build -w @larder/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test -w @larder/core && npm run test -w @larder/web",
+    "test:functions": "npx --yes deno@latest test --allow-read --allow-env --no-check supabase/functions/parse-receipt",
+    "test:all": "npm run test && npm run test:functions",
     "lint": "npm run lint --workspaces --if-present",
     "cap:sync": "npm run build && npm run sync --prefix native"
   },
