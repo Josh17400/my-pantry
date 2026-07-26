@@ -5,7 +5,7 @@ inside it).
 
 | Item | Value |
 |---|---|
-| appId | `com.josh17400.WellStocked` |
+| appId | `com.josh17400.mypantry` |
 | appName | The Good Pantry |
 | webDir | `../apps/web/dist` |
 | Capacitor | 8.x |
