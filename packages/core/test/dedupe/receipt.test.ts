@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   checkReceiptDuplicate,
   DEFAULT_NEAR_WINDOW_DAYS,

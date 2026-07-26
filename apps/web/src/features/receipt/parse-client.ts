@@ -73,7 +73,7 @@ async function postJson(body: unknown): Promise<unknown> {
     return (await res.json()) as unknown;
   } catch (err) {
     const offline =
-      typeof navigator !== 'undefined' && navigator.onLine === false;
+      typeof navigator !== 'undefined' && !navigator.onLine;
     return {
       ok: false,
       code: offline ? 'offline' : 'network',

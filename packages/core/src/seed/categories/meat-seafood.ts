@@ -3,7 +3,6 @@
  * Ground meats and cuts stocked by mass. Whole chicken → boneless is oneWay.
  */
 
-import type { SeedCategoryBundle } from '../types';
 import {
   bundle,
   edge,
@@ -14,6 +13,7 @@ import {
   simpleMass,
 } from '../helpers';
 import { LB_G, OZ_G } from '../sources';
+import type { SeedCategoryBundle } from '../types';
 
 /** Whole chicken → boneless yield (lossy, oneWay). */
 const chickenWhole: SeedCategoryBundle = (() => {

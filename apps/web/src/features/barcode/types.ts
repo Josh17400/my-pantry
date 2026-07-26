@@ -7,8 +7,7 @@
  */
 
 import type { MatchResult } from '../../../../../packages/core/src/matching/types.ts';
-
-import {
+import type {
   OFF_ATTRIBUTION_LINE,
   OFF_ATTRIBUTION_SHORT,
 } from './attribution';

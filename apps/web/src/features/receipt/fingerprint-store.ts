@@ -5,11 +5,11 @@
 
 import {
   checkReceiptDuplicate,
-  receiptFingerprint,
-  toReceiptRecord,
   type ReceiptDedupeDecision,
+  receiptFingerprint,
   type ReceiptFingerprintInput,
   type ReceiptRecord,
+  toReceiptRecord,
 } from './core-imports';
 
 const STORAGE_KEY = 'tgp.receipt.fingerprints.v1';

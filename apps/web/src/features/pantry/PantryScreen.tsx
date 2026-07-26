@@ -1,27 +1,26 @@
+import { DEFAULT_LOW_THRESHOLD_PCT } from '@larder/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { DEFAULT_LOW_THRESHOLD_PCT } from '@larder/core';
-
-import { Fab } from '../../ui/Fab';
-import { SegmentedControl } from '../../ui/SegmentedControl';
 import { useLocations, usePantry } from '../../state';
 import { hasActiveRepository } from '../../state';
+import { Fab } from '../../ui/Fab';
+import { SegmentedControl } from '../../ui/SegmentedControl';
+import { AddItemSheet } from './components/AddItemSheet';
 import {
   EmptyBlock,
   ErrorBlock,
   LoadingBlock,
 } from './components/AsyncState';
-import { AddItemSheet } from './components/AddItemSheet';
 import { PantryItemRow } from './components/PantryItemRow';
 import { UndoToast } from './components/UndoToast';
 import { VirtualList } from './components/VirtualList';
 import { useUndoStack } from './hooks/useUndoStack';
 import {
   filterPantryItems,
+  type FlatRow,
   flattenGroups,
   groupByLocation,
-  type FlatRow,
   type PantryFilter,
 } from './lib/filter-group';
 import { buildPurchaseTxn } from './lib/txn-builders';

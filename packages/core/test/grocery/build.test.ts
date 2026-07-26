@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+
+import type { GrocerySource } from '../../src/grocery';
 import {
   buildList,
   purchaseQtyFromSource,
@@ -6,7 +8,6 @@ import {
   sourcesFromStock,
 } from '../../src/grocery';
 import { planCook } from '../../src/recipes';
-import type { GrocerySource } from '../../src/grocery';
 import {
   ALL_FORMS,
   flourForm,

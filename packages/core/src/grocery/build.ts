@@ -4,8 +4,8 @@
  */
 
 import type { Ingredient } from '../domain/types';
-import { aggregateSources, groupByAisle } from './aggregate';
 import type { AggregateContext } from './aggregate';
+import { aggregateSources, groupByAisle } from './aggregate';
 import type { BuildListOptions, GroceryList } from './types';
 
 function mapsFromIngredients(ingredients: readonly Ingredient[] | undefined): {

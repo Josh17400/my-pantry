@@ -5,8 +5,8 @@ export {
   OFF_USER_AGENT,
   offProductUrl,
 } from './attribution';
-export { BarcodeOffCache, isPlausibleBarcode, normalizeBarcode } from './cache';
 export { BarcodeScreen } from './BarcodeScreen';
+export { BarcodeOffCache, isPlausibleBarcode, normalizeBarcode } from './cache';
 export {
   buildSeedMatchCatalog,
   catalogIngredientIds,
@@ -17,11 +17,11 @@ export {
   matchOffProduct,
   suggestionDefaults,
 } from './match-product';
-export { OffProductClient, getOffProductClient, resetOffProductClient } from './off-client';
+export { getOffProductClient, OffProductClient, resetOffProductClient } from './off-client';
 export { buildPutAway, resolveFromMapping } from './put-away';
 export {
-  OffRateLimiter,
   checkRateLimit,
+  OffRateLimiter,
   recordRequest,
 } from './rate-limit';
 export {
@@ -29,11 +29,11 @@ export {
   scanBarcode,
 } from './scanner';
 export {
-  OFF_SOURCE,
   assertNotCanonicalIngredient,
   buildCanonicalMapping,
   isOffSourced,
   mapOffApiToDerived,
+  OFF_SOURCE,
   offProductMatchQuery,
 } from './segregation';
 export type {

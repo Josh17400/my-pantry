@@ -3,21 +3,21 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import {
   AllergenUnknownBadge,
-  ErrorBlock,
-  LoadingBlock,
-  ServingsStepper,
   catalogConversionContext,
+  ErrorBlock,
   formatBaseQty,
   formatMinutes,
   groceryItemsFromPlan,
+  LoadingBlock,
   pantryItemsToStock,
   planCook,
   presentCookStatus,
   recipeDetailToCore,
   scaleRecipe,
+  ServingsStepper,
 } from '../features/recipes';
-import { statusChipClass } from '../features/recipes/status-styles';
 import { getIngredientName } from '../features/recipes/catalog';
+import { statusChipClass } from '../features/recipes/status-styles';
 import {
   hasActiveRepository,
   useGrocery,
@@ -26,8 +26,8 @@ import {
   useRecipes,
   useRecipesStore,
 } from '../state';
-import { PlaceholderThumb } from '../ui/PlaceholderThumb';
 import { cn } from '../ui/cn';
+import { PlaceholderThumb } from '../ui/PlaceholderThumb';
 
 /**
  * Recipe detail — have/need per line, live servings scale, add missing to grocery, cook CTA.

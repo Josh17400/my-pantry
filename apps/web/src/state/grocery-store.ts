@@ -4,12 +4,12 @@
 
 import { create } from 'zustand';
 
+import { DEFAULT_HOUSEHOLD_ID } from '../db/constants';
 import type {
   GroceryListItemInput,
   GroceryListItemRow,
   GroceryListView,
 } from '../db/types';
-import { DEFAULT_HOUSEHOLD_ID } from '../db/constants';
 import { getDomainRepository } from './repo-context';
 
 export type GroceryState = {

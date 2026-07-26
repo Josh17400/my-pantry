@@ -9,7 +9,7 @@
  * - All deductions share one cookEventId for unit undo.
  */
 
-import { formatQuantity, wouldGoNegative, type Dimension } from '@larder/core';
+import { type Dimension,formatQuantity, wouldGoNegative } from '@larder/core';
 
 import { newId } from '../../db/id';
 import type { AppendTxnInput } from '../../db/types';
@@ -19,8 +19,8 @@ import {
   type CookPlan,
   type CookPlanLine,
   type PantryStockRow,
-  type Recipe,
   planCook,
+  type Recipe,
 } from './core-imports';
 
 /** Txn shape accepted by usePantry().appendTxn */

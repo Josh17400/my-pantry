@@ -6,6 +6,7 @@
  * from copyrighted recipe sites.
  */
 
+import type { Recipe } from '../../recipes/types';
 import { breakfastRecipes } from './breakfast';
 import { dessertRecipes } from './desserts';
 import { onePanRecipes } from './one-pan';
@@ -15,21 +16,20 @@ import { sideRecipes } from './sides';
 import { soupRecipes } from './soups';
 import { weekendRecipes } from './weekend';
 import { weeknightRecipes } from './weeknight';
-import type { Recipe } from '../../recipes/types';
 
-export { qty, taste, step, recipe } from './helpers';
 export type { RecipeDef } from './helpers';
+export { qty, recipe,step, taste } from './helpers';
 
 export {
   breakfastRecipes,
-  pastaRecipes,
-  weeknightRecipes,
+  dessertRecipes,
   onePanRecipes,
-  soupRecipes,
+  pastaRecipes,
   saladBowlRecipes,
   sideRecipes,
+  soupRecipes,
   weekendRecipes,
-  dessertRecipes,
+  weeknightRecipes,
 };
 
 /** Ordered category bundles (stable for diffs / reports). */

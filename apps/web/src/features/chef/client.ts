@@ -77,7 +77,7 @@ export const liveChefClient: ChefClient = {
       return (await res.json()) as ChefResponse;
     } catch (err) {
       const offline =
-        typeof navigator !== 'undefined' && navigator.onLine === false;
+        typeof navigator !== 'undefined' && !navigator.onLine;
       return {
         ok: false,
         code: offline ? 'offline' : 'network',

@@ -6,31 +6,20 @@
  */
 
 export type {
-  BaseUnit,
-  ConversionEdge,
-  Dimension,
-  Ingredient,
-  IngredientForm,
-  Location,
-  PackageSpec,
-  QtyBase,
-} from './types';
-
-export type {
   Allergen,
   AllergenTags,
   DietaryFlag,
   DietaryTags,
 } from './allergens';
 export {
-  ALLERGENS,
   ALLERGEN_SET,
-  DIETARY_FLAGS,
-  DIETARY_FLAG_SET,
+  ALLERGENS,
   allergensDisagree,
   canAutoMergeAllergens,
   canAutoMergeDietaryFlags,
   canAutoMergeSafety,
+  DIETARY_FLAG_SET,
+  DIETARY_FLAGS,
   dietaryFlagsDisagree,
   ingredientHitsAvoidList,
   isAllergen,
@@ -41,3 +30,13 @@ export {
   unknownAllergenTags,
   unknownDietaryTags,
 } from './allergens';
+export type {
+  BaseUnit,
+  ConversionEdge,
+  Dimension,
+  Ingredient,
+  IngredientForm,
+  Location,
+  PackageSpec,
+  QtyBase,
+} from './types';

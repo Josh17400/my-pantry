@@ -2,21 +2,22 @@
  * Static preview for 390px screenshots — mock pantry list + item detail.
  * No repository required (web companion has no local SQLite).
  */
+import '../../index.css';
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 
 import type { PantryItemView } from '../../db/types';
+import { Card } from '../../ui/Card';
 import { PlaceholderThumb } from '../../ui/PlaceholderThumb';
+import { SegmentedControl } from '../../ui/SegmentedControl';
 import { StatusBadge } from '../../ui/StatusBadge';
 import { StatusText } from '../../ui/StatusText';
-import { SegmentedControl } from '../../ui/SegmentedControl';
-import { Card } from '../../ui/Card';
 import { PantryItemRow } from './components/PantryItemRow';
 import { ProvenanceLine } from './components/ProvenanceLine';
 import { formatItemQuantity } from './lib/provenance-display';
 import { resolveStockUi } from './lib/stock-display';
-import '../../index.css';
 
 const NOW = Date.parse('2026-07-26T12:00:00.000Z');
 

@@ -21,7 +21,7 @@ export function checkRateLimit(
   timestamps: readonly number[],
   nowMs: number,
   limit: number = OFF_RATE_LIMIT_PER_MINUTE,
-  windowMs: number = 60_000,
+  windowMs = 60_000,
 ): RateLimitResult {
   const cutoff = nowMs - windowMs;
   const recent = timestamps.filter((t) => t > cutoff);
@@ -43,7 +43,7 @@ export function checkRateLimit(
 export function recordRequest(
   timestamps: readonly number[],
   nowMs: number,
-  windowMs: number = 60_000,
+  windowMs = 60_000,
 ): number[] {
   const cutoff = nowMs - windowMs;
   return [...timestamps.filter((t) => t > cutoff), nowMs];
@@ -57,7 +57,7 @@ export class OffRateLimiter {
 
   constructor(
     private readonly limit: number = OFF_RATE_LIMIT_PER_MINUTE,
-    private readonly windowMs: number = 60_000,
+    private readonly windowMs = 60_000,
     private readonly now: () => number = () => Date.now(),
   ) {}
 

@@ -5,7 +5,7 @@
 
 import { mergePulledTxns, type MergePullResult } from './merge';
 import type { SyncLocalPort, SyncRemotePort } from './ports';
-import { EPOCH_CURSOR, SYNC_META, type RemoteTxnRow } from './types';
+import { EPOCH_CURSOR, type RemoteTxnRow,SYNC_META } from './types';
 
 export type PullAndMergeArgs = {
   local: SyncLocalPort;

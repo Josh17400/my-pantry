@@ -24,6 +24,31 @@ import { mergeBundles } from './helpers';
 import type { SeedCatalog, SeedCategoryBundle } from './types';
 import { validateSeed } from './validate';
 
+export * from './categories';
+export {
+  bundle,
+  countForm,
+  edge,
+  form,
+  ingredient,
+  massForm,
+  mergeBundles,
+  pack,
+  simpleCount,
+  simpleMass,
+  simpleVolume,
+  volumeForm,
+} from './helpers';
+export type { DensitySourceKey } from './sources';
+export {
+  CUP_ML,
+  DENSITY_SOURCES,
+  FL_OZ_ML,
+  GALLON_ML,
+  KNOWN_DENSITIES,
+  LB_G,
+  OZ_G,
+} from './sources';
 export type {
   SeedCatalog,
   SeedCategoryBundle,
@@ -32,43 +57,13 @@ export type {
   SeedValidationIssue,
   SeedValidationResult,
 } from './types';
-
 export {
-  validateSeed,
-  undirectedEdgeKey,
-  normalizeAlias,
-  DENSITY_MIN_G_PER_ML,
   DENSITY_MAX_G_PER_ML,
+  DENSITY_MIN_G_PER_ML,
+  normalizeAlias,
+  undirectedEdgeKey,
+  validateSeed,
 } from './validate';
-
-export {
-  DENSITY_SOURCES,
-  KNOWN_DENSITIES,
-  OZ_G,
-  LB_G,
-  FL_OZ_ML,
-  CUP_ML,
-  GALLON_ML,
-} from './sources';
-
-export type { DensitySourceKey } from './sources';
-
-export {
-  ingredient,
-  form,
-  massForm,
-  volumeForm,
-  countForm,
-  edge,
-  pack,
-  bundle,
-  simpleMass,
-  simpleVolume,
-  simpleCount,
-  mergeBundles,
-} from './helpers';
-
-export * from './categories';
 
 /** Seed schema version — bump when breaking seed shape for loaders. */
 export const SEED_VERSION = '1.0.0' as const;

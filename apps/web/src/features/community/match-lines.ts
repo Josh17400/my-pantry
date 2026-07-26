@@ -7,8 +7,8 @@ import { parseQuantity } from '@larder/core';
 
 import type { RecipeLineInput } from '../../db/types';
 import {
-  matchIngredient,
   type MatchCatalog,
+  matchIngredient,
   type MatchResult,
 } from './core-imports';
 import type { MatchedIngredientLine } from './types';

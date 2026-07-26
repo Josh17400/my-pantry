@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { findCookableRecipes } from '../../src/recipes';
 import {
   ALL_FORMS,
@@ -251,7 +252,7 @@ describe('findCookableRecipes performance', () => {
     // catches accidental O(R×L×P) regressions (which would be tens of seconds).
     expect(ms).toBeLessThan(5000);
     // Log for report visibility when running tests
-    // eslint-disable-next-line no-console
+     
     console.log(`cook-now 2000×500 completed in ${ms.toFixed(1)}ms`);
   });
 });

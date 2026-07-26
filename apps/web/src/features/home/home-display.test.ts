@@ -4,15 +4,15 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { computeCookNow, formatUseUpLine, pantryItemsToStockRows } from './cookable';
+import { loadDemoHomeData } from './demo-data';
 import {
   formatProvenanceLabel,
   formatQuantityWithProvenance,
-  toItemDisplay,
   locationStatusWord,
+  toItemDisplay,
 } from './display';
 import { fullGreeting, greetingPeriod } from './greeting';
-import { computeCookNow, formatUseUpLine, pantryItemsToStockRows } from './cookable';
-import { loadDemoHomeData } from './demo-data';
 
 describe('greeting', () => {
   it('returns morning before noon', () => {

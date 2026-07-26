@@ -6,22 +6,22 @@
  */
 
 import Database from 'better-sqlite3';
-import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { asc, count, sql, sum } from 'drizzle-orm';
+import { type BetterSQLite3Database,drizzle } from 'drizzle-orm/better-sqlite3';
 
 import { DomainRepository } from '../domain-repository';
 import { generateDevFixtures } from '../fixtures';
 import { runMigrations, type SqlExecutor } from '../migrate';
 import {
+  type AggregateResult,
   batchValues,
   computeChecksum,
-  type AggregateResult,
   type InitializeResult,
   type PantryRepository,
   type VerifyResult,
 } from '../repository';
-import { healthProbe, schema, type AppSchema } from '../schema';
+import { type AppSchema,healthProbe, schema } from '../schema';
 import { runSeed, type SeedResult } from '../seed';
-import { asc, count, sql, sum } from 'drizzle-orm';
 
 export type NodeSqliteOptions = {
   /** Path or ':memory:' (default). */
@@ -112,7 +112,7 @@ export class NodeSqliteRepository implements PantryRepository {
   // ── Health probe (M0) ───────────────────────────────────────────────────
 
   async insertBatch(
-    countRows: number = 1000,
+    countRows = 1000,
   ): Promise<{ ms: number; inserted: number; checksum: number }> {
     const db = this.drizzle;
     const values = batchValues(countRows);

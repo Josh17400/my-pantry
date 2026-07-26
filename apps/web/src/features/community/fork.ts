@@ -4,7 +4,7 @@
  */
 
 import type { RecipeLineInput, RecipeStepInput } from '../../db/types';
-import type { ForkInput, ForkedRecipeWrite } from './types';
+import type { ForkedRecipeWrite,ForkInput } from './types';
 
 function copyLines(
   source: ForkInput['source']['ingredients'],

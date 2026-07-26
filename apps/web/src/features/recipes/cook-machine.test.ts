@@ -3,9 +3,8 @@
  * Uses planCook against synthetic pantry / recipe shapes (fixture-style ids).
  */
 
-import { describe, expect, it } from 'vitest';
-
 import type { IngredientForm } from '@larder/core';
+import { describe, expect, it } from 'vitest';
 
 import {
   acceptNegativeAndContinue,
@@ -13,6 +12,7 @@ import {
   buildCookTxns,
   buildUndoTxns,
   cancelNegativePrompt,
+  type CookMachineState,
   findNegativeCandidateIndices,
   markCommitSuccess,
   markUndone,
@@ -21,7 +21,6 @@ import {
   setLineActualUsed,
   setLineSkipped,
   startCook,
-  type CookMachineState,
 } from './cook-machine';
 import type {
   ConversionContext,

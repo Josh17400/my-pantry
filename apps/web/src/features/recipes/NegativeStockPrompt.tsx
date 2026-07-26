@@ -1,7 +1,7 @@
 import { cn } from '../../ui/cn';
 import {
-  formatBaseQty,
   type CookLineEdit,
+  formatBaseQty,
 } from './cook-machine';
 
 type NegativeStockPromptProps = {

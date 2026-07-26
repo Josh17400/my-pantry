@@ -112,7 +112,7 @@ export function createSupabaseRemotePort(client: SupabaseClient): SyncRemotePort
           .select('*')
           .eq('household_id', householdId);
         if (error) throw mapRemoteError(error, 'pullLocations');
-        return (data ?? []) as Array<{
+        return (data ?? []) as {
           id: string;
           household_id: string;
           name: string;
@@ -120,7 +120,7 @@ export function createSupabaseRemotePort(client: SupabaseClient): SyncRemotePort
           tint: string;
           parent_id: string | null;
           sort_order: number;
-        }>;
+        }[];
       } catch (err) {
         throw mapRemoteError(err, 'pullLocations');
       }
@@ -133,7 +133,7 @@ export function createSupabaseRemotePort(client: SupabaseClient): SyncRemotePort
           .select('*')
           .eq('household_id', householdId);
         if (error) throw mapRemoteError(error, 'pullRecipes');
-        return (data ?? []) as Array<{
+        return (data ?? []) as {
           id: string;
           household_id: string | null;
           title: string;
@@ -148,7 +148,7 @@ export function createSupabaseRemotePort(client: SupabaseClient): SyncRemotePort
           image_url: string | null;
           created_at: string;
           updated_at: string;
-        }>;
+        }[];
       } catch (err) {
         throw mapRemoteError(err, 'pullRecipes');
       }
@@ -162,7 +162,7 @@ export function createSupabaseRemotePort(client: SupabaseClient): SyncRemotePort
           .eq('recipe_id', recipeId)
           .order('sort_order', { ascending: true });
         if (error) throw mapRemoteError(error, 'pullRecipeLines');
-        return (data ?? []) as Array<{
+        return (data ?? []) as {
           id: string;
           recipe_id: string;
           sort_order: number;
@@ -179,7 +179,7 @@ export function createSupabaseRemotePort(client: SupabaseClient): SyncRemotePort
           qty_high: number | null;
           qty_low: number | null;
           is_range: boolean;
-        }>;
+        }[];
       } catch (err) {
         throw mapRemoteError(err, 'pullRecipeLines');
       }
@@ -193,14 +193,14 @@ export function createSupabaseRemotePort(client: SupabaseClient): SyncRemotePort
           .eq('recipe_id', recipeId)
           .order('sort_order', { ascending: true });
         if (error) throw mapRemoteError(error, 'pullRecipeSteps');
-        return (data ?? []) as Array<{
+        return (data ?? []) as {
           id: string;
           recipe_id: string;
           sort_order: number;
           text: string;
           duration_sec: number | null;
           timer_label: string | null;
-        }>;
+        }[];
       } catch (err) {
         throw mapRemoteError(err, 'pullRecipeSteps');
       }
@@ -213,7 +213,7 @@ export function createSupabaseRemotePort(client: SupabaseClient): SyncRemotePort
           .select('*')
           .eq('household_id', householdId);
         if (error) throw mapRemoteError(error, 'pullPantryItemsMeta');
-        return (data ?? []) as Array<{
+        return (data ?? []) as {
           household_id: string;
           ingredient_id: string;
           form_id: string;
@@ -231,7 +231,7 @@ export function createSupabaseRemotePort(client: SupabaseClient): SyncRemotePort
           last_absolute_cursor: string | null;
           is_negative: boolean;
           conflict: boolean;
-        }>;
+        }[];
       } catch (err) {
         throw mapRemoteError(err, 'pullPantryItemsMeta');
       }

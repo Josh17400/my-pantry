@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+
 import {
+  type CookLogEvent,
   DEFAULT_COOK_WINDOW_MS,
   findDuplicateCook,
-  type CookLogEvent,
 } from '../../src/dedupe';
 
 const baseLog: CookLogEvent[] = [

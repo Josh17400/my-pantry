@@ -2,9 +2,9 @@
  * Dry pantry staples not covered by baking/grains — nuts, legumes dry, stocks cubes, etc.
  */
 
-import type { SeedCategoryBundle } from '../types';
 import { mergeBundles, simpleMass, simpleVolume } from '../helpers';
 import { LB_G, OZ_G } from '../sources';
+import type { SeedCategoryBundle } from '../types';
 
 export const pantryStaples: SeedCategoryBundle = mergeBundles(
   simpleMass('beans-black-dry', 'Black beans (dry)', 'pantry-staples', {

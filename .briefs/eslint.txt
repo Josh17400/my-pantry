@@ -1,0 +1,70 @@
+# BRIEF: Add real linting
+
+## Context
+
+**The Good Pantry.** `npm run lint` currently runs `tsc --noEmit` — identical to
+`npm run typecheck`. There is no actual linter. That was acceptable for a scaffold; it is not
+acceptable now that the repo has ~575 tests and six feature areas.
+
+## Scope
+
+Root config, `packages/core`, `apps/web`. Do not change application logic beyond what an
+autofix legitimately does.
+
+## What to build
+
+1. **ESLint (flat config)** with `typescript-eslint`, plus the React and React Hooks plugins
+   for `apps/web`. `packages/core` is pure TypeScript — no React plugins there.
+
+2. **A rule that enforces the architecture**, not just style. `packages/core` must never import
+   React, react-native, or any platform API. That constraint is currently protected only by
+   convention and a grep I run by hand:
+
+   ```
+   no-restricted-imports (or an import/no-restricted-paths boundary) in packages/core:
+     react, react-dom, react-native, @capacitor/*, virtual browser globals
+   ```
+
+   This is the single most valuable rule in the config. That purity is why the Expo → Capacitor
+   re-platform cost almost nothing, and it should fail the build rather than rely on vigilance.
+
+3. Sensible rules: `no-floating-promises`, `no-misused-promises`, exhaustive-deps,
+   consistent type imports, import ordering. **`no-explicit-any` as an error** — the codebase
+   is already `any`-free and should stay that way.
+
+4. `npm run lint` runs ESLint. Keep `typecheck` separate — they answer different questions.
+   Add `lint:fix`.
+
+5. Fix everything it finds. If a rule produces mass noise that is not worth honoring, disable
+   it deliberately in config with a comment explaining why — **do not scatter inline
+   `eslint-disable` comments** through the source.
+
+## Constraints
+
+- **No behavior changes.** All 575 tests must still pass, unchanged: 279 core, 231 web,
+  65 functions.
+- If an autofix would alter runtime semantics, do it by hand and note it.
+- Deno functions have their own toolchain — leave `supabase/functions/**` out of ESLint's scope
+  or lint it separately; do not fight the two type systems together.
+- Create no git commits.
+
+## Verification
+
+```
+npm run lint          # clean
+npm run typecheck     # clean
+npm run test          # 279 core + 231 web
+npm run test:functions # 65
+npm run build         # succeeds
+```
+
+Then prove the architecture rule actually works: temporarily add `import 'react'` to a file in
+`packages/core`, confirm **lint fails**, and remove it. Report that you did this — a rule that
+has never been seen to fire is not a rule.
+
+## Report
+
+`reports/eslint.md`: the config, the architecture-boundary rule and **evidence it fires**, what
+you fixed by category, anything disabled and why, deviations, and open questions.
+
+Work continuously; do not stall waiting for input.

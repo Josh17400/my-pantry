@@ -4,14 +4,14 @@
  */
 
 import {
+  type CSSProperties,
+  type ReactNode,
+  type UIEvent,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
-  type ReactNode,
-  type UIEvent,
 } from 'react';
 
 export type VirtualListProps<T> = {

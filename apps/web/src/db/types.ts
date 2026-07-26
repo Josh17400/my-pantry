@@ -178,18 +178,14 @@ export type RecipeDetail = RecipeSummary & {
   authorId: string | null;
   forkedFrom: string | null;
   createdAt: string;
-  ingredients: Array<
-    RecipeLineInput & {
+  ingredients: (RecipeLineInput & {
       id: string;
       sortOrder: number;
-    }
-  >;
-  steps: Array<
-    RecipeStepInput & {
+    })[];
+  steps: (RecipeStepInput & {
       id: string;
       sortOrder: number;
-    }
-  >;
+    })[];
 };
 
 export type GroceryListItemInput = {

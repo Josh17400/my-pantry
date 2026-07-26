@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { type ReactNode,useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import type { RecipeDetail, RecipeSummary } from '../db/types';
 import {
-  ErrorBlock,
-  LoadingBlock,
-  RecipeCard,
-  RecipesEmptyState,
   catalogConversionContext,
+  ErrorBlock,
   findCookableRecipes,
+  LoadingBlock,
   pantryItemsToStock,
+  RecipeCard,
   recipeDetailToCore,
+  RecipesEmptyState,
 } from '../features/recipes';
 import type { Recipe } from '../features/recipes/core-imports';
 import {
@@ -20,9 +21,8 @@ import {
   useRecipes,
   useRecipesStore,
 } from '../state';
-import { SegmentedControl } from '../ui/SegmentedControl';
 import { cn } from '../ui/cn';
-import type { RecipeDetail, RecipeSummary } from '../db/types';
+import { SegmentedControl } from '../ui/SegmentedControl';
 
 type FilterMode = 'all' | 'can-make';
 

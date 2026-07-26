@@ -7,8 +7,8 @@
 
 import {
   DEFAULT_LOW_THRESHOLD_PCT,
-  foldLedger,
   type Dimension,
+  foldLedger,
   type PantryTxn,
 } from '@larder/core';
 import { and, asc, eq, like, or, sql } from 'drizzle-orm';
@@ -21,6 +21,7 @@ import {
 import { newId } from './id';
 import { parseJsonArray, stringifyJsonArray } from './json';
 import {
+  type AppSchema,
   groceryListItems,
   groceryLists,
   ingredientForms,
@@ -33,7 +34,6 @@ import {
   recipeSteps,
   schema,
   userAliases,
-  type AppSchema,
 } from './schema';
 import type {
   AppendTxnInput,

@@ -1,4 +1,4 @@
 export { QuickScreen } from './QuickScreen';
-export { useQuickItems } from './useQuickItems';
+export type { QuickConsumeEvent,QuickItem } from './types';
 export type { QuickScreenState } from './useQuickItems';
-export type { QuickItem, QuickConsumeEvent } from './types';
+export { useQuickItems } from './useQuickItems';

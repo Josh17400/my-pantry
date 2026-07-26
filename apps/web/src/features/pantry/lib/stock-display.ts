@@ -4,11 +4,12 @@
  */
 
 import {
+  type Dimension,
   evaluateStock,
   formatQuantity,
-  type Dimension,
   type StockStatus,
 } from '@larder/core';
+
 import type { StatusBand } from '../../../ui/tokens';
 
 /** Items expiring within this window appear under the "expiring" filter. */

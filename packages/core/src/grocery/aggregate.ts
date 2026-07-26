@@ -8,8 +8,8 @@
 import type { Dimension, IngredientForm } from '../domain/types';
 import type { ConversionEdge } from '../domain/types';
 import { convert } from '../units/convert';
-import { formatQuantity } from '../units/format';
 import { dimensionOf } from '../units/factors';
+import { formatQuantity } from '../units/format';
 import { BASE_UNIT } from '../units/types';
 import type { GroceryListLine, GrocerySource, GrocerySourceKind } from './types';
 

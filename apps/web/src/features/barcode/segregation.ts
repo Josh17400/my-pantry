@@ -44,13 +44,13 @@ export function mapOffApiToDerived(
   fetchedAt: string = new Date().toISOString(),
 ): OffDerivedProduct {
   const name =
-    (product.product_name && product.product_name.trim()) ||
-    (product.product_name_en && product.product_name_en.trim()) ||
+    (product.product_name?.trim()) ||
+    (product.product_name_en?.trim()) ||
     'Unknown product';
   const brand =
-    product.brands && product.brands.trim() ? product.brands.trim() : null;
+    product.brands?.trim() ? product.brands.trim() : null;
   const quantityLabel =
-    product.quantity && product.quantity.trim()
+    product.quantity?.trim()
       ? product.quantity.trim()
       : null;
 

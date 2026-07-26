@@ -7,8 +7,8 @@
 
 import type { Dimension, Ingredient, IngredientForm } from '../domain/types';
 import type { ConversionEdge } from '../domain/types';
-import type { CookPlan } from '../recipes/types';
 import type { StockEvaluation } from '../pantry/types';
+import type { CookPlan } from '../recipes/types';
 
 // ── Sources ─────────────────────────────────────────────────────────────────
 

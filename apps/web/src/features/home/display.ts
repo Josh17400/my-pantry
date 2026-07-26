@@ -5,10 +5,10 @@
 
 import {
   bandConfidence,
-  evaluateStock,
-  formatQuantity,
   type Confidence,
   type Dimension,
+  evaluateStock,
+  formatQuantity,
 } from '@larder/core';
 
 import type { StatusBand } from '../../ui';

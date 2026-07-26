@@ -3,8 +3,8 @@
  * These are *our* mappings, not OFF rows.
  */
 
-import type { BarcodeCanonicalMapping } from './types';
 import { normalizeBarcode } from './cache';
+import type { BarcodeCanonicalMapping } from './types';
 
 export const MAPPING_STORAGE_KEY = 'tgp.barcode-canonical-map.v1' as const;
 

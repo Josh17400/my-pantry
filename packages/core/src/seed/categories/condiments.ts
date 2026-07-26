@@ -3,9 +3,9 @@
  * Worcestershire (fish/anchovy), mayo (egg), etc.
  */
 
-import type { SeedCategoryBundle } from '../types';
 import { mergeBundles, simpleMass, simpleVolume } from '../helpers';
 import { OZ_G } from '../sources';
+import type { SeedCategoryBundle } from '../types';
 
 export const condiments: SeedCategoryBundle = mergeBundles(
   simpleVolume('ketchup', 'Ketchup', 'condiments', 1.15, {

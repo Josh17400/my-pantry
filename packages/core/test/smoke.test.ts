@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { CORE_PACKAGE_NAME, coreHealth } from '../src/index';
 
 describe('@larder/core smoke', () => {

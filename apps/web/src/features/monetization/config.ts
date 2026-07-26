@@ -30,7 +30,8 @@ function envString(key: string): string | undefined {
  * Use Google test ads unless explicitly told not to.
  * Production builds should set VITE_ADMOB_USE_TEST_ADS=false and real unit IDs.
  */
-export function useTestAds(): boolean {
+/** Whether to serve Google test ad units (not a React hook — name avoids `use*` false positive). */
+export function preferTestAds(): boolean {
   const flag = envString('VITE_ADMOB_USE_TEST_ADS');
   if (flag === 'false' || flag === '0') return false;
   if (flag === 'true' || flag === '1') return true;
@@ -43,7 +44,7 @@ export function useTestAds(): boolean {
 
 export function bannerAdUnitId(): string {
   const plat = platformName();
-  if (useTestAds()) {
+  if (preferTestAds()) {
     return plat === 'ios'
       ? GOOGLE_TEST_BANNER_IDS.ios
       : GOOGLE_TEST_BANNER_IDS.android;

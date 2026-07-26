@@ -7,7 +7,8 @@
  */
 
 import { foldLedger, type PantryTxn } from '@larder/core';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { count } from 'drizzle-orm';
+import { afterEach,beforeEach, describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_DEVICE_ID,
@@ -16,9 +17,8 @@ import {
 } from './constants';
 import { NodeSqliteRepository } from './drivers/node-sqlite';
 import { MIGRATIONS } from './migrations';
-import { seedCatalogStats } from './seed';
-import { count } from 'drizzle-orm';
 import { ingredients, locations, pantryItems, recipes } from './schema';
+import { seedCatalogStats } from './seed';
 
 describe('data layer (M1-G)', () => {
   let repo: NodeSqliteRepository;
@@ -34,8 +34,7 @@ describe('data layer (M1-G)', () => {
 
   describe('migrations', () => {
     it('applies all journal migrations on first run', async () => {
-      const first = await repo.migrate();
-      void first;
+      await repo.migrate();
       // re-run via migrate again through runMigrations
       const execApplied = await (async () => {
         // Access via second migrate call

@@ -15,8 +15,8 @@ import {
   tierFromRevenueCatCustomerInfo,
   tierFromSessionMetadata,
 } from './entitlements';
-import type { EntitlementSnapshot, EntitlementTier } from './types';
 import { getPurchasesBridge } from './purchases';
+import type { EntitlementSnapshot, EntitlementTier } from './types';
 
 export type EntitlementState = {
   snapshot: EntitlementSnapshot;

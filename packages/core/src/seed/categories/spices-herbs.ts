@@ -4,9 +4,9 @@
  * for fluffy dried leaves.
  */
 
-import type { SeedCategoryBundle } from '../types';
 import { mergeBundles, simpleMass } from '../helpers';
 import { KNOWN_DENSITIES, OZ_G } from '../sources';
+import type { SeedCategoryBundle } from '../types';
 
 const jar = (oz: number) => [{ label: `jar_${String(oz).replace('.', '_')}oz`, netG: oz * OZ_G }];
 

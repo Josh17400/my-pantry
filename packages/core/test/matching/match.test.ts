@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
+
 import {
+  type Ingredient,
   knownAllergens,
   unknownAllergenTags,
-  type Ingredient,
 } from '../../src/domain';
 import {
   FUZZY_CONFIDENCE_FLOOR,
+  type MatchCatalog,
   matchIngredient,
   normalizeIngredientText,
-  type MatchCatalog,
 } from '../../src/matching';
 import { fixtureCatalog } from './fixtures';
 

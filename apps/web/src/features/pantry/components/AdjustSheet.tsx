@@ -1,6 +1,5 @@
-import { useState } from 'react';
-
 import type { Dimension } from '@larder/core';
+import { useState } from 'react';
 
 import { parseHumanDelta } from '../lib/qty-input';
 import {

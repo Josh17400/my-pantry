@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
+
+import type { PantryItemView } from '../../db/types';
+import { fixtureChefClient } from './client';
 import {
   buildCatalogSlice,
   buildPantrySnapshot,
 } from './context';
-import { fixtureChefClient } from './client';
-import type { PantryItemView } from '../../db/types';
 import { SUGGESTED_PROMPTS } from './types';
 
 function item(

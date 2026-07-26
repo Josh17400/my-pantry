@@ -1,9 +1,9 @@
 import { cn } from '../../ui/cn';
 import { AllergenUnknownBadge } from './AllergenUnknownBadge';
 import {
+  type CookLineEdit,
   formatBaseQty,
   presentCookStatus,
-  type CookLineEdit,
 } from './cook-machine';
 import { statusChipClass } from './status-styles';
 

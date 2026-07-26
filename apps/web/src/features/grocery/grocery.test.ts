@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest';
-
 import { formatQuantity } from '@larder/core';
+import { describe, expect, it } from 'vitest';
 
 import { aisleTitle } from './aisle-title';
 import { buildDemoGroceryList, demoDisplayProof } from './demo-data';

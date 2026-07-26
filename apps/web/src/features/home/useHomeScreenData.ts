@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import type { Recipe } from '../../../../../packages/core/src/recipes/types.ts';
 import { DEFAULT_LOCATION_IDS } from '../../db/constants';
 import type { LocationRow, PantryItemView } from '../../db/types';
 import {
@@ -17,21 +18,23 @@ import {
   usePantry,
   useRecipes,
 } from '../../state';
-import type { Recipe } from '../../../../../packages/core/src/recipes/types.ts';
-
+import type { StatusBand } from '../../ui';
 import {
   computeCookNow,
-  pantryItemsToStockRows,
   type CookNowResult,
+  pantryItemsToStockRows,
 } from './cookable';
 import { loadDemoHomeData } from './demo-data';
 import {
+  type ItemDisplay,
   locationStatusWord,
   shortIngredientName,
   toItemDisplay,
-  type ItemDisplay,
 } from './display';
-import type { StatusBand } from '../../ui';
+
+/** Stable empty fallbacks so demo-mode deps don't change identity every render. */
+const EMPTY_PANTRY_ITEMS: PantryItemView[] = [];
+const EMPTY_LOCATIONS: LocationRow[] = [];
 
 export type GlanceCard = {
   id: string;
@@ -66,7 +69,7 @@ export type HomeScreenData = {
   reload: () => void;
 };
 
-const TINT_CYCLE: Array<'sage' | 'tan' | 'sky' | 'cream'> = [
+const TINT_CYCLE: ('sage' | 'tan' | 'sky' | 'cream')[] = [
   'sky',
   'tan',
   'cream',
@@ -88,7 +91,7 @@ function detailToRecipe(detail: {
   cookMin: number | null;
   tags: string[];
   imageUrl: string | null;
-  ingredients: Array<{
+  ingredients: {
     ingredientId?: string;
     formId?: string;
     rawText: string;
@@ -102,12 +105,12 @@ function detailToRecipe(detail: {
     qtyHigh?: number;
     qtyLow?: number;
     isRange?: boolean;
-  }>;
-  steps: Array<{
+  }[];
+  steps: {
     text: string;
     durationSec?: number;
     timerLabel?: string;
-  }>;
+  }[];
 }): Recipe {
   return {
     id: detail.id,
@@ -370,7 +373,7 @@ export function useHomeScreenData(): HomeScreenData {
       cancelled = true;
     };
     // Intentionally once on mount / demo flag
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [useDemo]);
 
   // Hydrate full recipes for cook-now after list.
@@ -414,9 +417,9 @@ export function useHomeScreenData(): HomeScreenData {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useDemo, recipesStore.recipes]);
 
-  const items = useDemo ? (demo?.items ?? []) : pantry.items;
+  const items = useDemo ? (demo?.items ?? EMPTY_PANTRY_ITEMS) : pantry.items;
   const locations = useDemo
-    ? (demo?.locations ?? [])
+    ? (demo?.locations ?? EMPTY_LOCATIONS)
     : locationsStore.locations;
   const recipes = useDemo ? (demo?.recipes ?? fullRecipes) : fullRecipes;
 

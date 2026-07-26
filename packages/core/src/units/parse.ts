@@ -97,7 +97,7 @@ const VULGAR: Readonly<Record<string, number>> = {
 const VULGAR_CLASS = Object.keys(VULGAR).join('');
 
 /** Phrases that mean "do not deduct a quantity". */
-const NON_QUANTIFIED: ReadonlyArray<{ re: RegExp; phrase: string }> = [
+const NON_QUANTIFIED: readonly { re: RegExp; phrase: string }[] = [
   { re: /^\s*(a\s+)?pinch\s*(of)?\s*$/i, phrase: 'pinch' },
   { re: /^\s*(a\s+)?dash\s*(of)?\s*$/i, phrase: 'dash' },
   { re: /^\s*to\s+taste\s*$/i, phrase: 'to-taste' },
@@ -141,7 +141,7 @@ function parseLeadingNumber(
   // Prefer en-dash / hyphen / "to"
   const rangeRe =
     /^(\d+(?:\.\d+)?)\s*(?:-|–|—|\bto\b)\s*(\d+(?:\.\d+)?)(?=\s|$|[a-zA-Z])/i;
-  const rangeM = t.match(rangeRe);
+  const rangeM = rangeRe.exec(t);
   if (rangeM) {
     const a = Number(rangeM[1]);
     const b = Number(rangeM[2]);
@@ -155,7 +155,7 @@ function parseLeadingNumber(
   }
 
   // Mixed number: "1 1/2" or "1 ½" (½ already expanded to "1 0.5")
-  const mixedFrac = t.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)/);
+  const mixedFrac = /^(\d+)\s+(\d+)\s*\/\s*(\d+)/.exec(t);
   if (mixedFrac) {
     const whole = Number(mixedFrac[1]);
     const num = Number(mixedFrac[2]);
@@ -168,7 +168,7 @@ function parseLeadingNumber(
   }
 
   // Mixed with already-expanded vulgar: "1 0.5"
-  const mixedDec = t.match(/^(\d+)\s+(\d+\.\d+)(?=\s|$|[a-zA-Z])/);
+  const mixedDec = /^(\d+)\s+(\d+\.\d+)(?=\s|$|[a-zA-Z])/.exec(t);
   if (mixedDec) {
     const whole = Number(mixedDec[1]);
     const frac = Number(mixedDec[2]);
@@ -180,7 +180,7 @@ function parseLeadingNumber(
   }
 
   // Simple fraction: "3/4"
-  const frac = t.match(/^(\d+)\s*\/\s*(\d+)/);
+  const frac = /^(\d+)\s*\/\s*(\d+)/.exec(t);
   if (frac) {
     const num = Number(frac[1]);
     const den = Number(frac[2]);
@@ -192,7 +192,7 @@ function parseLeadingNumber(
   }
 
   // Decimal or integer: "1.5", "12"
-  const dec = t.match(/^(\d+(?:\.\d+)?)/);
+  const dec = /^(\d+(?:\.\d+)?)/.exec(t);
   if (dec) {
     const qty = Number(dec[1]);
     if (Number.isFinite(qty)) {
@@ -253,7 +253,7 @@ export function parseQuantity(raw: string): ParseQuantityResult {
   // Also: "salt to taste", "pepper, to taste" — phrase at end
   const trailingNonQ =
     /^(.*?)(?:,?\s+)?(to taste|as needed|as desired|for garnish|for serving)\s*$/i;
-  const tn = s.match(trailingNonQ);
+  const tn = trailingNonQ.exec(s);
   if (tn && !/\d/.test(tn[1] ?? '')) {
     const phraseMap: Record<string, string> = {
       'to taste': 'to-taste',
@@ -275,7 +275,7 @@ export function parseQuantity(raw: string): ParseQuantityResult {
 
   // Leading article "a/an" before unit-only ("a pinch" already handled; "a cup" → 1 cup)
   let impliedOne = false;
-  const article = s.match(/^(an?)\s+/i);
+  const article = /^(an?)\s+/i.exec(s);
   if (article) {
     const after = s.slice(article[0].length);
     // If what follows is a unit or non-number phrase

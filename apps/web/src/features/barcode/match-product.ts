@@ -5,7 +5,6 @@
 
 import { matchIngredient } from '../../../../../packages/core/src/matching/index.ts';
 import type { MatchResult } from '../../../../../packages/core/src/matching/types.ts';
-
 import {
   buildSeedMatchCatalog,
   defaultFormIdForIngredient,

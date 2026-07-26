@@ -20,14 +20,14 @@ import { DomainRepository } from '../domain-repository';
 import { generateDevFixtures } from '../fixtures';
 import { runMigrations, type SqlExecutor } from '../migrate';
 import {
+  type AggregateResult,
   batchValues,
   computeChecksum,
-  type AggregateResult,
   type InitializeResult,
   type PantryRepository,
   type VerifyResult,
 } from '../repository';
-import { healthProbe, schema, type AppSchema } from '../schema';
+import { type AppSchema,healthProbe, schema } from '../schema';
 import { runSeed, type SeedResult } from '../seed';
 
 const DB_NAME = 'good-pantry';

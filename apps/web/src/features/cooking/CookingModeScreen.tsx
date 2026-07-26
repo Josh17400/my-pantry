@@ -2,9 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import type { Recipe } from '../../../../../packages/core/src/recipes/types.ts';
-
 import { cn } from '../../ui/cn';
-
 import { releaseKeepAwake, requestKeepAwake } from './keep-awake';
 import { notifyTimerDone } from './notify';
 import { COOKING_MODE_POLICY, cookingModeAllowsAds } from './policy';
@@ -118,7 +116,7 @@ export function CookingModeScreen({
       onExitToCookPreview(recipe.id, servings);
       return;
     }
-    navigate(
+    void navigate(
       `/recipes/${recipe.id}/cook?servings=${encodeURIComponent(String(servings))}`,
     );
   }, [navigate, onExitToCookPreview, recipe.id, servings]);

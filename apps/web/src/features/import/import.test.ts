@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import type { RecipeDetail } from '../../db/types';
 import { buildCommunityMatchCatalog } from '../community/match-catalog';
 import { canPublish } from '../community/publish';
 import {
@@ -12,8 +13,8 @@ import {
   provenanceFromRecipe,
 } from './copyright';
 import {
-  extractRecipeFromHtml,
   extractedFromManualPaste,
+  extractRecipeFromHtml,
 } from './extract';
 import {
   extractRecipeFromHtmlJsonLd,
@@ -34,7 +35,6 @@ import {
   reviewToRecipeWrite,
   setLocaleChoice,
 } from './match-import';
-import type { RecipeDetail } from '../../db/types';
 
 describe('parseDurationToMinutes / parseServings', () => {
   it('parses ISO-8601 durations', () => {

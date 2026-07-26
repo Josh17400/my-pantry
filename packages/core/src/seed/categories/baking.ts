@@ -5,9 +5,9 @@
  * densityGPerMl = g_per_cup / 236.5882365 (US customary cup).
  */
 
-import type { SeedCategoryBundle } from '../types';
 import { mergeBundles, simpleMass, simpleVolume } from '../helpers';
 import { KNOWN_DENSITIES, LB_G, OZ_G } from '../sources';
+import type { SeedCategoryBundle } from '../types';
 
 export const baking: SeedCategoryBundle = mergeBundles(
   simpleMass('flour-ap', 'All-purpose flour', 'baking', {

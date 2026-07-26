@@ -62,7 +62,7 @@ export class SyncEngine {
    * Run one full sync loop. Concurrent callers share the in-flight promise
    * (no overlapping push/pull).
    */
-  async run(trigger: string = 'manual'): Promise<SyncRunResult> {
+  async run(trigger = 'manual'): Promise<SyncRunResult> {
     if (this.disposed) {
       return emptySkip('disposed');
     }

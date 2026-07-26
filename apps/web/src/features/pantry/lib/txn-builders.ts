@@ -4,12 +4,13 @@
  */
 
 import type { AbsoluteReason, RelativeReason } from '@larder/core';
-import type { AppendTxnInput } from '../../../db/types';
+
 import {
   DEFAULT_DEVICE_ID,
   DEFAULT_HOUSEHOLD_ID,
   DEFAULT_USER_ID,
 } from '../../../db/constants';
+import type { AppendTxnInput } from '../../../db/types';
 
 export type TxnActor = {
   householdId?: string;

@@ -1,6 +1,6 @@
-import type { CookLineStatus } from './core-imports';
 import type { StatusPresentation } from './cook-machine';
 import { presentCookStatus } from './cook-machine';
+import type { CookLineStatus } from './core-imports';
 
 export function statusToneClass(tone: StatusPresentation['tone']): string {
   switch (tone) {

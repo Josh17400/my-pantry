@@ -1,17 +1,18 @@
 import { describe, expect, it } from 'vitest';
+
 import {
-  CORE_PACKAGE_NAME,
-  convert,
-  foldLedger,
-  parseQuantity,
-  allergensDisagree,
-  knownAllergens,
-  unknownAllergenTags,
-  BASE_UNIT,
   ALLERGENS,
+  allergensDisagree,
+  BASE_UNIT,
+  convert,
+  CORE_PACKAGE_NAME,
   type Dimension,
+  foldLedger,
   type Ingredient,
+  knownAllergens,
   type PantryTxn,
+  parseQuantity,
+  unknownAllergenTags,
 } from '../../src/index';
 
 describe('root barrel wiring', () => {

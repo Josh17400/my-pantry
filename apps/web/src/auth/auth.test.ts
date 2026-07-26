@@ -2,7 +2,7 @@
  * Auth client tests — mocked Supabase; no live project required.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthClient, resetAuthClient } from './client';
 import { AuthNotConfiguredError, sanitizeAuthError } from './errors';

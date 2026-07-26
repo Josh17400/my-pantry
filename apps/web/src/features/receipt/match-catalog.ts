@@ -5,23 +5,23 @@
 import type { Ingredient } from '@larder/core';
 
 import {
-  seedForms,
-  seedIngredients,
-  seedPackages,
   type IngredientAlias,
   type MatchCatalog,
+  seedForms,
   type SeedIngredient,
+  seedIngredients,
+  seedPackages,
 } from './core-imports';
 import type { PackageChoice } from './types';
 
 /** Humanize package labels like "can_14_5oz" → "14.5 oz can". */
 export function displayPackageLabel(label: string, netG: number): string {
-  const ozMatch = label.match(/(\d+(?:[._]\d+)?)\s*oz/i);
+  const ozMatch = /(\d+(?:[._]\d+)?)\s*oz/i.exec(label);
   if (ozMatch) {
     const oz = ozMatch[1]!.replace('_', '.');
     return `${oz} oz`;
   }
-  const lbMatch = label.match(/(\d+(?:[._]\d+)?)\s*lb/i);
+  const lbMatch = /(\d+(?:[._]\d+)?)\s*lb/i.exec(label);
   if (lbMatch) {
     const lb = lbMatch[1]!.replace('_', '.');
     return `${lb} lb`;

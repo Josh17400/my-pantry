@@ -1,0 +1,68 @@
+# ONE-TIME job: mint an Apple Distribution certificate and export it as an
+# ENCRYPTED artifact. The orchestrating machine downloads it, decrypts with
+# CERT_EXPORT_PASS, and stores the p12 (base64) as the IOS_CERT_P12_B64 repo
+# secret that every ios.yml build reuses.
+#
+# Why this exists: GitHub runners are wiped after each run, so minting a cert
+# per build hits Apple's distribution-certificate cap almost immediately. One
+# durable cert, kept as a secret, is the stable setup.
+#
+# Mirrored from the owner's euchre-game pipeline, with one difference: that
+# project's CERT_EXPORT_PASS is unrecoverable (GitHub secrets are write-only),
+# so this repo mints its OWN certificate under a NEW password rather than
+# trying to reuse the old p12.
+#
+# A Distribution certificate is TEAM-WIDE, not per-app — so if Apple's cap
+# blocks minting, an existing certificate must be revoked at
+# developer.apple.com -> Certificates first. Revoking does not affect apps
+# already published; it only prevents signing NEW builds with that cert, so any
+# other pipeline still using it must be updated with the new one.
+#
+# Prereqs: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8, APPLE_TEAM_ID and
+# CERT_EXPORT_PASS secrets set.
+
+name: iOS mint signing cert (one-time)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mint:
+    runs-on: macos-26 # Xcode 26 image (Capacitor 8 needs Xcode 16.4+)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain versions (diagnostics)
+        run: |
+          xcodebuild -version
+          fastlane --version
+
+      - name: Install native dependencies
+        working-directory: native
+        run: npm ci
+
+      - name: Mint Apple Distribution certificate
+        working-directory: native/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CERT_EXPORT_PASS: ${{ secrets.CERT_EXPORT_PASS }}
+          LC_ALL: en_US.UTF-8
+          LANG: en_US.UTF-8
+        run: fastlane ios mint_cert
+
+      - name: Encrypt the exported p12 (never leaves the runner in the clear)
+        env:
+          CERT_EXPORT_PASS: ${{ secrets.CERT_EXPORT_PASS }}
+        run: |
+          P12=native/ios/build/dist_full.p12
+          test -f "$P12"
+          openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:CERT_EXPORT_PASS -in "$P12" -out dist.p12.enc
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-cert
+          path: dist.p12.enc
+          retention-days: 1

@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 
 import { Card } from '../../ui/Card';
-import { PlaceholderThumb } from '../../ui/PlaceholderThumb';
 import { cn } from '../../ui/cn';
+import { PlaceholderThumb } from '../../ui/PlaceholderThumb';
 import type { TintName } from '../../ui/tokens';
 import { totalMinutes } from './mappers';
 

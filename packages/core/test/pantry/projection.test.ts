@@ -1,4 +1,5 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeEach,describe, expect, it } from 'vitest';
+
 import {
   applyIncomingTxn,
   emptyProjection,
@@ -138,7 +139,7 @@ describe('applyIncomingTxn + projection invariant', () => {
 
   it('absolute always refolds', () => {
     const t1 = rel({ deltaBase: 500, occurredAt: day(0), clientTxnId: 'p' });
-    let cache = applyIncomingTxn(emptyProjection(META), t1, [t1]).cache;
+    const cache = applyIncomingTxn(emptyProjection(META), t1, [t1]).cache;
     const recount = abs({
       targetBase: 200,
       occurredAt: day(1),

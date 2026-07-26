@@ -2,8 +2,8 @@
  * Build pantry snapshot + catalog slice + dietary profile for chef requests.
  */
 
-import { seedIngredients } from '../recipes/core-imports';
 import type { PantryItemView } from '../../db/types';
+import { seedIngredients } from '../recipes/core-imports';
 import type {
   Allergen,
   CatalogIngredientRef,

@@ -5,14 +5,14 @@
 
 import type { Ingredient } from '@larder/core';
 
-import {
-  seedForms,
-  seedIngredients,
-} from '../../../../../packages/core/src/seed/index.ts';
 import type {
   IngredientAlias,
   MatchCatalog,
 } from '../../../../../packages/core/src/matching/types.ts';
+import {
+  seedForms,
+  seedIngredients,
+} from '../../../../../packages/core/src/seed/index.ts';
 
 /** Canonical ingredients only — no OFF-sourced rows. */
 export function buildSeedMatchCatalog(

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { type FormEvent,useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import {
@@ -8,7 +8,7 @@ import {
 } from '../../db/constants';
 import { hasActiveRepository, usePantry } from '../../state';
 import { cn } from '../../ui/cn';
-
+import { searchCatalogIngredients } from '../recipes/catalog';
 import {
   OFF_ATTRIBUTION_LINE,
   OFF_ATTRIBUTION_SHORT,
@@ -29,7 +29,6 @@ import {
   scanBarcode,
 } from './scanner';
 import type { OffDerivedProduct } from './types';
-import { searchCatalogIngredients } from '../recipes/catalog';
 
 type Phase =
   | 'idle'
@@ -248,7 +247,7 @@ export function BarcodeScreen() {
   };
 
   const onConfirmPutAway = async () => {
-    if (!confirm || !confirm.ingredientId || !confirm.formId) {
+    if (!confirm?.ingredientId || !confirm.formId) {
       setError('Choose an ingredient from the catalog first.');
       return;
     }

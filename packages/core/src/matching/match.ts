@@ -13,13 +13,13 @@
  */
 
 import {
+  type AllergenTags,
   canAutoMergeAllergens,
   canAutoMergeDietaryFlags,
-  knownAllergens,
-  knownDietaryFlags,
-  type AllergenTags,
   type DietaryTags,
   type Ingredient,
+  knownAllergens,
+  knownDietaryFlags,
 } from '../domain';
 import { aliasKey, normalizeIngredientText } from './normalize';
 import { hasSiblings } from './siblings';

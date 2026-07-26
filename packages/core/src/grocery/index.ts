@@ -7,6 +7,20 @@
  * Root barrel (`src/index.ts`) is owned by the architect — do not edit it.
  */
 
+export type { AggregateContext } from './aggregate';
+export {
+  aggregateSources,
+  groupByAisle,
+  purchaseQtyFromSource,
+} from './aggregate';
+export { buildList } from './build';
+export {
+  manualSource,
+  sourcesFromPlans,
+  sourcesFromPlanShortfalls,
+  sourcesFromReorder,
+  sourcesFromStock,
+} from './sources';
 export type {
   BuildListOptions,
   GroceryAisleGroup,
@@ -18,20 +32,3 @@ export type {
   ReorderSuggestion,
   StockGroceryInput,
 } from './types';
-
-export { buildList } from './build';
-
-export {
-  aggregateSources,
-  groupByAisle,
-  purchaseQtyFromSource,
-} from './aggregate';
-export type { AggregateContext } from './aggregate';
-
-export {
-  manualSource,
-  sourcesFromPlanShortfalls,
-  sourcesFromPlans,
-  sourcesFromReorder,
-  sourcesFromStock,
-} from './sources';

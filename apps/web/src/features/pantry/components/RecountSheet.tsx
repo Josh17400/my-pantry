@@ -1,9 +1,8 @@
+import type { Dimension } from '@larder/core';
 import { useState } from 'react';
 
-import type { Dimension } from '@larder/core';
-
-import { formatItemQuantity } from '../lib/provenance-display';
 import type { ProvenanceFields } from '../lib/provenance-display';
+import { formatItemQuantity } from '../lib/provenance-display';
 import { parseHumanQuantity } from '../lib/qty-input';
 import {
   FieldInput,

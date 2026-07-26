@@ -12,9 +12,11 @@
 
 import { useMemo, useState } from 'react';
 
+import type { SegmentOption } from '../../ui';
 import {
   AdSlot,
   Card,
+  cn,
   ItemTile,
   LeafIcon,
   PlaceholderThumb,
@@ -22,13 +24,10 @@ import {
   SegmentedControl,
   StatusBadge,
   Wordmark,
-  cn,
 } from '../../ui';
-import type { SegmentOption } from '../../ui';
-
 import { formatUseUpLine } from './cookable';
 import { fullGreeting } from './greeting';
-import { useHomeScreenData, type GlanceCard, type HighlightItem } from './useHomeScreenData';
+import { type GlanceCard, type HighlightItem,useHomeScreenData } from './useHomeScreenData';
 
 const OVERVIEW_SEGMENTS: SegmentOption<'overview' | 'recipes' | 'fridge' | 'pantry'>[] =
   [

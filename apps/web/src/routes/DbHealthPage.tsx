@@ -2,9 +2,9 @@ import { useCallback, useState } from 'react';
 
 import {
   createPantryRepository,
-  runHealthCheck,
   type HealthRunResult,
   type HealthStepResult,
+  runHealthCheck,
 } from '../db';
 import { getCoreWiringProof } from '../lib/core-proof';
 import { isNativePlatform, platformName } from '../lib/platform';

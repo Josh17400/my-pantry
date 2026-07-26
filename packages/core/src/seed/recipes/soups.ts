@@ -2,8 +2,8 @@
  * Soups — original prose for The Good Pantry starter catalog.
  */
 
-import { qty, recipe, step, taste } from './helpers';
 import type { Recipe } from '../../recipes/types';
+import { qty, recipe, step, taste } from './helpers';
 
 export const soupRecipes: readonly Recipe[] = [
   recipe({

@@ -123,7 +123,7 @@ export function taxonomyParentId(
 export function hasSiblings(
   ingredientId: string,
   nameNormalized: string,
-  catalogIdsAndNames: ReadonlyArray<{ id: string; nameNormalized: string }>,
+  catalogIdsAndNames: readonly { id: string; nameNormalized: string }[],
   taxonomyParentByIngredientId: Readonly<Record<string, string>>,
 ): boolean {
   const parent = taxonomyParentId(
@@ -151,7 +151,7 @@ export function hasSiblings(
 export function siblingIds(
   ingredientId: string,
   nameNormalized: string,
-  catalogIdsAndNames: ReadonlyArray<{ id: string; nameNormalized: string }>,
+  catalogIdsAndNames: readonly { id: string; nameNormalized: string }[],
   taxonomyParentByIngredientId: Readonly<Record<string, string>>,
 ): string[] {
   const parent = taxonomyParentId(

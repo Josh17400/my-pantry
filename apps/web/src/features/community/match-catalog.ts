@@ -5,10 +5,10 @@
 import type { Ingredient } from '@larder/core';
 
 import {
-  seedIngredients,
   type IngredientAlias,
   type MatchCatalog,
   type SeedIngredient,
+  seedIngredients,
 } from './core-imports';
 
 function toIngredient(s: SeedIngredient): Ingredient {

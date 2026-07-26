@@ -4,8 +4,8 @@
 
 import { create } from 'zustand';
 
-import type { LocationRow, LocationWrite } from '../db/types';
 import { DEFAULT_HOUSEHOLD_ID } from '../db/constants';
+import type { LocationRow, LocationWrite } from '../db/types';
 import { getDomainRepository } from './repo-context';
 
 export type LocationsState = {

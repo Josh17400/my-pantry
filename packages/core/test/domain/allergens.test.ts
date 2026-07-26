@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   ALLERGENS,
-  DIETARY_FLAGS,
   allergensDisagree,
   canAutoMergeAllergens,
   canAutoMergeDietaryFlags,
   canAutoMergeSafety,
+  DIETARY_FLAGS,
   dietaryFlagsDisagree,
   ingredientHitsAvoidList,
   isAllergen,

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+
 import {
-  EXACT,
   decimalsForUncertainty,
+  EXACT,
   formatQuantity,
 } from '../../src/units';
 

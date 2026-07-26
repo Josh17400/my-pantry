@@ -13,10 +13,20 @@
     "test": "npm run test -w @larder/core && npm run test -w @larder/web",
     "test:functions": "npx --yes deno@latest test --allow-read --allow-env --no-check supabase/functions/parse-receipt supabase/functions/chef supabase/functions/entitlements",
     "test:all": "npm run test && npm run test:functions",
-    "lint": "npm run lint --workspaces --if-present",
+    "lint": "eslint packages/core apps/web",
+    "lint:fix": "eslint packages/core apps/web --fix",
     "cap:sync": "npm run build && npm run sync --prefix native"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
+    "globals": "^16.5.0",
+    "typescript-eslint": "^8.65.0"
   }
 }

@@ -5,9 +5,9 @@
 
 import {
   convertToBase,
+  type Dimension,
   dimensionOf,
   parseQuantity,
-  type Dimension,
 } from '@larder/core';
 
 export type QtyParseOk = {

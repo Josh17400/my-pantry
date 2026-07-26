@@ -1,7 +1,7 @@
-export { ChefScreen } from './ChefScreen';
 export type { ChefScreenProps } from './ChefScreen';
-export { liveChefClient, fixtureChefClient } from './client';
+export { ChefScreen } from './ChefScreen';
 export type { ChefClient } from './client';
+export { fixtureChefClient,liveChefClient } from './client';
 export {
   buildCatalogSlice,
   buildPantrySnapshot,

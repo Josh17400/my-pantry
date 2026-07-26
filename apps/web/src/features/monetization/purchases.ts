@@ -26,7 +26,7 @@ type PurchasesPlugin = {
   configure(opts: { apiKey: string; appUserID?: string }): Promise<void>;
   getOfferings(): Promise<{
     current?: {
-      availablePackages?: Array<{
+      availablePackages?: {
         identifier?: string;
         product?: {
           identifier?: string;
@@ -35,19 +35,19 @@ type PurchasesPlugin = {
           priceString?: string;
           subscriptionPeriod?: string;
         };
-      }>;
+      }[];
     };
   }>;
   getProducts(opts: {
     productIdentifiers: string[];
   }): Promise<{
-    products?: Array<{
+    products?: {
       identifier: string;
       title: string;
       description: string;
       priceString: string;
       subscriptionPeriod?: string;
-    }>;
+    }[];
   }>;
   purchaseStoreProduct(opts: {
     product: unknown;

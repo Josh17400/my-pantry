@@ -9,8 +9,8 @@
 import type { Dimension } from '../domain/types';
 import type { IngredientForm } from '../domain/types';
 import { convert } from '../units/convert';
-import { BASE_UNIT } from '../units/types';
 import { dimensionOf } from '../units/factors';
+import { BASE_UNIT } from '../units/types';
 import { isNonQuantifiedLine, scaleRecipe } from './scale';
 import type {
   ConversionContext,

@@ -1,6 +1,6 @@
 import { cn } from '../../../ui/cn';
-import { confidenceOf, formatProvenanceLine } from '../lib/provenance-display';
 import type { ProvenanceFields } from '../lib/provenance-display';
+import { confidenceOf, formatProvenanceLine } from '../lib/provenance-display';
 
 type ProvenanceLineProps = {
   fields: ProvenanceFields;

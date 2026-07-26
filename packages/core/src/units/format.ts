@@ -9,9 +9,9 @@
  * uncertainty is ~10, so ones-place is the last trustworthy digit.
  */
 
-import { UNIT_BY_ID, toBaseFactor } from './factors';
-import { BASE_UNIT } from './types';
+import { toBaseFactor,UNIT_BY_ID } from './factors';
 import type { Dimension, UnitId } from './types';
+import { BASE_UNIT } from './types';
 
 export type FormatOpts = {
   /** Relative uncertainty in percent; defaults to 0 (full available precision capped). */

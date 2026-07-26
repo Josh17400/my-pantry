@@ -3,13 +3,12 @@
  * Steps are free text — we match ingredient names / rawText into step text.
  */
 
+import { scaleRecipe } from '../../../../../packages/core/src/recipes/index.ts';
 import type {
   Recipe,
   RecipeLine,
   ScaledRecipeLine,
 } from '../../../../../packages/core/src/recipes/types.ts';
-import { scaleRecipe } from '../../../../../packages/core/src/recipes/index.ts';
-
 import { getIngredientName } from '../recipes/catalog';
 
 export type ChecklistItem = {

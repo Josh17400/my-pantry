@@ -3,7 +3,8 @@
  * Safe when Supabase env is missing or the user is signed out.
  */
 
-import { AuthClient, getAuthClient } from '../auth';
+import type { AuthClient} from '../auth';
+import { getAuthClient } from '../auth';
 import type { AppDatabase } from '../db/domain-repository';
 import { getSupabaseClient } from '../supabase/config';
 import { SyncEngine } from './engine';

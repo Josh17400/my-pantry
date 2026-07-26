@@ -214,7 +214,7 @@ export const DEFAULT_SYNC_OPTIONS: SyncEngineOptions = {
   localHouseholdId: 'local-household',
   pageSize: 200,
   isOnline: () =>
-    typeof navigator === 'undefined' ? true : navigator.onLine !== false,
+    typeof navigator === 'undefined' ? true : navigator.onLine,
 };
 
 export const EPOCH_CURSOR = '1970-01-01T00:00:00.000Z';

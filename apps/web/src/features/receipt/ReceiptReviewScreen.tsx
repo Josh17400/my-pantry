@@ -4,12 +4,12 @@
  * Dev tap counter always visible in development.
  */
 
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { type ReactNode,useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Card, cn } from '../../ui';
 import { DEFAULT_HOUSEHOLD_ID } from '../../db/constants';
 import { usePantry } from '../../state/pantry-store';
+import { Card, cn } from '../../ui';
 import { commitReceipt } from './commit';
 import {
   attentionLines,
@@ -273,7 +273,7 @@ export function ReceiptReviewScreen({
       skipped: res.result.skipped,
     });
     clearReviewState();
-    navigate('/pantry', {
+    void navigate('/pantry', {
       state: {
         receiptCommit: res.result.message,
         tapCount: withTap.tapCount,

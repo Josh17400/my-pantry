@@ -1,11 +1,12 @@
-import { StrictMode, useEffect, useState, type ReactNode } from 'react';
+import './index.css';
+
+import { type ReactNode,StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 
 import { App } from './App';
 import { createPantryRepository } from './db';
 import { setActiveRepository } from './state';
-import './index.css';
 
 const rootEl = document.getElementById('root');
 if (!rootEl) {

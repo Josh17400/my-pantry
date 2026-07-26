@@ -3,8 +3,8 @@
  * Repeat scans cost no network request (and do not burn rate-limit budget).
  */
 
-import type { OffDerivedProduct } from './types';
 import { isOffSourced } from './segregation';
+import type { OffDerivedProduct } from './types';
 
 export const BARCODE_CACHE_STORAGE_KEY = 'tgp.off-barcode-cache.v1' as const;
 

@@ -6,7 +6,6 @@
  * dependent — elevated uncertaintyPct.
  */
 
-import type { SeedCategoryBundle } from '../types';
 import {
   bundle,
   countForm,
@@ -26,6 +25,7 @@ import {
   KNOWN_DENSITIES,
   OZ_G,
 } from '../sources';
+import type { SeedCategoryBundle } from '../types';
 
 const MILK = KNOWN_DENSITIES.whole_milk_g_per_ml;
 const BUTTER_D = KNOWN_DENSITIES.butter_g_per_ml;

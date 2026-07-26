@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 
 import { cn } from '../../ui/cn';
-import { searchCatalogIngredients } from './catalog';
 import { AllergenUnknownBadge } from './AllergenUnknownBadge';
+import { searchCatalogIngredients } from './catalog';
 
 export type EditableIngredientLine = {
   key: string;

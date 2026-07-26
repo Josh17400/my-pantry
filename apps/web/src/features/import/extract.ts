@@ -4,7 +4,7 @@
 
 import { extractRecipeFromHtmlJsonLd, extractRecipeFromJsonLd } from './jsonld';
 import { extractRecipeFromMicrodata } from './microdata';
-import type { ExtractResult, ExtractedRecipe, ManualPasteInput } from './types';
+import type { ExtractedRecipe, ExtractResult, ManualPasteInput } from './types';
 
 /**
  * Extract a recipe from page HTML (JSON-LD preferred, microdata fallback).

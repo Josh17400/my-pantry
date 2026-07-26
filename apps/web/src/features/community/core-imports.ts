@@ -11,14 +11,12 @@ export type {
   MatchVeto,
   RankedCandidate,
 } from '../../../../../packages/core/src/matching/index.ts';
-
 export {
-  matchIngredient,
   isAutoAccept,
+  matchIngredient,
 } from '../../../../../packages/core/src/matching/index.ts';
-
 export {
   seedForms,
-  seedIngredients,
   type SeedIngredient,
+  seedIngredients,
 } from '../../../../../packages/core/src/seed/index.ts';

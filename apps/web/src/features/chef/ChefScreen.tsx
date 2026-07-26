@@ -5,9 +5,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { Card, cn } from '../../ui';
 import { usePantryStore } from '../../state/pantry-store';
-import { liveChefClient, type ChefClient } from './client';
+import { Card, cn } from '../../ui';
+import { type ChefClient,liveChefClient } from './client';
 import {
   buildCatalogSlice,
   buildPantrySnapshot,

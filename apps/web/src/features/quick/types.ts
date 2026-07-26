@@ -26,13 +26,13 @@ export type QuickConsumeEvent = {
 };
 
 export type QuickPrefs = {
-  pins: Array<{
+  pins: {
     ingredientId: string;
     formId: string;
     name: string;
     defaultQtyBase: number;
     dim: Dimension;
-  }>;
+  }[];
   /** ingredientId → consume count */
   frequency: Record<string, number>;
   /** Last N consume events for undo stack (client ids). */

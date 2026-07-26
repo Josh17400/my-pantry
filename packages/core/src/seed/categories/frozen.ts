@@ -2,9 +2,9 @@
  * Frozen foods — common weekly US purchases.
  */
 
-import type { SeedCategoryBundle } from '../types';
 import { mergeBundles, simpleMass } from '../helpers';
 import { LB_G, OZ_G } from '../sources';
+import type { SeedCategoryBundle } from '../types';
 
 export const frozen: SeedCategoryBundle = mergeBundles(
   simpleMass('frozen-peas', 'Frozen peas', 'frozen', {

@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 
 import type { LocationRow } from '../../../db/types';
 import {
-  getCatalogIngredient,
-  searchCatalog,
   type CatalogForm,
   type CatalogIngredient,
+  getCatalogIngredient,
+  searchCatalog,
 } from '../lib/catalog';
 import { parseHumanQuantity } from '../lib/qty-input';
 import {

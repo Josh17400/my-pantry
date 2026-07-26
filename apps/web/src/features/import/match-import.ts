@@ -4,13 +4,13 @@
 
 import { parseQuantity } from '@larder/core';
 
+import type { RecipeLineInput, RecipeStepInput, RecipeWrite } from '../../db/types';
+import type { MatchCatalog } from '../community/core-imports';
 import {
   matchFreeTextLine,
   toRecipeLineInput,
 } from '../community/match-lines';
-import type { MatchCatalog } from '../community/core-imports';
 import type { ImportProvenance } from '../community/types';
-import type { RecipeLineInput, RecipeStepInput, RecipeWrite } from '../../db/types';
 import {
   detectSourceLocale,
   findLocaleAmbiguities,

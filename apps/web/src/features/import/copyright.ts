@@ -6,8 +6,8 @@
  * Publishing an imported-with-source recipe requires rewriting the steps.
  */
 
-import type { ImportProvenance } from '../community/types';
 import type { RecipeDetail } from '../../db/types';
+import type { ImportProvenance } from '../community/types';
 
 export const COPYRIGHT_IMPORT_COPY =
   'Imported recipes stay in your private book. Recipe steps and photos from other sites are copyrighted — we never auto-publish them to the community.';

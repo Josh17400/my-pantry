@@ -6,9 +6,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { DEFAULT_HOUSEHOLD_ID } from '../../db/constants';
 import { newId } from '../../db/id';
 import type { RecipeDetail } from '../../db/types';
-import { DEFAULT_HOUSEHOLD_ID } from '../../db/constants';
 import {
   hasActiveRepository,
   useRecipes,

@@ -2,9 +2,9 @@
  * Beverages — coffee, tea, juice, soda, water.
  */
 
-import type { SeedCategoryBundle } from '../types';
 import { mergeBundles, simpleMass, simpleVolume } from '../helpers';
 import { GALLON_ML, OZ_G } from '../sources';
+import type { SeedCategoryBundle } from '../types';
 
 export const beverages: SeedCategoryBundle = mergeBundles(
   simpleMass('coffee-grounds', 'Coffee (ground)', 'beverages', {

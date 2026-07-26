@@ -11,8 +11,8 @@
 import type { Dimension } from '@larder/core';
 
 import {
-  matchIngredient,
   type MatchCatalog,
+  matchIngredient,
   type MatchResult,
   type MatchVeto,
 } from './core-imports';

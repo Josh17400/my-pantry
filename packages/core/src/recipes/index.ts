@@ -7,6 +7,21 @@
  * Root barrel (`src/index.ts`) is owned by the architect — do not edit it.
  */
 
+export {
+  collectUseUp,
+  findCookableRecipes,
+  parseNowMs,
+} from './cookable';
+export {
+  indexPantryByIngredient,
+  needQtyFromLine,
+  planCook,
+} from './plan';
+export {
+  isFractionalCount,
+  isNonQuantifiedLine,
+  scaleRecipe,
+} from './scale';
 export type {
   ConversionContext,
   CookableMatch,
@@ -23,21 +38,3 @@ export type {
   ScaledRecipeLine,
   UseUpIngredient,
 } from './types';
-
-export {
-  isFractionalCount,
-  isNonQuantifiedLine,
-  scaleRecipe,
-} from './scale';
-
-export {
-  indexPantryByIngredient,
-  needQtyFromLine,
-  planCook,
-} from './plan';
-
-export {
-  collectUseUp,
-  findCookableRecipes,
-  parseNowMs,
-} from './cookable';

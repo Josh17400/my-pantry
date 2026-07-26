@@ -6,10 +6,10 @@
 
 import {
   ENTITLEMENT_ID_PRO,
-  FREE_RECEIPT_SCANS_PER_MONTH,
-  PAID_PLANS,
   type EntitlementSnapshot,
   type EntitlementTier,
+  FREE_RECEIPT_SCANS_PER_MONTH,
+  PAID_PLANS,
   type PaywallFeature,
   type PlanId,
 } from './types';

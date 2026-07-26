@@ -6,51 +6,45 @@
  * are defined in `src/domain/` and re-exported here for convenience.
  */
 
-export type {
-  Dimension,
-  BaseUnit,
-  UnitId,
-  UnitDef,
-  IngredientForm,
-  ConversionEdge,
-  PackageSpec,
-  ConversionOk,
-  ConversionErr,
-  ConversionFailReason,
-  ConversionResult,
-} from './types';
-
-export { BASE_UNIT, DIMENSION_OF_BASE } from './types';
-
-export {
-  UNIT_DEFS,
-  UNIT_BY_ID,
-  UNIT_BY_ALIAS,
-  EXACT,
-  toBaseFactor,
-  dimensionOf,
-  resolveUnitId,
-  isKnownUnit,
-} from './factors';
-
+export type { ConvertInput } from './convert';
 export {
   convert,
   convertBaseToUnit,
   convertToBase,
-  uniqueEdgeKeys,
   edgeKey,
+  uniqueEdgeKeys,
 } from './convert';
-export type { ConvertInput } from './convert';
-
 export { inverseEdgeKey } from './edge-key';
-
+export {
+  dimensionOf,
+  EXACT,
+  isKnownUnit,
+  resolveUnitId,
+  toBaseFactor,
+  UNIT_BY_ALIAS,
+  UNIT_BY_ID,
+  UNIT_DEFS,
+} from './factors';
+export type { FormatOpts } from './format';
+export { decimalsForUncertainty,formatQuantity } from './format';
+export type {
+  ParsedNonQuantified,
+  ParsedQuantity,
+  ParsedUnparsed,
+  ParseQuantityResult,
+} from './parse';
 export { parseQuantity } from './parse';
 export type {
-  ParseQuantityResult,
-  ParsedQuantity,
-  ParsedNonQuantified,
-  ParsedUnparsed,
-} from './parse';
-
-export { formatQuantity, decimalsForUncertainty } from './format';
-export type { FormatOpts } from './format';
+  BaseUnit,
+  ConversionEdge,
+  ConversionErr,
+  ConversionFailReason,
+  ConversionOk,
+  ConversionResult,
+  Dimension,
+  IngredientForm,
+  PackageSpec,
+  UnitDef,
+  UnitId,
+} from './types';
+export { BASE_UNIT, DIMENSION_OF_BASE } from './types';

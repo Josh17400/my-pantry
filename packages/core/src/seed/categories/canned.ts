@@ -3,9 +3,9 @@
  * 14.5 oz diced tomatoes is a par-level seed exemplar.
  */
 
-import type { SeedCategoryBundle } from '../types';
 import { mergeBundles, simpleMass } from '../helpers';
 import { OZ_G } from '../sources';
+import type { SeedCategoryBundle } from '../types';
 
 const CAN_14_5 = 14.5 * OZ_G;
 const CAN_15 = 15 * OZ_G;

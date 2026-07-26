@@ -1,11 +1,11 @@
+import type { DomainRepository } from '../domain-repository';
 import {
-  NotConfiguredError,
   type AggregateResult,
   type InitializeResult,
+  NotConfiguredError,
   type PantryRepository,
   type VerifyResult,
 } from '../repository';
-import type { DomainRepository } from '../domain-repository';
 import type { SeedResult } from '../seed';
 
 /**

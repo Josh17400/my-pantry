@@ -1,16 +1,16 @@
-export type {
-  ExtractResult,
-  ExtractedRecipe,
-  ImportReviewLine,
-  ImportReviewState,
-  ImportSaveBlock,
-  LocaleAmbiguity,
-  LocaleChoice,
-  LocaleDetection,
-  ManualPasteInput,
-  RecipeLocale,
-} from './types';
-
+export {
+  COPYRIGHT_IMPORT_COPY,
+  COPYRIGHT_PUBLISH_BLOCK_COPY,
+  isPublishBlockedByCopyright,
+  markStepsRewritten,
+  provenanceFromRecipe,
+  stepsRewrittenTag,
+} from './copyright';
+export {
+  extractedFromManualPaste,
+  extractRecipeFromHtml,
+} from './extract';
+export { ImportRecipeScreen } from './ImportRecipeScreen';
 export {
   collectJsonLdScripts,
   extractRecipeFromHtmlJsonLd,
@@ -20,14 +20,6 @@ export {
   parseDurationToMinutes,
   parseServings,
 } from './jsonld';
-
-export { extractRecipeFromMicrodata } from './microdata';
-
-export {
-  extractRecipeFromHtml,
-  extractedFromManualPaste,
-} from './extract';
-
 export {
   detectSourceLocale,
   findLocaleAmbiguities,
@@ -35,7 +27,6 @@ export {
   localeChoiceNote,
   needsLocalePrompt,
 } from './locale';
-
 export {
   buildImportReview,
   canSaveImport,
@@ -43,14 +34,16 @@ export {
   reviewToRecipeWrite,
   setLocaleChoice,
 } from './match-import';
-
-export {
-  COPYRIGHT_IMPORT_COPY,
-  COPYRIGHT_PUBLISH_BLOCK_COPY,
-  isPublishBlockedByCopyright,
-  markStepsRewritten,
-  provenanceFromRecipe,
-  stepsRewrittenTag,
-} from './copyright';
-
-export { ImportRecipeScreen } from './ImportRecipeScreen';
+export { extractRecipeFromMicrodata } from './microdata';
+export type {
+  ExtractedRecipe,
+  ExtractResult,
+  ImportReviewLine,
+  ImportReviewState,
+  ImportSaveBlock,
+  LocaleAmbiguity,
+  LocaleChoice,
+  LocaleDetection,
+  ManualPasteInput,
+  RecipeLocale,
+} from './types';

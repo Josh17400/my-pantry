@@ -4,10 +4,11 @@
  */
 
 import type { Dimension, IngredientForm } from '@larder/core';
+
 import {
   seedForms,
-  seedIngredients,
   type SeedIngredient,
+  seedIngredients,
 } from '../../../../../../packages/core/src/seed/index.ts';
 
 export type CatalogIngredient = {
@@ -66,7 +67,7 @@ export function searchCatalog(
     return seedIngredients.slice(0, limit).map(toCatalog);
   }
 
-  const scored: Array<{ score: number; ing: SeedIngredient }> = [];
+  const scored: { score: number; ing: SeedIngredient }[] = [];
   for (const ing of seedIngredients) {
     const name = ing.name.toLowerCase();
     const id = ing.id.toLowerCase();

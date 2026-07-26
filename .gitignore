@@ -53,3 +53,5 @@ coverage/
 # Legacy Expo (removed)
 .expo/
 expo-env.d.ts
+
+SECRETS.local.md

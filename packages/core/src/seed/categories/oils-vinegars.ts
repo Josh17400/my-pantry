@@ -2,9 +2,9 @@
  * Oils & vinegars — densities from USDA oil cluster ~0.91–0.92 g/ml.
  */
 
-import type { SeedCategoryBundle } from '../types';
 import { mergeBundles, simpleVolume } from '../helpers';
 import { KNOWN_DENSITIES } from '../sources';
+import type { SeedCategoryBundle } from '../types';
 
 const flOzG = (flOz: number, d: number) => flOz * 29.5735295625 * d;
 

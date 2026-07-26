@@ -6,12 +6,12 @@ import { formatQuantity } from '@larder/core';
 
 import type { GroceryListItemInput } from '../../db/types';
 import { getIngredientCategory, getIngredientName } from './catalog';
+import type { CookLineEdit } from './cook-machine';
 import {
-  sourcesFromPlanShortfalls,
   type CookPlan,
   type GrocerySource,
+  sourcesFromPlanShortfalls,
 } from './core-imports';
-import type { CookLineEdit } from './cook-machine';
 
 function displayForSource(src: GrocerySource): string {
   if (src.qtyBase != null && src.dim) {

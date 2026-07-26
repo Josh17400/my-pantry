@@ -18,7 +18,6 @@ import {
   seedIngredients,
   seedPackages,
 } from '../../../../packages/core/src/seed/index.ts';
-
 import {
   DEFAULT_HOUSEHOLD_ID,
   DEFAULT_LOCATION_IDS,
@@ -46,14 +45,14 @@ export type SeedResult = {
   skippedCatalog: boolean;
 };
 
-const DEFAULT_LOCATIONS: Array<{
+const DEFAULT_LOCATIONS: {
   id: string;
   name: string;
   icon: string;
   tint: string;
   parentId: string | null;
   sortOrder: number;
-}> = [
+}[] = [
   {
     id: DEFAULT_LOCATION_IDS.fridge,
     name: 'Fridge',

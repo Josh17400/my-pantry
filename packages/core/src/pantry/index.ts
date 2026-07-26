@@ -33,7 +33,6 @@ export type {
   StockStatus,
   TxnReason,
 } from './types';
-
 export { CONSUMPTION_REASONS, VERIFYING_REASONS } from './types';
 
 // Total order

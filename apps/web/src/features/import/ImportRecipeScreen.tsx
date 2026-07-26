@@ -6,16 +6,16 @@
 import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { newId } from '../../db/id';
 import { DEFAULT_HOUSEHOLD_ID } from '../../db/constants';
+import { newId } from '../../db/id';
 import { hasActiveRepository, useRecipesStore } from '../../state';
 import { Card } from '../../ui/Card';
 import { cn } from '../../ui/cn';
 import { buildCommunityMatchCatalog } from '../community/match-catalog';
 import { COPYRIGHT_IMPORT_COPY } from './copyright';
 import {
-  extractRecipeFromHtml,
   extractedFromManualPaste,
+  extractRecipeFromHtml,
 } from './extract';
 import {
   localeAmbiguityMessage,
@@ -119,7 +119,7 @@ export function ImportRecipeScreen() {
       const created = await useRecipesStore.getState().create(write);
       if (created) {
         setStatus(`Saved “${created.title}” to your private book.`);
-        navigate(`/recipes/${created.id}`);
+        void navigate(`/recipes/${created.id}`);
       } else {
         setError('Could not save recipe.');
       }

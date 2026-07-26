@@ -13,16 +13,17 @@
 import {
   foldLedger,
   needsRefold,
-  txnCursor,
   type PantryTxn,
+  txnCursor,
 } from '@larder/core';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthClient } from '../auth';
 import { DEFAULT_HOUSEHOLD_ID } from '../db/constants';
 import { NodeSqliteRepository } from '../db/drivers/node-sqlite';
 import { ConflictSurfaces } from './conflicts';
 import { SyncEngine } from './engine';
+import { mapRemoteError, SyncSchemaMissingError } from './errors';
 import { createDrizzleLocalPort } from './local-store';
 import { remoteWinsLww } from './mapping';
 import { evaluateOutOfOrderMerge, mergePulledTxns } from './merge';
@@ -33,12 +34,11 @@ import { pushOutbox } from './push';
 import { SyncStatusStore } from './status';
 import {
   EPOCH_CURSOR,
-  SYNC_META,
-  localTxnToCore,
   type LocalTxnRow,
+  localTxnToCore,
   type RemoteTxnRow,
+  SYNC_META,
 } from './types';
-import { mapRemoteError, SyncSchemaMissingError } from './errors';
 
 const HH = DEFAULT_HOUSEHOLD_ID;
 const ING = 'ing-flour';

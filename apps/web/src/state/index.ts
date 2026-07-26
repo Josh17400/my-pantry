@@ -13,21 +13,17 @@
  *   const { locations, list: listLocations } = useLocations();
  */
 
+export type { GroceryState } from './grocery-store';
+export { useGrocery, useGroceryStore } from './grocery-store';
+export type { LocationsState } from './locations-store';
+export { useLocations, useLocationsStore } from './locations-store';
+export type { PantryState } from './pantry-store';
+export { usePantry, usePantryStore } from './pantry-store';
+export type { RecipesState } from './recipes-store';
+export { useRecipes, useRecipesStore } from './recipes-store';
 export {
-  setActiveRepository,
   getActiveRepository,
   getDomainRepository,
   hasActiveRepository,
+  setActiveRepository,
 } from './repo-context';
-
-export { usePantry, usePantryStore } from './pantry-store';
-export type { PantryState } from './pantry-store';
-
-export { useRecipes, useRecipesStore } from './recipes-store';
-export type { RecipesState } from './recipes-store';
-
-export { useGrocery, useGroceryStore } from './grocery-store';
-export type { GroceryState } from './grocery-store';
-
-export { useLocations, useLocationsStore } from './locations-store';
-export type { LocationsState } from './locations-store';

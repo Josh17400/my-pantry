@@ -5,8 +5,9 @@
 import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Card, cn } from '../../ui';
 import { DEFAULT_HOUSEHOLD_ID } from '../../db/constants';
+import { Card, cn } from '../../ui';
+import { localAliasStore } from './alias-store';
 import { captureReceiptImage } from './capture';
 import {
   checkDuplicateReceipt,
@@ -14,7 +15,6 @@ import {
   localFingerprintStore,
 } from './fingerprint-store';
 import { buildMatchCatalog } from './match-catalog';
-import { localAliasStore } from './alias-store';
 import {
   createMemoryOfflineQueue,
   isOnline,
@@ -90,7 +90,7 @@ export function ScanScreen({
       const review = buildReviewState(parse, catalog, { householdId });
       stashParseResult(parse);
       stashReviewState(review);
-      navigate('/receipt/review');
+      void navigate('/receipt/review');
     },
     [householdId, navigate],
   );

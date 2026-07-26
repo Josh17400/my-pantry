@@ -1,4 +1,3 @@
-export { SettingsScreen } from './SettingsScreen';
 export {
   ALLERGEN_OPTIONS,
   DIETARY_FLAG_OPTIONS,
@@ -10,3 +9,4 @@ export {
   saveNotificationPrefs,
   saveUnitsDisplay,
 } from './prefs';
+export { SettingsScreen } from './SettingsScreen';

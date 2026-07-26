@@ -3,10 +3,14 @@
  * end-of-trip purchase txns with shoppingTripId, reorder one-tap add.
  */
 
+import type { Dimension, PantryTxn } from '@larder/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { Dimension, PantryTxn } from '@larder/core';
-
+import {
+  seedEdges,
+  seedForms,
+  seedIngredients,
+} from '../../../../../packages/core/src/seed/index.ts';
 import {
   DEFAULT_DEVICE_ID,
   DEFAULT_HOUSEHOLD_ID,
@@ -20,17 +24,11 @@ import {
   usePantryStore,
 } from '../../state';
 import {
-  seedEdges,
-  seedForms,
-  seedIngredients,
-} from '../../../../../packages/core/src/seed/index.ts';
-
-import {
   manualAddSource,
   recipeShortfallSources,
+  type ReorderDetail,
   reorderFromPurchaseHistory,
   stockSourcesFromPantry,
-  type ReorderDetail,
 } from './build-sources';
 import {
   buildList,
@@ -39,9 +37,9 @@ import {
 } from './core-grocery';
 import { buildDemoGroceryList } from './demo-data';
 import {
+  type AisleGroupView,
   coreListToItemInputs,
   groupItemsByAisle,
-  type AisleGroupView,
 } from './map-list';
 import { newClientId } from './new-id';
 

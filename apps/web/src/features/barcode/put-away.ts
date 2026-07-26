@@ -10,7 +10,6 @@ import {
 } from '../../db/constants';
 import type { AppendTxnInput } from '../../db/types';
 import { buildPurchaseTxn } from '../pantry/lib/txn-builders';
-
 import { buildCanonicalMapping } from './segregation';
 import type {
   BarcodeCanonicalMapping,

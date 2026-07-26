@@ -4,8 +4,8 @@
 
 import { useMemo } from 'react';
 
-import { CommunityScreen } from '../features/community';
 import type { RecipeDetail } from '../db/types';
+import { CommunityScreen } from '../features/community';
 import { DEMO_PUBLIC_RECIPES } from '../features/community/demo-recipes';
 
 export function CommunityPage() {

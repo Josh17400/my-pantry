@@ -1,18 +1,18 @@
-export type {
-  AuthUser,
-  AuthSession,
-  AuthStatus,
-  AuthState,
-  SignInCredentials,
-  SignUpCredentials,
-  AuthResult,
-} from './types';
-export { AuthNotConfiguredError, sanitizeAuthError } from './errors';
-export { mapSession, mapUser } from './map-session';
 export {
   AuthClient,
+  type AuthClientOptions,
+  type AuthListener,
   getAuthClient,
   resetAuthClient,
-  type AuthListener,
-  type AuthClientOptions,
 } from './client';
+export { AuthNotConfiguredError, sanitizeAuthError } from './errors';
+export { mapSession, mapUser } from './map-session';
+export type {
+  AuthResult,
+  AuthSession,
+  AuthState,
+  AuthStatus,
+  AuthUser,
+  SignInCredentials,
+  SignUpCredentials,
+} from './types';

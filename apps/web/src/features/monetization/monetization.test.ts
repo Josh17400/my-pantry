@@ -1,12 +1,15 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it, beforeEach } from 'vitest';
 
+import { beforeEach,describe, expect, it } from 'vitest';
+
+import { useEntitlementStore } from './entitlement-store';
 import {
   adsAllowedOnRoute,
   buildDataExport,
   exportToJsonString,
+  FREE_RECEIPT_SCANS_PER_MONTH,
   freeSnapshot,
   isPaidPlan,
   isValidDataExport,
@@ -18,9 +21,7 @@ import {
   shouldShowAd,
   tierFromRevenueCatCustomerInfo,
   tierFromSessionMetadata,
-  FREE_RECEIPT_SCANS_PER_MONTH,
 } from './index';
-import { useEntitlementStore } from './entitlement-store';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 

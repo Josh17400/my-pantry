@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
-import {
-  ErrorBlock,
-  LoadingBlock,
-  IngredientLineEditor,
-  emptyIngredientLine,
-  type EditableIngredientLine,
-} from '../features/recipes';
-import type { RecipeLineInput, RecipeStepInput, RecipeWrite } from '../db/types';
 import { newId } from '../db/id';
+import type { RecipeLineInput, RecipeStepInput, RecipeWrite } from '../db/types';
+import {
+  type EditableIngredientLine,
+  emptyIngredientLine,
+  ErrorBlock,
+  IngredientLineEditor,
+  LoadingBlock,
+} from '../features/recipes';
 import { hasActiveRepository, useRecipes } from '../state';
 import { cn } from '../ui/cn';
 
@@ -136,11 +136,11 @@ export function RecipeEditPage() {
     try {
       if (isNew) {
         const created = await create(write);
-        if (created) navigate(`/recipes/${created.id}`, { replace: true });
+        if (created) void navigate(`/recipes/${created.id}`, { replace: true });
         else setFormError('Failed to create recipe.');
       } else if (id) {
         const updated = await update(id, write);
-        if (updated) navigate(`/recipes/${updated.id}`, { replace: true });
+        if (updated) void navigate(`/recipes/${updated.id}`, { replace: true });
         else setFormError('Failed to update recipe.');
       }
     } finally {

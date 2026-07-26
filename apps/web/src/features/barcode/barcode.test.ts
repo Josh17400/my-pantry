@@ -1,17 +1,13 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  OFF_ATTRIBUTION_LINE,
-  OFF_SOURCE,
-  OFF_USER_AGENT,
-  BarcodeOffCache,
-  BarcodeMappingStore,
-  OffProductClient,
-  OffRateLimiter,
   assertNotCanonicalIngredient,
+  BarcodeMappingStore,
+  BarcodeOffCache,
   buildCanonicalMapping,
   buildSeedMatchCatalog,
   checkRateLimit,
@@ -20,7 +16,12 @@ import {
   mapOffApiToDerived,
   matchOffProduct,
   normalizeBarcode,
+  OFF_ATTRIBUTION_LINE,
+  OFF_SOURCE,
+  OFF_USER_AGENT,
+  OffProductClient,
   offProductMatchQuery,
+  OffRateLimiter,
   recordRequest,
   suggestionDefaults,
 } from './index';

@@ -92,7 +92,7 @@ export type SyncRemotePort = {
   ): Promise<PullPageResult>;
 
   pullLocations(householdId: string): Promise<
-    Array<{
+    {
       id: string;
       household_id: string;
       name: string;
@@ -100,11 +100,11 @@ export type SyncRemotePort = {
       tint: string;
       parent_id: string | null;
       sort_order: number;
-    }>
+    }[]
   >;
 
   pullRecipes(householdId: string): Promise<
-    Array<{
+    {
       id: string;
       household_id: string | null;
       title: string;
@@ -119,11 +119,11 @@ export type SyncRemotePort = {
       image_url: string | null;
       created_at: string;
       updated_at: string;
-    }>
+    }[]
   >;
 
   pullRecipeLines(recipeId: string): Promise<
-    Array<{
+    {
       id: string;
       recipe_id: string;
       sort_order: number;
@@ -140,22 +140,22 @@ export type SyncRemotePort = {
       qty_high: number | null;
       qty_low: number | null;
       is_range: boolean;
-    }>
+    }[]
   >;
 
   pullRecipeSteps(recipeId: string): Promise<
-    Array<{
+    {
       id: string;
       recipe_id: string;
       sort_order: number;
       text: string;
       duration_sec: number | null;
       timer_label: string | null;
-    }>
+    }[]
   >;
 
   pullPantryItemsMeta(householdId: string): Promise<
-    Array<{
+    {
       household_id: string;
       ingredient_id: string;
       form_id: string;
@@ -173,11 +173,11 @@ export type SyncRemotePort = {
       last_absolute_cursor: string | null;
       is_negative: boolean;
       conflict: boolean;
-    }>
+    }[]
   >;
 
   upsertLocations(
-    rows: Array<{
+    rows: {
       id: string;
       household_id: string;
       name: string;
@@ -185,11 +185,11 @@ export type SyncRemotePort = {
       tint: string;
       parent_id: string | null;
       sort_order: number;
-    }>,
+    }[],
   ): Promise<void>;
 
   upsertRecipes(
-    rows: Array<{
+    rows: {
       id: string;
       household_id: string | null;
       title: string;
@@ -204,12 +204,12 @@ export type SyncRemotePort = {
       image_url: string | null;
       created_at: string;
       updated_at: string;
-    }>,
+    }[],
   ): Promise<void>;
 
   replaceRecipeChildren(
     recipeId: string,
-    lines: Array<{
+    lines: {
       id: string;
       recipe_id: string;
       sort_order: number;
@@ -226,15 +226,15 @@ export type SyncRemotePort = {
       qty_high: number | null;
       qty_low: number | null;
       is_range: boolean;
-    }>,
-    steps: Array<{
+    }[],
+    steps: {
       id: string;
       recipe_id: string;
       sort_order: number;
       text: string;
       duration_sec: number | null;
       timer_label: string | null;
-    }>,
+    }[],
   ): Promise<void>;
 };
 

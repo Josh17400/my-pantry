@@ -5,12 +5,12 @@
 
 import type { IngredientForm } from '@larder/core';
 
+import type { ConversionContext } from './core-imports';
 import {
   seedEdges,
   seedForms,
   seedIngredients,
 } from './core-imports';
-import type { ConversionContext } from './core-imports';
 
 /** Conversion context for planCook / findCookableRecipes. */
 export function catalogConversionContext(): ConversionContext {
@@ -55,7 +55,7 @@ export function searchCatalogIngredients(
     }));
   }
 
-  const scored: Array<{ score: number; item: CatalogIngredient }> = [];
+  const scored: { score: number; item: CatalogIngredient }[] = [];
   for (const i of seedIngredients) {
     const name = i.name.toLowerCase();
     const aliasHit = i.aliases.some((a) => a.toLowerCase().includes(q));

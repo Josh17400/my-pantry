@@ -3,8 +3,8 @@
  * Lightweight attribute walk — not a full HTML parser.
  */
 
-import type { ExtractedRecipe } from './types';
 import { parseDurationToMinutes, parseServings } from './jsonld';
+import type { ExtractedRecipe } from './types';
 
 function decodeEntities(s: string): string {
   return s
@@ -32,7 +32,7 @@ export function extractRecipeFromMicrodata(
   const startRe =
     /itemtype\s*=\s*["'][^"']*schema\.org\/Recipe["']/i;
   const startMatch = startRe.exec(html);
-  if (!startMatch || startMatch.index == null) return null;
+  if (startMatch?.index == null) return null;
 
   // Take a generous window after the match (microdata is usually local)
   const windowStart = Math.max(0, startMatch.index - 200);

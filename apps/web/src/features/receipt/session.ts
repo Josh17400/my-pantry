@@ -2,8 +2,8 @@
  * Ephemeral handoff between Scan and Review routes (sessionStorage).
  */
 
-import type { ParseSuccessResponse } from './types';
 import type { ReviewState } from './review-model';
+import type { ParseSuccessResponse } from './types';
 
 const PARSE_KEY = 'tgp.receipt.pending-parse';
 const REVIEW_KEY = 'tgp.receipt.pending-review';

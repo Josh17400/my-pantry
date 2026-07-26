@@ -10,6 +10,10 @@ import {
   type Dimension,
 } from '@larder/core';
 
+import type { Recipe } from '../../../../../packages/core/src/recipes/types.ts';
+import {
+  seedIngredients,
+} from '../../../../../packages/core/src/seed/index.ts';
 import { DEFAULT_HOUSEHOLD_ID, DEFAULT_LOCATION_IDS } from '../../db/constants';
 import { buildFixtureItems } from '../../db/fixtures';
 import type {
@@ -17,10 +21,6 @@ import type {
   PantryItemView,
   RecipeDetail,
 } from '../../db/types';
-import {
-  seedIngredients,
-} from '../../../../../packages/core/src/seed/index.ts';
-import type { Recipe } from '../../../../../packages/core/src/recipes/types.ts';
 
 const nameById = new Map(seedIngredients.map((i) => [i.id, i.name] as const));
 

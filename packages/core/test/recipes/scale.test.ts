@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { isFractionalCount, isNonQuantifiedLine, scaleRecipe } from '../../src/recipes';
 import { line, recipe } from './helpers';
 

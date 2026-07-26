@@ -4,14 +4,15 @@
  */
 
 import { describe, expect, it } from 'vitest';
+
+import type { Recipe, RecipeStep } from '../../src/recipes/types';
 import { seedForms, seedIngredients } from '../../src/seed';
 import {
   countStarterRecipes,
   getStarterRecipe,
-  starterRecipes,
   STARTER_RECIPE_CATEGORIES,
+  starterRecipes,
 } from '../../src/seed/recipes';
-import type { Recipe, RecipeStep } from '../../src/recipes/types';
 
 const ingredientIds = new Set(seedIngredients.map((i) => i.id));
 const formById = new Map(seedForms.map((f) => [f.id, f]));
@@ -102,7 +103,7 @@ describe('starter recipe catalog', () => {
         expect(Number.isFinite(line.qty!), `${r.id} ${line.rawText}`).toBe(true);
         expect(line.qty!, `${r.id} ${line.rawText}`).toBeGreaterThan(0);
         expect(typeof line.unit).toBe('string');
-        expect((line.unit as string).length).toBeGreaterThan(0);
+        expect((line.unit!).length).toBeGreaterThan(0);
       }
     }
   });

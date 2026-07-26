@@ -92,9 +92,7 @@ export function parseDurationToMinutes(v: unknown): number | null {
   }
 
   // ISO-8601 duration
-  const iso = s.match(
-    /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/i,
-  );
+  const iso = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/i.exec(s);
   if (iso) {
     const days = Number(iso[1] ?? 0);
     const hours = Number(iso[2] ?? 0);
@@ -106,8 +104,8 @@ export function parseDurationToMinutes(v: unknown): number | null {
 
   // "1 hour 30 minutes", "90 min"
   let total = 0;
-  const hourMatch = s.match(/(\d+(?:\.\d+)?)\s*h(?:ou)?rs?/i);
-  const minMatch = s.match(/(\d+(?:\.\d+)?)\s*m(?:in(?:ute)?s?)?/i);
+  const hourMatch = /(\d+(?:\.\d+)?)\s*h(?:ou)?rs?/i.exec(s);
+  const minMatch = /(\d+(?:\.\d+)?)\s*m(?:in(?:ute)?s?)?/i.exec(s);
   if (hourMatch) total += Number(hourMatch[1]) * 60;
   if (minMatch) total += Number(minMatch[1]);
   if (total > 0) return Math.round(total);
@@ -137,7 +135,7 @@ export function parseServings(v: unknown): number | null {
   }
   const s = asString(v);
   if (!s) return null;
-  const m = s.match(/(\d+(?:\.\d+)?)/);
+  const m = /(\d+(?:\.\d+)?)/.exec(s);
   if (!m) return null;
   const n = Number(m[1]);
   return n > 0 ? n : null;

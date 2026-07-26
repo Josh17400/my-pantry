@@ -1,12 +1,3 @@
-export type {
-  ExpensiveIngredient,
-  IngredientPricePoint,
-  LineCost,
-  MealCostResult,
-  MealCostTrendPoint,
-  PricedTxn,
-} from './types';
-
 export {
   buildPriceIndex,
   completenessLabel,
@@ -17,3 +8,11 @@ export {
   mostExpensiveRecurring,
   priceKey,
 } from './meal-cost';
+export type {
+  ExpensiveIngredient,
+  IngredientPricePoint,
+  LineCost,
+  MealCostResult,
+  MealCostTrendPoint,
+  PricedTxn,
+} from './types';

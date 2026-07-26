@@ -3,12 +3,12 @@
  * Nothing enters the pantry until this runs.
  */
 
-import type { AppendTxnInput } from '../../db/types';
 import {
   DEFAULT_DEVICE_ID,
   DEFAULT_HOUSEHOLD_ID,
   DEFAULT_USER_ID,
 } from '../../db/constants';
+import type { AppendTxnInput } from '../../db/types';
 import type { AliasStore } from './alias-store';
 import { localAliasStore } from './alias-store';
 import type { FingerprintStore } from './fingerprint-store';

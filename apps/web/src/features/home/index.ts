@@ -1,6 +1,3 @@
-export { HomeScreen } from './HomeScreen';
-export { useHomeScreenData } from './useHomeScreenData';
-export { fullGreeting, greetingPeriod, greetingPhrase } from './greeting';
 export {
   computeCookNow,
   formatUseUpLine,
@@ -9,7 +6,10 @@ export {
 export {
   formatProvenanceLabel,
   formatQuantityWithProvenance,
+  locationStatusWord,
   shortIngredientName,
   toItemDisplay,
-  locationStatusWord,
 } from './display';
+export { fullGreeting, greetingPeriod, greetingPhrase } from './greeting';
+export { HomeScreen } from './HomeScreen';
+export { useHomeScreenData } from './useHomeScreenData';

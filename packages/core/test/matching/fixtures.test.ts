@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
+
 import { matchIngredient } from '../../src/matching';
 import {
   ALL_FIXTURES,
   FALSE_POSITIVE_RATE_THRESHOLD,
+  type FixtureCase,
   fixtureCatalog,
   NEGATIVE_FIXTURES,
   POSITIVE_FIXTURES,
-  type FixtureCase,
 } from './fixtures';
 
 type CaseResult = {
@@ -29,7 +30,8 @@ function evaluateCase(c: FixtureCase): CaseResult {
   if (c.kind === 'negative') {
     const forbidden = new Set(c.mustNotMatchIds ?? []);
     let falsePositive = false;
-    let detail = `${result.kind}`;
+    // string, not MatchKind — detail later becomes richer templates for diagnostics
+    let detail: string = result.kind;
 
     if (result.kind === 'match') {
       detail = `match:${result.ingredient.id} auto=${result.autoAccept} step=${result.step}`;
@@ -63,7 +65,7 @@ function evaluateCase(c: FixtureCase): CaseResult {
   // positive
   let correctPositive = false;
   let falsePositive = false;
-  let detail = `${result.kind}`;
+  let detail: string = result.kind;
 
   if (result.kind === 'match') {
     detail = `match:${result.ingredient.id} auto=${result.autoAccept} step=${result.step}`;
@@ -122,7 +124,6 @@ describe('adversarial fixture suite', () => {
     // Soft accuracy signal — print misses but require zero FPs above.
     // Allow a few ranking misses; FP gate is the hard release criterion.
     if (misses.length > 0) {
-      // eslint-disable-next-line no-console
       console.log(
         `[matching fixtures] positive ranking misses (${misses.length}):\n` +
           misses.map((m) => `  - ${m}`).join('\n'),
@@ -139,13 +140,11 @@ describe('adversarial fixture suite', () => {
     const total = results.length;
     const rate = fpCount / total;
 
-    // eslint-disable-next-line no-console
     console.log(
       `\n[matching fixtures] false-positive rate = ${fpCount}/${total} = ${(rate * 100).toFixed(2)}% ` +
         `(threshold ${(FALSE_POSITIVE_RATE_THRESHOLD * 100).toFixed(1)}%)`,
     );
     for (const r of results.filter((x) => x.falsePositive)) {
-      // eslint-disable-next-line no-console
       console.log(`  FP: ${r.id} — ${r.detail}`);
     }
 

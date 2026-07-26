@@ -10,8 +10,8 @@ import { buildPurchaseTxns, commitReceipt } from './commit';
 import {
   checkDuplicateReceipt,
   createMemoryFingerprintStore,
-  rememberCommittedReceipt,
   receiptFingerprint,
+  rememberCommittedReceipt,
 } from './fingerprint-store';
 import { buildMatchCatalog } from './match-catalog';
 import {

@@ -51,7 +51,7 @@ export function buildPriceIndex(
   const map = new Map<string, IngredientPricePoint>();
   for (const t of sorted) {
     const key = priceKey(t.ingredientId, t.formId);
-    const pricePerBase = (t.unitPrice as number) / (t.deltaBase as number);
+    const pricePerBase = (t.unitPrice!) / (t.deltaBase!);
     map.set(key, {
       ingredientId: t.ingredientId,
       formId: t.formId,
@@ -95,7 +95,7 @@ export function completenessLabel(
 export function costCookEvent(
   txns: readonly PricedTxn[],
   cookEventId: string,
-  servings: number = 1,
+  servings = 1,
   priceIndex?: Map<string, IngredientPricePoint>,
 ): MealCostResult {
   const index = priceIndex ?? buildPriceIndex(txns);

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
 import {
-  EXACT,
   convert,
   convertToBase,
   dimensionOf,
+  EXACT,
   resolveUnitId,
   toBaseFactor,
 } from '../../src/units';

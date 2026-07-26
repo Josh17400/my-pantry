@@ -11,7 +11,7 @@
  */
 
 import { isNativePlatform, platformName } from '../../lib/platform';
-import { adSenseClientId, adSenseSlotId, bannerAdUnitId, useTestAds } from './config';
+import { adSenseClientId, adSenseSlotId, bannerAdUnitId, preferTestAds } from './config';
 import type { AdsConsentState, ConsentStatus, TrackingStatus } from './types';
 
 type AdMobPlugin = {
@@ -216,7 +216,7 @@ export function adUnitForDebug(): string {
 }
 
 export function isUsingTestAds(): boolean {
-  return useTestAds();
+  return preferTestAds();
 }
 
 /** Web AdSense config — empty when not configured (render nothing, no broken frame). */

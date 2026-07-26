@@ -8,27 +8,27 @@
  */
 
 import {
-  DEFAULT_LOW_THRESHOLD_PCT,
   applyIncomingTxn,
+  DEFAULT_LOW_THRESHOLD_PCT,
+  type Dimension,
   emptyProjection,
   foldLedger,
   needsRefold,
+  type PantryTxn,
   projectionMatchesFold,
   txnCursor,
-  type Dimension,
-  type PantryTxn,
 } from '@larder/core';
 
+import { remoteTxnToLocal } from './mapping';
 import type { SyncLocalPort } from './ports';
 import {
-  localTxnToCore,
   type IngredientKey,
   type LocalPantryItem,
   type LocalTxnRow,
+  localTxnToCore,
   type MergeIngredientResult,
   type RemoteTxnRow,
 } from './types';
-import { remoteTxnToLocal } from './mapping';
 
 export type MergePullOptions = {
   local: SyncLocalPort;
@@ -290,4 +290,4 @@ export function evaluateOutOfOrderMerge(args: {
   };
 }
 
-export { needsRefold, foldLedger, txnCursor, projectionMatchesFold };
+export { foldLedger, needsRefold, projectionMatchesFold,txnCursor };

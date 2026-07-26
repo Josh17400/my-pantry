@@ -169,11 +169,11 @@ export type StockItemInput = {
 };
 
 export type StockBrief = {
-  out: Array<StockEvaluation & { key: string }>;
-  low: Array<StockEvaluation & { key: string }>;
-  negative: Array<StockEvaluation & { key: string }>;
+  out: (StockEvaluation & { key: string })[];
+  low: (StockEvaluation & { key: string })[];
+  negative: (StockEvaluation & { key: string })[];
   /** Union of out + low + negative for one daily shopping brief. */
-  brief: Array<StockEvaluation & { key: string }>;
+  brief: (StockEvaluation & { key: string })[];
 };
 
 export type ParSource = 'override' | 'learned' | 'seed' | 'default';

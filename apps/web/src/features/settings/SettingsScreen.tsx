@@ -2,12 +2,12 @@
  * Settings — dietary, household, notifications, units, subscription, privacy.
  */
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { type ReactNode,useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { DEFAULT_HOUSEHOLD_ID } from '../../db/constants';
-import { hasActiveRepository, getDomainRepository } from '../../state/repo-context';
 import { usePantryStore } from '../../state/pantry-store';
+import { getDomainRepository,hasActiveRepository } from '../../state/repo-context';
 import { Card, cn } from '../../ui';
 import {
   collectExportFromRepository,

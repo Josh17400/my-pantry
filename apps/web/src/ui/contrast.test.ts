@@ -37,7 +37,7 @@ describe('design token contrast (WCAG AA gate)', () => {
       };
     });
     // Always log for report pickup; assert all pass.
-    // eslint-disable-next-line no-console
+     
     console.log(JSON.stringify(rows, null, 2));
     expect(rows.every((r) => r.pass)).toBe(true);
   });

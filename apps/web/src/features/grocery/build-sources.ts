@@ -4,25 +4,15 @@
  */
 
 import {
+  type Dimension,
   evaluateStock,
   medianDaysBetweenPurchases,
-  purchasesFromDeltas,
-  type Dimension,
   type PantryTxn,
+  purchasesFromDeltas,
 } from '@larder/core';
 
-import type { PantryItemView } from '../../db/types';
-import type { RecipeDetail } from '../../db/types';
-import {
-  manualSource,
-  sourcesFromPlans,
-  sourcesFromReorder,
-  sourcesFromStock,
-  type GrocerySource,
-  type ReorderSuggestion,
-  type StockGroceryInput,
-} from './core-grocery';
-
+import type { IngredientForm } from '../../../../../packages/core/src/domain/types.ts';
+import type { ConversionEdge } from '../../../../../packages/core/src/domain/types.ts';
 // Deep-import planCook — not on root barrel yet.
 import { planCook } from '../../../../../packages/core/src/recipes/index.ts';
 import type {
@@ -30,8 +20,17 @@ import type {
   PantryStockRow,
   Recipe,
 } from '../../../../../packages/core/src/recipes/types.ts';
-import type { IngredientForm } from '../../../../../packages/core/src/domain/types.ts';
-import type { ConversionEdge } from '../../../../../packages/core/src/domain/types.ts';
+import type { PantryItemView } from '../../db/types';
+import type { RecipeDetail } from '../../db/types';
+import {
+  type GrocerySource,
+  manualSource,
+  type ReorderSuggestion,
+  sourcesFromPlans,
+  sourcesFromReorder,
+  sourcesFromStock,
+  type StockGroceryInput,
+} from './core-grocery';
 
 export type ReorderDetail = ReorderSuggestion & {
   cadenceDays: number;

@@ -13,8 +13,8 @@
 
 import {
   DEFAULT_LOW_THRESHOLD_PCT,
-  foldLedger,
   type Dimension,
+  foldLedger,
   type PantryTxn,
 } from '@larder/core';
 
@@ -25,7 +25,6 @@ import {
   seedIngredients,
   seedPackages,
 } from '../../../../../packages/core/src/seed/index.ts';
-
 import {
   DEFAULT_DEVICE_ID,
   DEFAULT_HOUSEHOLD_ID,
@@ -39,14 +38,14 @@ import type { DomainRepository } from '../domain-repository';
 import {
   buildFixtureItems,
   buildFixtureRecipes,
-  FIXTURES_VERSION,
   type FixtureResult,
+  FIXTURES_VERSION,
 } from '../fixtures';
 import { newId } from '../id';
 import {
+  type AggregateResult,
   batchValues,
   computeChecksum,
-  type AggregateResult,
   type InitializeResult,
   type PantryRepository,
   type VerifyResult,
@@ -70,13 +69,13 @@ import type {
 } from '../types';
 import {
   deleteDevDatabase,
-  DevStore,
   DEV_IDB_NAME,
-  emptySnapshot,
-  loadSnapshot,
   type DevSnapshot,
+  DevStore,
+  emptySnapshot,
   type FormRec,
   type GroceryItemRec,
+  loadSnapshot,
   type LocationRec,
   type PantryItemRec,
   type RecipeLineRec,
@@ -885,14 +884,14 @@ export class DevDomainRepository {
 
 // ── Seed / fixtures for the plain store ─────────────────────────────────────
 
-const DEFAULT_LOCATIONS: Array<{
+const DEFAULT_LOCATIONS: {
   id: string;
   name: string;
   icon: string;
   tint: string;
   parentId: string | null;
   sortOrder: number;
-}> = [
+}[] = [
   {
     id: DEFAULT_LOCATION_IDS.fridge,
     name: 'Fridge',
@@ -1257,7 +1256,7 @@ export class DevPantryRepository implements PantryRepository {
   // ── Health probe (M0) ───────────────────────────────────────────────────
 
   async insertBatch(
-    countRows: number = 1000,
+    countRows = 1000,
   ): Promise<{ ms: number; inserted: number; checksum: number }> {
     const store = this.requireStore();
     const values = batchValues(countRows);

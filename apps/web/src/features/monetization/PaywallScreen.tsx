@@ -7,8 +7,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Card, cn } from '../../ui';
-import { PAYWALL_FEATURES } from './entitlements';
 import { useEntitlementStore } from './entitlement-store';
+import { PAYWALL_FEATURES } from './entitlements';
 import { getPurchasesBridge } from './purchases';
 import type { ProductOffer } from './types';
 

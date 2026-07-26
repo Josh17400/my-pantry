@@ -4,8 +4,8 @@ import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-r
 import { BarcodePage } from './routes/BarcodePage';
 import { ChefPage } from './routes/ChefPage';
 import { CommunityPage } from './routes/CommunityPage';
-import { CookPage } from './routes/CookPage';
 import { CookingModePage } from './routes/CookingModePage';
+import { CookPage } from './routes/CookPage';
 import { DbHealthPage } from './routes/DbHealthPage';
 import { DesignPage } from './routes/DesignPage';
 import { GroceryPage } from './routes/GroceryPage';

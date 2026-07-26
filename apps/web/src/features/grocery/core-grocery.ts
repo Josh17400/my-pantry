@@ -13,13 +13,12 @@ export type {
   ReorderSuggestion,
   StockGroceryInput,
 } from '../../../../../packages/core/src/grocery/index.ts';
-
 export {
   buildList,
   groupByAisle,
   manualSource,
-  sourcesFromPlanShortfalls,
   sourcesFromPlans,
+  sourcesFromPlanShortfalls,
   sourcesFromReorder,
   sourcesFromStock,
 } from '../../../../../packages/core/src/grocery/index.ts';

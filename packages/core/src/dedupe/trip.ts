@@ -11,10 +11,10 @@
 
 import type {
   PantryCommitLine,
-  ReconcileTripInput,
   ReconciledExtra,
   ReconciledMatch,
   ReconciledMissing,
+  ReconcileTripInput,
   TripLine,
   TripReconciliation,
 } from './types';

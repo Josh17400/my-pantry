@@ -1,18 +1,19 @@
 import { describe, expect, it } from 'vitest';
+
 import type { ConversionEdge, IngredientForm } from '../../src/domain';
 import {
   assertSeedValid,
   countByCategory,
   normalizeAlias,
   seedCatalog,
+  type SeedCategoryBundle,
   seedEdges,
   seedForms,
+  type SeedIngredient,
   seedIngredients,
   seedPackages,
   undirectedEdgeKey,
   validateSeed,
-  type SeedCategoryBundle,
-  type SeedIngredient,
 } from '../../src/seed';
 
 describe('seed catalog integrity', () => {

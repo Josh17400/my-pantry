@@ -4,9 +4,9 @@
  */
 
 import {
+  type Dimension,
   evaluateStock,
   formatQuantity,
-  type Dimension,
 } from '@larder/core';
 
 import {
@@ -14,15 +14,14 @@ import {
   seedForms,
   seedIngredients,
 } from '../../../../../packages/core/src/seed/index.ts';
-
 import {
   buildList,
-  manualSource,
-  sourcesFromReorder,
-  sourcesFromStock,
   type GroceryList,
   type GrocerySource,
+  manualSource,
   type ReorderSuggestion,
+  sourcesFromReorder,
+  sourcesFromStock,
   type StockGroceryInput,
 } from './core-grocery';
 

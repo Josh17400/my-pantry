@@ -6,7 +6,6 @@
  * Sources: USDA FDC raw produce weights + kitchen_avg for bunches/cloves.
  */
 
-import type { SeedCategoryBundle } from '../types';
 import {
   bundle,
   countForm,
@@ -20,6 +19,7 @@ import {
   volumeForm,
 } from '../helpers';
 import { KNOWN_DENSITIES, LB_G, OZ_G } from '../sources';
+import type { SeedCategoryBundle } from '../types';
 
 /** Garlic: whole bulb / clove / minced / powder. */
 const garlic: SeedCategoryBundle = (() => {

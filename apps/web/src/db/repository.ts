@@ -12,8 +12,8 @@ import {
 } from '@larder/core';
 
 import type { DomainRepository } from './domain-repository';
-import type { SeedResult } from './seed';
 import type { FixtureResult } from './fixtures';
+import type { SeedResult } from './seed';
 
 export type HealthStepName =
   | 'open'

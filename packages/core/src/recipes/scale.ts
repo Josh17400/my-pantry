@@ -90,8 +90,8 @@ export function scaleRecipe(recipe: Recipe, targetServings: number): ScaledRecip
       };
     }
 
-    const unit = line.unit as string;
-    const qty = (line.qty as number) * factor;
+    const unit = line.unit!;
+    const qty = (line.qty!) * factor;
     const qtyHigh =
       line.qtyHigh !== undefined ? scaleQty(line.qtyHigh, factor) ?? undefined : undefined;
     const qtyLow =

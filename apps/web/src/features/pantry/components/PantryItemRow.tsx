@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 
 import type { PantryItemView } from '../../../db/types';
+import { cn } from '../../../ui/cn';
 import { PlaceholderThumb } from '../../../ui/PlaceholderThumb';
 import { StatusText } from '../../../ui/StatusText';
-import { cn } from '../../../ui/cn';
 import type { TintName } from '../../../ui/tokens';
 import {
   formatItemQuantity,

@@ -20,7 +20,7 @@ type BarcodeScannerPlugin = {
   }) => Promise<{ granted?: boolean; neverAsked?: boolean }>;
   requestPermissions?: () => Promise<{ camera?: string }>;
   isSupported?: () => Promise<{ supported: boolean }>;
-  scan?: () => Promise<{ barcodes?: Array<{ rawValue?: string; displayValue?: string }> }>;
+  scan?: () => Promise<{ barcodes?: { rawValue?: string; displayValue?: string }[] }>;
 };
 
 const NativeScanner = registerPlugin<BarcodeScannerPlugin>('BarcodeScanner');
@@ -92,7 +92,7 @@ export async function scanWithNative(): Promise<ScanResult> {
 
 /** Web BarcodeDetector types (not in all TS libs). */
 type BarcodeDetectorLike = {
-  detect(image: ImageBitmapSource): Promise<Array<{ rawValue: string }>>;
+  detect(image: ImageBitmapSource): Promise<{ rawValue: string }[]>;
 };
 
 type BarcodeDetectorCtor = new (opts?: {
