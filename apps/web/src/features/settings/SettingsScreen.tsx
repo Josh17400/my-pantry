@@ -7,7 +7,11 @@ import { Link } from 'react-router-dom';
 
 import { DEFAULT_HOUSEHOLD_ID } from '../../db/constants';
 import { usePantryStore } from '../../state/pantry-store';
-import { getDomainRepository,hasActiveRepository } from '../../state/repo-context';
+import {
+  getActiveRepository,
+  getDomainRepository,
+  hasActiveRepository,
+} from '../../state/repo-context';
 import { Card, cn } from '../../ui';
 import {
   collectExportFromRepository,
@@ -81,6 +85,7 @@ export function SettingsScreen() {
   const [units, setUnits] = useState<UnitsDisplayPref>(() => loadUnitsDisplay());
   const [status, setStatus] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -133,6 +138,37 @@ export function SettingsScreen() {
       setDeleteConfirm(false);
     } else {
       setStatus(result.error);
+    }
+  };
+
+  const onResetLocalData = async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      if (!hasActiveRepository()) {
+        setStatus(
+          'No local pantry database active — reset needs the native app or browser dev driver.',
+        );
+        return;
+      }
+      const repo = getActiveRepository();
+      if (typeof repo.resetLocalData !== 'function') {
+        setStatus('Reset local data is not supported on this surface.');
+        return;
+      }
+      await repo.resetLocalData();
+      setStatus(
+        'Local database cleared and catalogue re-seeded. Cloud data was not touched. Reloading…',
+      );
+      setResetConfirm(false);
+      // Full reload so stores re-read an empty-but-seeded DB.
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 600);
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -437,6 +473,48 @@ export function SettingsScreen() {
           >
             Design gallery
           </Link>
+          {!resetConfirm ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setResetConfirm(true)}
+              data-testid="reset-local-data"
+              className="min-h-tap rounded-card bg-surface px-4 text-left text-sm font-semibold text-ink shadow-card disabled:opacity-60"
+            >
+              Reset local data…
+            </button>
+          ) : (
+            <Card padding="md" className="border border-ink-muted/20">
+              <p className="text-sm text-ink">
+                Clears the on-device database, re-runs migrations, and re-seeds
+                the ingredient catalogue. Your pantry stock, local recipes, and
+                grocery list on this device will be wiped.
+              </p>
+              <p className="mt-2 text-sm font-medium text-ink">
+                Cloud data is untouched — accounts, sync, and server records are
+                not deleted.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void onResetLocalData()}
+                  data-testid="reset-local-data-confirm"
+                  className="min-h-tap rounded-pill bg-primary px-4 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {busy ? 'Resetting…' : 'Yes, reset local data'}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setResetConfirm(false)}
+                  className="min-h-tap rounded-pill px-4 text-sm font-medium text-ink-muted"
+                >
+                  Cancel
+                </button>
+              </div>
+            </Card>
+          )}
         </div>
       </Section>
 

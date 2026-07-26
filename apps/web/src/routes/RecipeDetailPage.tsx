@@ -284,7 +284,14 @@ export function RecipeDetailPage() {
         </p>
       ) : null}
 
-      <div className="fixed bottom-0 left-0 right-0 border-t border-black/[0.04] bg-surface-raised/95 px-4 py-3 pb-safe backdrop-blur">
+      {/*
+        Sits ABOVE the tab bar, not at bottom-0. The shell's tab bar is fixed at
+        the bottom, so a `fixed bottom-0` bar here lands underneath it and its
+        buttons become untappable — the same defect that made the cook preview a
+        dead end and produced the duplicate-looking FAB. 3.5rem matches TabBar's
+        min-height; the safe-area inset is already consumed by the tab bar.
+      */}
+      <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 border-t border-black/[0.04] bg-surface-raised/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-lg flex-col gap-2">
           <div className="flex gap-2">
             <button

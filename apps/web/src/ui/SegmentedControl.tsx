@@ -34,7 +34,7 @@ export function SegmentedControl<T extends string = string>({
       aria-label={ariaLabel}
       className={cn(
         // min-w-0 keeps the pill rail from expanding the page (flex overflow trap).
-        'flex min-w-0 w-full max-w-full gap-1 overflow-x-auto rounded-pill bg-surface p-1 shadow-card scrollbar-none',
+        'flex min-w-0 w-full max-w-full gap-1 overflow-x-auto rounded-pill bg-surface p-1 shadow-card scrollbar-none touch-pan-x',
         className,
       )}
     >

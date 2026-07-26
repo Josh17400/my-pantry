@@ -12,6 +12,7 @@ import {
   buildCookTxns,
   buildUndoTxns,
   cancelNegativePrompt,
+  clearLineSubstitution,
   type CookMachineState,
   findNegativeCandidateIndices,
   markCommitSuccess,
@@ -19,6 +20,8 @@ import {
   presentCookStatus,
   requestConfirm,
   setLineActualUsed,
+  setLineOtherSubstitution,
+  setLinePantrySubstitution,
   setLineSkipped,
   startCook,
 } from './cook-machine';
@@ -455,5 +458,93 @@ describe('unknown allergen free-text line', () => {
     expect(line.status).toBe('not-in-pantry');
     expect(line.skipped).toBe(true);
     expect(buildCookTxns(state, META, 'cook_free')).toHaveLength(0);
+  });
+});
+
+describe('substitution deductions', () => {
+  function flourLineState(): CookMachineState {
+    const r = recipe('r-sub', 'Bread', 1, [
+      {
+        ingredientId: 'flour-ap',
+        formId: flourForm.id,
+        rawText: '200 g flour',
+        qty: 200,
+        unit: 'g',
+      },
+    ]);
+    return startCook({
+      recipe: r,
+      servings: 1,
+      pantry: [stock('flour-ap', flourForm.id, 500, 'mass')],
+      ctx,
+    });
+  }
+
+  it('pantry substitute deducts substitute, not original', () => {
+    let state = flourLineState();
+    state = setLinePantrySubstitution(state, 0, {
+      kind: 'pantry',
+      ingredientId: 'milk',
+      formId: milkForm.id,
+      name: 'Milk',
+      formName: 'liquid',
+      locationName: 'Fridge',
+      category: 'Dairy',
+      dim: 'volume',
+      haveBase: 1000,
+      actualUsedBase: 200,
+      amountFromConversion: false,
+      needsAmount: false,
+    });
+    const txns = buildCookTxns(state, META, 'cook_sub_pantry');
+    expect(txns).toHaveLength(1);
+    expect(txns[0]!.ingredientId).toBe('milk');
+    expect(txns[0]!.formId).toBe(milkForm.id);
+    if (txns[0]!.kind === 'relative') {
+      expect(txns[0]!.deltaBase).toBe(-200);
+    }
+    // Original flour must not appear
+    expect(txns.every((t) => t.ingredientId !== 'flour-ap')).toBe(true);
+  });
+
+  it('other substitution notes only — zero txns', () => {
+    let state = flourLineState();
+    state = setLineOtherSubstitution(state, 0, 'used cake flour from neighbor');
+    expect(state.lines[0]!.substitution?.kind).toBe('other');
+    expect(state.lines[0]!.skipped).toBe(true);
+    expect(buildCookTxns(state, META, 'cook_sub_other')).toHaveLength(0);
+  });
+
+  it('clear substitution restores original default deduction', () => {
+    let state = flourLineState();
+    state = setLineOtherSubstitution(state, 0, 'something');
+    state = clearLineSubstitution(state, 0);
+    expect(state.lines[0]!.substitution).toBeNull();
+    expect(state.lines[0]!.skipped).toBe(false);
+    expect(state.lines[0]!.actualUsedBase).toBe(200);
+    const txns = buildCookTxns(state, META, 'cook_sub_clear');
+    expect(txns).toHaveLength(1);
+    expect(txns[0]!.ingredientId).toBe('flour-ap');
+  });
+
+  it('negative check uses substitute stock', () => {
+    let state = flourLineState();
+    state = setLinePantrySubstitution(state, 0, {
+      kind: 'pantry',
+      ingredientId: 'milk',
+      formId: milkForm.id,
+      name: 'Milk',
+      formName: null,
+      locationName: null,
+      category: 'Dairy',
+      dim: 'volume',
+      haveBase: 50,
+      actualUsedBase: 200,
+      amountFromConversion: false,
+      needsAmount: false,
+    });
+    expect(findNegativeCandidateIndices(state.lines)).toEqual([0]);
+    state = requestConfirm(state);
+    expect(state.phase).toBe('negative_prompt');
   });
 });

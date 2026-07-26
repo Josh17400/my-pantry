@@ -42,8 +42,15 @@ export function Rail({
             </button>
           ) : null)}
       </div>
-      {/* Intentional horizontal rail only — page shell must not scroll sideways. */}
-      <div className="-mx-1 flex max-w-full gap-3 overflow-x-auto px-1 pb-1 scrollbar-none">
+      {/*
+        Intentional horizontal rail only — page shell must not scroll sideways.
+        touch-action: pan-x lets vertical gestures pass through to the page so
+        a finger that starts on fridge/pantry icons can still scroll down.
+      */}
+      <div
+        data-testid="horizontal-rail"
+        className="-mx-1 flex max-w-full gap-3 overflow-x-auto px-1 pb-1 scrollbar-none touch-pan-x"
+      >
         {children}
       </div>
     </section>

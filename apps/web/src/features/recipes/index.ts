@@ -11,6 +11,9 @@ export type {
   CookMachineState,
   CookPhase,
   CookTxnInput,
+  LineSubstitution,
+  OtherSubstitution,
+  PantrySubstitution,
   StatusPresentation,
 } from './cook-machine';
 export {
@@ -19,9 +22,12 @@ export {
   buildCookTxns,
   buildUndoTxns,
   cancelNegativePrompt,
+  clearLineSubstitution,
   createIdleState,
   findNegativeCandidateIndices,
   formatBaseQty,
+  linesForGrocery,
+  linesWithSubstitution,
   markCommitError,
   markCommitSuccess,
   markUndone,
@@ -30,6 +36,8 @@ export {
   replanCook,
   requestConfirm,
   setLineActualUsed,
+  setLineOtherSubstitution,
+  setLinePantrySubstitution,
   setLineSendToGrocery,
   setLineSkipped,
   setLineSubstitution,
@@ -46,7 +54,7 @@ export {
   groceryItemsFromPlan,
 } from './grocery-from-plan';
 export type { EditableIngredientLine } from './IngredientLineEditor';
-export { emptyIngredientLine,IngredientLineEditor } from './IngredientLineEditor';
+export { emptyIngredientLine, IngredientLineEditor } from './IngredientLineEditor';
 export {
   ErrorBlock,
   LoadingBlock,
@@ -62,3 +70,13 @@ export { NegativeStockPrompt } from './NegativeStockPrompt';
 export type { RecipeCardModel } from './RecipeCard';
 export { RecipeCard } from './RecipeCard';
 export { ServingsStepper } from './ServingsStepper';
+export type { RankedPantryCandidate } from './substitution';
+export {
+  buildPantrySubstitution,
+  rankPantryForSubstitution,
+  substitutionSummaryLabel,
+} from './substitution';
+export {
+  candidateToSubstitution,
+  SubstitutionPicker,
+} from './SubstitutionPicker';

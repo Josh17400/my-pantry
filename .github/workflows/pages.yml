@@ -1,0 +1,70 @@
+# Deploy the web app to GitHub Pages as a browsable demo.
+#
+# Why: iterating through TestFlight is a ~7 minute build plus Apple processing.
+# A deployed page can be opened on a phone browser in seconds, and can be driven
+# by automation, so most UI defects can be found and fixed before a native build
+# is spent. This mirrors how euchre-game and forgeborn are reviewed.
+#
+# This build sets VITE_PREVIEW_DEMO=1, which enables the IndexedDB dev driver so
+# the app has data to walk. That flag is set ONLY here — a real production web
+# deploy leaves it unset and keeps online-companion behaviour.
+
+name: Deploy web demo to Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'apps/web/**'
+      - 'packages/core/**'
+      - '.github/workflows/pages.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: npm ci
+
+      - name: Build demo
+        working-directory: apps/web
+        env:
+          # Repo is served at josh17400.github.io/my-pantry/
+          VITE_BASE_PATH: /my-pantry/
+          VITE_PREVIEW_DEMO: '1'
+        run: npm run build
+
+      - name: SPA fallback
+        working-directory: apps/web/dist
+        # Pages has no server-side rewrite, so a deep link like /pantry 404s on
+        # reload. Serving index.html as 404.html makes the client router handle it.
+        run: cp index.html 404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

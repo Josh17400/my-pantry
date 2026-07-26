@@ -53,6 +53,26 @@
     padding-top: env(safe-area-inset-top, 0px);
   }
 
+  /*
+    Shell owns top (and side) safe-area insets so every in-shell route clears
+    the status bar / Dynamic Island. Screens that still carry .pt-safe for
+    historical reasons must not double-pad under [data-app-shell]. Full-screen
+    routes outside the shell (cook, cooking mode, design) keep .pt-safe as-is.
+  */
+  [data-app-shell] .pt-safe,
+  [data-app-shell] .pt-safe-t {
+    padding-top: 0;
+  }
+
+  /*
+    Horizontal rails: allow vertical page scroll when the gesture starts on
+    the rail. Without this, overflow-x-auto can capture the touch and trap
+    the user until they start the swipe above/below the rail.
+  */
+  .touch-pan-x {
+    touch-action: pan-x;
+  }
+
   /* Hide scrollbar but keep horizontal rail scrollable */
   .scrollbar-none {
     -ms-overflow-style: none;

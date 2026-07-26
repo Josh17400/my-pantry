@@ -6,12 +6,14 @@ import {
   presentCookStatus,
 } from './cook-machine';
 import { statusChipClass } from './status-styles';
+import { substitutionSummaryLabel } from './substitution';
 
 type CookPreviewLineProps = {
   line: CookLineEdit;
   onActualUsedChange: (index: number, value: number | null) => void;
   onSkippedChange: (index: number, skipped: boolean) => void;
-  onSubstitutionChange: (index: number, note: string) => void;
+  onOpenSubstitution: (index: number) => void;
+  onClearSubstitution: (index: number) => void;
   onGroceryToggle: (index: number, send: boolean) => void;
   disabled?: boolean;
 };
@@ -20,26 +22,46 @@ export function CookPreviewLine({
   line,
   onActualUsedChange,
   onSkippedChange,
-  onSubstitutionChange,
+  onOpenSubstitution,
+  onClearSubstitution,
   onGroceryToggle,
   disabled = false,
 }: CookPreviewLineProps) {
   const presentation = presentCookStatus(line.status);
   const dim = line.needDim;
+  const sub = line.substitution;
+  const pantrySub = sub?.kind === 'pantry' ? sub : null;
+  const otherSub = sub?.kind === 'other' ? sub : null;
+
   const showAmountEditor =
     !line.nonQuantified &&
-    (line.convertible ||
+    !otherSub &&
+    (pantrySub != null ||
+      line.convertible ||
       line.status === 'not-convertible' ||
       line.status === 'not-in-pantry');
+
+  const amountDim = pantrySub?.dim ?? dim;
+  const amountValue = pantrySub
+    ? pantrySub.actualUsedBase
+    : line.skipped || line.actualUsedBase === null
+      ? null
+      : line.actualUsedBase;
+  const amountDisabled =
+    disabled || (pantrySub ? false : line.skipped) || Boolean(otherSub);
+
+  const subLabel = substitutionSummaryLabel(sub);
 
   return (
     <article
       className={cn(
         'rounded-card border border-black/[0.04] bg-surface p-4 shadow-card',
         line.unknownAllergens && 'ring-1 ring-critical/30',
+        sub && 'ring-1 ring-primary/25',
       )}
       data-status={line.status}
       data-line-index={line.index}
+      data-has-substitution={sub ? sub.kind : 'none'}
     >
       <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -101,10 +123,51 @@ export function CookPreviewLine({
         </p>
       ) : null}
 
+      {/* Substitution status */}
+      {pantrySub ? (
+        <div
+          className="mb-3 rounded-xl bg-primary/10 px-3 py-2 text-sm"
+          data-testid="line-substitution-pantry"
+        >
+          <p className="font-semibold text-ink">
+            Substituting → {pantrySub.name}
+          </p>
+          <p className="mt-0.5 text-xs text-ink-muted">
+            {[pantrySub.formName, pantrySub.locationName]
+              .filter(Boolean)
+              .join(' · ') || pantrySub.category}
+            {' · '}have {formatBaseQty(pantrySub.haveBase, pantrySub.dim)}
+          </p>
+          <p className="mt-1 text-xs font-medium text-primary">
+            Deducts {pantrySub.name}, not the original
+          </p>
+          {pantrySub.needsAmount || pantrySub.actualUsedBase === null ? (
+            <p className="mt-1 text-xs text-critical">
+              Enter how much you used — no conversion path to auto-fill.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {otherSub ? (
+        <div
+          className="mb-3 rounded-xl bg-low/10 px-3 py-2 text-sm"
+          data-testid="line-substitution-other"
+        >
+          <p className="font-semibold text-ink">Other: {otherSub.note}</p>
+          <p className="mt-1 text-xs font-medium text-low">
+            Noted on the cook event — nothing deducted from the pantry
+          </p>
+        </div>
+      ) : null}
+
       {showAmountEditor ? (
         <div className="mb-3">
           <label className="mb-1 block text-xs font-medium text-ink-muted">
-            Actually used {dim ? `(${dim === 'mass' ? 'g' : dim === 'volume' ? 'ml' : 'each'})` : ''}
+            {pantrySub ? 'Substitute amount used' : 'Actually used'}{' '}
+            {amountDim
+              ? `(${amountDim === 'mass' ? 'g' : amountDim === 'volume' ? 'ml' : 'each'})`
+              : ''}
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -112,8 +175,8 @@ export function CookPreviewLine({
               inputMode="decimal"
               min={0}
               step="any"
-              disabled={disabled || line.skipped}
-              value={line.skipped || line.actualUsedBase === null ? '' : line.actualUsedBase}
+              disabled={amountDisabled}
+              value={amountValue === null ? '' : amountValue}
               onChange={(e) => {
                 const v = e.target.value;
                 if (v === '') {
@@ -129,57 +192,74 @@ export function CookPreviewLine({
                 'disabled:opacity-50',
               )}
               aria-label={`Actually used for ${line.rawText}`}
+              data-testid="line-actual-used"
             />
-            <label className="flex min-h-tap shrink-0 items-center gap-2 text-xs text-ink-muted">
-              <input
-                type="checkbox"
-                checked={line.skipped}
-                disabled={disabled}
-                onChange={(e) => onSkippedChange(line.index, e.target.checked)}
-                className="h-5 w-5 accent-primary"
-              />
-              Skip
-            </label>
+            {!pantrySub && !otherSub ? (
+              <label className="flex min-h-tap shrink-0 items-center gap-2 text-xs text-ink-muted">
+                <input
+                  type="checkbox"
+                  checked={line.skipped}
+                  disabled={disabled}
+                  onChange={(e) => onSkippedChange(line.index, e.target.checked)}
+                  className="h-5 w-5 accent-primary"
+                />
+                Skip
+              </label>
+            ) : null}
           </div>
           <p className="mt-1 text-[11px] text-ink-muted">
             Real cooking is not exact — edit before confirming.
           </p>
         </div>
-      ) : (
+      ) : !otherSub ? (
         <p className="mb-3 text-xs text-ink-muted">{presentation.description}</p>
-      )}
+      ) : null}
 
-      <div className="mb-2">
-        <label className="mb-1 block text-xs font-medium text-ink-muted">
-          Substitution note
-        </label>
-        <input
-          type="text"
+      <div className="mb-2 flex flex-wrap gap-2">
+        <button
+          type="button"
           disabled={disabled}
-          value={line.substitutionNote}
-          onChange={(e) => onSubstitutionChange(line.index, e.target.value)}
-          placeholder="e.g. used margarine"
+          onClick={() => onOpenSubstitution(line.index)}
           className={cn(
-            'min-h-tap w-full rounded-xl border border-black/[0.08] bg-surface-raised px-3 text-sm text-ink',
-            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+            'min-h-tap flex-1 rounded-pill border border-primary/25 bg-primary/10 px-3 text-sm font-semibold text-primary',
+            'disabled:opacity-50',
           )}
-        />
+          data-testid="line-substitute-btn"
+        >
+          {sub ? 'Change substitute' : 'Substitute'}
+        </button>
+        {sub ? (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onClearSubstitution(line.index)}
+            className="min-h-tap rounded-pill border border-black/[0.08] bg-surface px-3 text-sm font-semibold text-ink disabled:opacity-50"
+            data-testid="line-clear-substitute"
+          >
+            Clear
+          </button>
+        ) : null}
       </div>
+
+      {subLabel && !pantrySub && !otherSub ? (
+        <p className="mb-2 text-xs text-ink-muted">{subLabel}</p>
+      ) : null}
 
       {(line.status === 'short' ||
         line.status === 'not-in-pantry' ||
-        line.status === 'not-convertible') && (
-        <label className="flex min-h-tap items-center gap-2 text-sm text-ink">
-          <input
-            type="checkbox"
-            checked={line.sendShortfallToGrocery}
-            disabled={disabled}
-            onChange={(e) => onGroceryToggle(line.index, e.target.checked)}
-            className="h-5 w-5 accent-primary"
-          />
-          Add shortfall to grocery list
-        </label>
-      )}
+        line.status === 'not-convertible') &&
+        !pantrySub && (
+          <label className="flex min-h-tap items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={line.sendShortfallToGrocery}
+              disabled={disabled}
+              onChange={(e) => onGroceryToggle(line.index, e.target.checked)}
+              className="h-5 w-5 accent-primary"
+            />
+            Add shortfall to grocery list
+          </label>
+        )}
     </article>
   );
 }

@@ -1,0 +1,103 @@
+# BRIEF: Fix app chrome — safe areas, tab bar, duplicate FAB, scrolling
+
+## Context
+
+**The Good Pantry.** The owner walked v6 on an iPhone with a Dynamic Island. Every item below
+is **reproduced and diagnosed** — not speculation. These are layout/shell defects that make the
+app feel broken regardless of how good the underlying logic is.
+
+## Scope
+
+`apps/web/src/App.tsx`, `apps/web/src/ui/**`, `apps/web/src/features/pantry/**`,
+`apps/web/src/index.css`, and **`apps/web/scripts/verify-chrome.mjs` (new)**.
+
+**Do NOT touch** `packages/core/**`, `supabase/**`, `native/**`,
+`apps/web/src/features/recipes/**`, `apps/web/src/routes/CookPage.tsx`, or
+`apps/web/scripts/verify-interactivity.mjs` — another track is working there right now.
+
+---
+
+## 1. Content runs under the Dynamic Island / status bar — CRITICAL
+
+Owner: *"'My Recipes' is hidden behind that Apple camera/microphone thing… I can't click New,
+it's where my battery and Wi-Fi are."*
+
+Only `ChefScreen`, `CookingModeScreen` and `GroceryScreen` use `safe-area-inset-top`. The app
+shell does not, so **every other screen renders under the status bar** and its top controls are
+unreachable.
+
+Fix in `AppShell` so it applies everywhere, not per-screen:
+`padding-top: env(safe-area-inset-top)`. `viewport-fit=cover` is already set in `index.html`.
+Confirm bottom, left and right insets are handled too (landscape and home indicator).
+
+## 2. Tab bar only appears when scrolled to the bottom — CRITICAL
+
+Owner: *"I have to scroll all the way down to get that bar at the bottom to pop up… it should
+just stay there, layered on top of everything."*
+
+`App.tsx` wraps `TabBar` in `sticky bottom-0`. Inside a `min-h-screen` flex column that only
+pins at the end of content. **It must be `fixed`**, always visible, above content, safe-area
+aware — with matching bottom padding on `main` so the last row is never hidden behind it.
+
+## 3. Two add buttons — CRITICAL
+
+`PantryScreen.tsx:302` renders its own `<Fab label="Add item">` while `TabBar` already renders
+one. On the pantry route they stack vertically — clearly visible in
+`reports/filtered-fridge.png`.
+
+Remove the duplicate from `PantryScreen`. The shell FAB's add sheet already offers "Add by
+hand". If the pantry needs a direct add, put it in the **header** beside "Locations", not a
+second floating button.
+
+**Then grep for any other stray `<Fab>` outside `TabBar` and the design gallery.**
+
+## 4. Vertical scrolling is trapped by the horizontal rails
+
+Owner: *"I can scroll the fridge icons and that scrolls, but it won't scroll down the page. I
+have to go to the top of the screen and swipe."*
+
+A horizontal rail is capturing vertical touch. Add `touch-action: pan-x` to horizontally
+scrolling rails so vertical gestures pass through to the page, and verify the page scrolls
+from anywhere — including with a finger starting on a rail.
+
+## 5. Stale data survives app updates
+
+Fixtures are now DEV-only, but SQLite persists across TestFlight updates, so rows written by
+an earlier build remain and can render with unresolved names. Real users will not hit this;
+the owner already has.
+
+Add **"Reset local data"** to Settings → Diagnostics: clear the local database, re-run
+migrations and seed the catalogue, with a confirm step. State plainly that cloud data is
+untouched.
+
+Also harden `PantryItemRow`'s fallback so a failed catalogue join can never render a location
+name or a raw id as an item title.
+
+---
+
+## Verification — new script `scripts/verify-chrome.mjs`
+
+Playwright, iPhone-sized viewport, and assert:
+
+1. **No interactive element is obscured.** For every visible button and link on each route,
+   hit-test its centre with `elementFromPoint` — the result must be that element or a
+   descendant. This is the general form of both the duplicate-FAB and hidden-confirm bugs.
+2. **Exactly one FAB** on every route.
+3. **Tab bar is visible without scrolling** — assert its box is in the viewport immediately
+   after load, before any scroll.
+4. **Nothing sits within the top safe-area inset.** Simulate a device with a top inset and
+   assert no interactive element's top edge is above it.
+5. **The page scrolls vertically** when the gesture starts over a horizontal rail.
+
+Then:
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+```
+279 core + 234 web must stay green.
+
+## Report
+
+`reports/fix-shell-chrome.md`: each defect, the cause, the fix, and which new assertion covers
+it. Note anything you could not reproduce.
+
+Work continuously; do not stall waiting for input.

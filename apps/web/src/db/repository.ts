@@ -117,6 +117,13 @@ export interface PantryRepository {
    * Available after open()+migrate() (and typically seed()).
    */
   domain?(): DomainRepository;
+
+  /**
+   * Wipe all local product data, re-run migrations, and re-seed the catalogue.
+   * Cloud / Supabase data is never touched. Used by Settings → Diagnostics
+   * when a TestFlight update left stale SQLite rows with unresolved joins.
+   */
+  resetLocalData?(): Promise<void>;
 }
 
 /** Deterministic checksum used by insert + verify steps (from @larder/core). */

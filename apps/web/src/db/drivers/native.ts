@@ -283,6 +283,24 @@ export class NativePantryRepository implements PantryRepository {
     this.domainRepo = null;
   }
 
+  /**
+   * Settings → Diagnostics: delete the on-device SQLite file, re-open, migrate,
+   * and seed the catalogue + default locations. Cloud / Supabase is untouched.
+   * Fixtures are never reloaded on native.
+   */
+  async resetLocalData(): Promise<void> {
+    await this.close();
+    try {
+      await CapacitorSQLite.deleteDatabase({
+        database: DB_NAME,
+        readonly: false,
+      });
+    } catch {
+      // File may already be absent after a partial wipe — continue to re-init.
+    }
+    await this.initialize({ loadFixtures: false });
+  }
+
   private requireDb(): DrizzleDb {
     if (!this.db) {
       throw new Error('Database not open');

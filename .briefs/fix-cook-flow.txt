@@ -1,0 +1,105 @@
+# BRIEF: Fix the cook flow dead end, and build real substitution handling
+
+## Context
+
+**The Good Pantry.** The owner cooked Black Bean Tacos on a real device and the cook flow
+**dead-ended**. This is the product's core interaction, so it matters more than anything else
+currently open.
+
+Read `SPEC.md` ("Cook planning"), `apps/web/src/routes/CookPage.tsx`, and
+`packages/core/src/recipes/**` (read-only — 279 tests).
+
+## Already fixed by the architect — do not redo
+
+`CookPage`'s confirm bar is `fixed bottom-0`; so is the shell's tab bar, which comes later in
+the DOM and painted on top, making "Confirm cook" invisible and untappable. The cook route now
+renders **outside** `AppShell` (like cooking mode). Verify it works; do not re-architect it.
+
+## Scope
+
+`apps/web/src/features/recipes/**`, `apps/web/src/routes/CookPage.tsx`, and the verification
+scripts in `apps/web/scripts/`.
+
+**Do NOT touch** `packages/core/**`, other feature folders, `src/ui/**`, `src/db/**`,
+`native/**`.
+
+---
+
+## 1. Prove the cook flow completes end to end — highest priority
+
+The owner could not finish a cook. Until a test walks the whole path, we do not know it works.
+
+Extend `scripts/verify-interactivity.mjs` (or add a sibling) that, against the demo profile:
+
+1. opens a recipe → **Cook**
+2. asserts the confirm control is **visible and clickable** — not merely present in the DOM.
+   Use a real hit test: `elementFromPoint` at the button's centre must resolve to the button
+   (or a descendant). A DOM-presence assertion is exactly what missed this bug.
+3. clicks **Confirm cook**
+4. asserts the success state appears (`Cook logged`, the `cookEventId`, the undo affordance)
+5. navigates to the pantry and asserts **a specific ingredient's quantity actually decreased**
+6. clicks **undo** and asserts the quantity is restored
+
+Print the before/after numbers. This is the product thesis; it should be impossible to break
+silently.
+
+Also assert **no element is obscured by the tab bar** on every route that has a fixed or
+sticky bottom control — the same hit test, applied generally. That class of bug will recur
+otherwise.
+
+## 2. Real substitution handling — owner's request, quoted
+
+> *"If there is a substitution method you should probably allow the person to click that and
+> then go through their pantry and click if they used something else as a substitution. And if
+> they don't have it in the pantry they can click Other at the top of the screen and write in
+> what it is — that way they can actually take out what they used."*
+
+Today a substitution is a free-text note that deducts nothing, which is worse than useless:
+the user believes they recorded it and the pantry silently stays wrong.
+
+Build it properly. On any cook line, **Substitute** opens a picker that:
+
+- **Searches the user's actual pantry**, ranked sensibly (same category first, then anything
+  in stock). Show quantity and location so they can tell which item they mean.
+- On selection: **deduct the substitute, not the original.** This is the whole point. Write
+  the txn against the substitute's ingredient and form, converting units through
+  `@larder/core`'s `convert()`. If conversion is not possible, ask for the amount rather than
+  guessing.
+- **"Other" at the top** for something not in the pantry: free text, recorded on the cook event
+  for provenance, deducting nothing — and **say so plainly** in the UI ("noted, nothing
+  deducted") so the user is not misled.
+- The substitution must be visible on the confirm summary before committing.
+
+## 3. Cook flow polish the owner ran into
+
+- There must always be an obvious way **out** as well as forward. Back to the recipe, clearly
+  placed, at every phase.
+- After confirming, do not strand the user on the preview: show the result and offer
+  **Done → recipe** and **Undo**.
+- The step-through and the preview are currently disconnected. Finishing the guided steps
+  should lead into the preview with continuity, not what feels like a different screen.
+
+---
+
+## Constraints
+
+TypeScript `strict`, no `any`. Mobile-first, 44px targets. No new heavy deps.
+`packages/core` is read-only — if the domain layer lacks something, report it.
+Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+node scripts/verify-interactivity.mjs      # from apps/web — must include the new cook walk
+```
+
+279 core + 234 web must stay green.
+
+## Report
+
+`reports/fix-cook-flow.md`: the confirm-visibility fix and how the hit test proves it, the
+substitution model (**especially what gets deducted in each case**), the before/after
+quantities from the end-to-end walk, and any obscured-element cases the general check found.
+
+Work continuously; do not stall waiting for input.

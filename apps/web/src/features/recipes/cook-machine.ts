@@ -7,9 +7,10 @@
  * - optional lines never block.
  * - Going negative prompts "still have some?" — no silent clamp.
  * - All deductions share one cookEventId for unit undo.
+ * - Substitutions deduct the substitute (or nothing for free-text Other).
  */
 
-import { type Dimension,formatQuantity, wouldGoNegative } from '@larder/core';
+import { type Dimension, formatQuantity, wouldGoNegative } from '@larder/core';
 
 import { newId } from '../../db/id';
 import type { AppendTxnInput } from '../../db/types';
@@ -35,6 +36,33 @@ export type CookPhase =
   | 'error'
   | 'undone';
 
+/** Pantry item used instead of the recipe line — deducted on commit. */
+export type PantrySubstitution = {
+  readonly kind: 'pantry';
+  readonly ingredientId: string;
+  readonly formId: string;
+  readonly name: string;
+  readonly formName: string | null;
+  readonly locationName: string | null;
+  readonly category: string;
+  readonly dim: Dimension;
+  readonly haveBase: number;
+  /** Amount to deduct in the substitute's base units. null = needs user input. */
+  actualUsedBase: number | null;
+  readonly amountFromConversion: boolean;
+  readonly needsAmount: boolean;
+};
+
+/**
+ * Free-text substitute not in the pantry — provenance only, nothing deducted.
+ */
+export type OtherSubstitution = {
+  readonly kind: 'other';
+  readonly note: string;
+};
+
+export type LineSubstitution = PantrySubstitution | OtherSubstitution;
+
 export type CookLineEdit = {
   readonly index: number;
   readonly rawText: string;
@@ -53,12 +81,17 @@ export type CookLineEdit = {
   readonly pantryFormId?: string;
   readonly groupSatisfied?: boolean;
   readonly satisfiedByIngredientId?: string;
-  /** Amount to deduct in pantry base units. null = no deduction for this line. */
+  /** Amount to deduct in pantry base units (original line). null = no deduction. */
   actualUsedBase: number | null;
   /** User skips deduction (always for non-quantified / not-convertible by default). */
   skipped: boolean;
-  /** Free-text substitution note shown in preview. */
+  /**
+   * @deprecated Prefer `substitution`. Kept as a derived display string for
+   * grocery notes and older call sites.
+   */
   substitutionNote: string;
+  /** Real substitution: pantry item (deducts) or free-text Other (no deduct). */
+  substitution: LineSubstitution | null;
   sendShortfallToGrocery: boolean;
 };
 
@@ -148,6 +181,12 @@ export function presentCookStatus(status: CookLineStatus): StatusPresentation {
   }
 }
 
+function noteFromSubstitution(sub: LineSubstitution | null): string {
+  if (!sub) return '';
+  if (sub.kind === 'other') return sub.note;
+  return `used ${sub.name}`;
+}
+
 function lineFromPlan(pl: CookPlanLine, index: number): CookLineEdit {
   const nonQuantified = pl.status === 'non-quantified';
   const notConvertible = pl.status === 'not-convertible';
@@ -181,6 +220,7 @@ function lineFromPlan(pl: CookPlanLine, index: number): CookLineEdit {
     actualUsedBase: canDefaultDeduct ? pl.needBase : null,
     skipped: nonQuantified || notConvertible || !canDefaultDeduct,
     substitutionNote: '',
+    substitution: null,
     sendShortfallToGrocery:
       pl.status === 'short' ||
       pl.status === 'not-in-pantry' ||
@@ -251,11 +291,26 @@ export function replanCook(
     const prev = prevByIndex.get(line.index);
     if (!prev) return line;
     if (prev.rawText !== line.rawText) return line;
+    const substitution = prev.substitution;
+    // If a pantry substitute is active, keep original line skipped
+    const hasPantrySub = substitution?.kind === 'pantry';
+    const hasOtherSub = substitution?.kind === 'other';
     return {
       ...line,
-      actualUsedBase: prev.skipped ? line.actualUsedBase : prev.actualUsedBase,
-      skipped: prev.skipped && line.status !== 'enough' ? prev.skipped : line.skipped,
-      substitutionNote: prev.substitutionNote,
+      actualUsedBase:
+        hasPantrySub || hasOtherSub
+          ? null
+          : prev.skipped
+            ? line.actualUsedBase
+            : prev.actualUsedBase,
+      skipped:
+        hasPantrySub || hasOtherSub
+          ? true
+          : prev.skipped && line.status !== 'enough'
+            ? prev.skipped
+            : line.skipped,
+      substitution,
+      substitutionNote: prev.substitutionNote || noteFromSubstitution(substitution),
       sendShortfallToGrocery: prev.sendShortfallToGrocery,
     };
   });
@@ -272,6 +327,32 @@ export function setLineActualUsed(
   }
   const lines = state.lines.map((line) => {
     if (line.index !== index) return line;
+    const sub = line.substitution;
+    if (sub?.kind === 'pantry') {
+      if (actualUsedBase === null || !Number.isFinite(actualUsedBase)) {
+        return {
+          ...line,
+          substitution: {
+            ...sub,
+            actualUsedBase: null,
+            needsAmount: true,
+          },
+          skipped: true,
+          actualUsedBase: null,
+        };
+      }
+      const clamped = Math.max(0, actualUsedBase);
+      return {
+        ...line,
+        substitution: {
+          ...sub,
+          actualUsedBase: clamped,
+          needsAmount: false,
+        },
+        skipped: true,
+        actualUsedBase: null,
+      };
+    }
     if (actualUsedBase === null || !Number.isFinite(actualUsedBase)) {
       return { ...line, actualUsedBase: null, skipped: true };
     }
@@ -296,8 +377,23 @@ export function setLineSkipped(
   }
   const lines = state.lines.map((line) => {
     if (line.index !== index) return line;
+    // Clearing skip while a substitution is active would double-deduct — clear sub.
     if (skipped) {
-      return { ...line, skipped: true, actualUsedBase: null };
+      return {
+        ...line,
+        skipped: true,
+        actualUsedBase: null,
+      };
+    }
+    if (line.substitution) {
+      // Un-skip means use the original ingredient again
+      return {
+        ...line,
+        skipped: false,
+        actualUsedBase: line.needBase ?? line.actualUsedBase ?? 0,
+        substitution: null,
+        substitutionNote: '',
+      };
     }
     return {
       ...line,
@@ -308,6 +404,10 @@ export function setLineSkipped(
   return { ...state, phase: 'preview', lines, negativeCandidates: [] };
 }
 
+/**
+ * Free-text substitution note (legacy). Prefer setLineOtherSubstitution /
+ * setLinePantrySubstitution for real deduction behaviour.
+ */
 export function setLineSubstitution(
   state: CookMachineState,
   index: number,
@@ -316,9 +416,90 @@ export function setLineSubstitution(
   if (state.phase !== 'preview' && state.phase !== 'negative_prompt') {
     return state;
   }
+  const trimmed = note.trim();
+  if (!trimmed) {
+    return clearLineSubstitution(state, index);
+  }
+  return setLineOtherSubstitution(state, index, trimmed);
+}
+
+/** Free-text "Other" — provenance only; nothing is deducted. */
+export function setLineOtherSubstitution(
+  state: CookMachineState,
+  index: number,
+  note: string,
+): CookMachineState {
+  if (state.phase !== 'preview' && state.phase !== 'negative_prompt') {
+    return state;
+  }
+  const trimmed = note.trim();
+  if (!trimmed) {
+    return clearLineSubstitution(state, index);
+  }
+  const sub: OtherSubstitution = { kind: 'other', note: trimmed };
   const lines = state.lines.map((line) =>
-    line.index === index ? { ...line, substitutionNote: note } : line,
+    line.index === index
+      ? {
+          ...line,
+          substitution: sub,
+          substitutionNote: trimmed,
+          // Other never deducts original or anything else
+          skipped: true,
+          actualUsedBase: null,
+        }
+      : line,
   );
+  return { ...state, phase: 'preview', lines, negativeCandidates: [] };
+}
+
+/** Pantry substitute — deduct the substitute, not the original. */
+export function setLinePantrySubstitution(
+  state: CookMachineState,
+  index: number,
+  sub: PantrySubstitution,
+): CookMachineState {
+  if (state.phase !== 'preview' && state.phase !== 'negative_prompt') {
+    return state;
+  }
+  const lines = state.lines.map((line) =>
+    line.index === index
+      ? {
+          ...line,
+          substitution: sub,
+          substitutionNote: `used ${sub.name}`,
+          // Original is not deducted
+          skipped: true,
+          actualUsedBase: null,
+        }
+      : line,
+  );
+  return { ...state, phase: 'preview', lines, negativeCandidates: [] };
+}
+
+export function clearLineSubstitution(
+  state: CookMachineState,
+  index: number,
+): CookMachineState {
+  if (state.phase !== 'preview' && state.phase !== 'negative_prompt') {
+    return state;
+  }
+  const lines = state.lines.map((line) => {
+    if (line.index !== index) return line;
+    const canDefaultDeduct =
+      line.convertible &&
+      line.needBase !== null &&
+      Number.isFinite(line.needBase) &&
+      Boolean(line.ingredientId) &&
+      Boolean(line.formId ?? line.pantryFormId) &&
+      !line.nonQuantified;
+    return {
+      ...line,
+      substitution: null,
+      substitutionNote: '',
+      skipped: !canDefaultDeduct,
+      actualUsedBase: canDefaultDeduct ? line.needBase : null,
+    };
+  });
   return { ...state, phase: 'preview', lines, negativeCandidates: [] };
 }
 
@@ -336,12 +517,24 @@ export function setLineSendToGrocery(
   return { ...state, lines };
 }
 
-/** Indices where have − used would go strictly negative. */
+/**
+ * Indices where a deduction would go strictly negative.
+ * Uses substitute stock when a pantry substitution is active.
+ */
 export function findNegativeCandidateIndices(
   lines: readonly CookLineEdit[],
 ): number[] {
   const out: number[] = [];
   for (const line of lines) {
+    const sub = line.substitution;
+    if (sub?.kind === 'pantry') {
+      if (sub.actualUsedBase === null) continue;
+      if (wouldGoNegative(sub.haveBase, sub.actualUsedBase)) {
+        out.push(line.index);
+      }
+      continue;
+    }
+    if (sub?.kind === 'other') continue;
     if (line.skipped || line.actualUsedBase === null) continue;
     if (line.haveBase === null) continue;
     if (wouldGoNegative(line.haveBase, line.actualUsedBase)) {
@@ -411,6 +604,32 @@ export function buildCookTxns(
   const txns: CookTxnInput[] = [];
 
   for (const line of state.lines) {
+    const sub = line.substitution;
+
+    // Free-text Other: provenance only — never deduct
+    if (sub?.kind === 'other') {
+      continue;
+    }
+
+    // Pantry substitute: deduct substitute, not original
+    if (sub?.kind === 'pantry') {
+      if (sub.actualUsedBase === null || sub.actualUsedBase <= 0) continue;
+      txns.push({
+        clientTxnId: `${cookEventId}:${line.index}:sub:${sub.ingredientId}:${sub.formId}`,
+        householdId: meta.householdId,
+        ingredientId: sub.ingredientId,
+        formId: sub.formId,
+        kind: 'relative',
+        reason: 'cook',
+        deltaBase: -sub.actualUsedBase,
+        refId: cookEventId,
+        occurredAt,
+        deviceId: meta.deviceId,
+        userId: meta.userId,
+      });
+      continue;
+    }
+
     if (line.skipped || line.actualUsedBase === null) continue;
     if (line.actualUsedBase <= 0) continue;
     // not-convertible without user amount stays skipped — never invent 0 deduct
@@ -512,4 +731,11 @@ export function formatBaseQty(
 
 export function linesForGrocery(state: CookMachineState): CookLineEdit[] {
   return state.lines.filter((l) => l.sendShortfallToGrocery);
+}
+
+/** Lines with an active substitution (for confirm summary). */
+export function linesWithSubstitution(
+  state: CookMachineState,
+): CookLineEdit[] {
+  return state.lines.filter((l) => l.substitution != null);
 }

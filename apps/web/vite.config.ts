@@ -11,6 +11,10 @@ import { defineConfig } from 'vite';
  * isolation headers (they break OAuth popups / ads / payments).
  */
 export default defineConfig({
+  // GitHub Pages serves the repo at /<repo>/, so assets need that prefix. Set
+  // via env by the pages workflow; local dev and the native build stay at '/'.
+  // Capacitor loads from the filesystem, so a non-root base would break it.
+  base: process.env.VITE_BASE_PATH ?? '/',
   plugins: [react()],
   resolve: {
     alias: {

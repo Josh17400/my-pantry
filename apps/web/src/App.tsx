@@ -125,24 +125,36 @@ function AppShell({ children }: { children: ReactNode }) {
   const [addOpen, setAddOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-bg">
+    <div
+      data-app-shell
+      className="flex min-h-[100dvh] min-w-0 flex-col overflow-x-hidden bg-bg pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]"
+    >
       {/*
-        Phone-first: the column stays phone-width even on a desktop browser.
-        pb-10 clears the FAB, which is translated up over the tab bar and would
-        otherwise clip the last row of any scrolling list.
-        overflow-x-hidden + min-w-0 guard against horizontal page scroll at 320px.
+        Phone-first: column stays phone-width on desktop browsers.
+        Top/left/right safe-area insets live on the shell so every route clears
+        the Dynamic Island / notch / landscape edges — not per-screen.
+        Main bottom padding clears the fixed tab bar + raised FAB so the last
+        list row is never hidden. overflow-x-hidden + min-w-0 guard against
+        horizontal page scroll at 320px.
       */}
-      <main className="mx-auto w-full min-w-0 max-w-md flex-1 overflow-x-hidden pb-10">
+      <main className="mx-auto w-full min-w-0 max-w-md flex-1 overflow-x-hidden pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))]">
         {children}
       </main>
-      <div className="sticky bottom-0 mx-auto w-full min-w-0 max-w-md">
-        <TabBar
-          tabs={TABS}
-          activeId={activeTabFor(pathname)}
-          onChange={(id) => navigate(id)}
-          onFabClick={() => setAddOpen(true)}
-          fabLabel="Add"
-        />
+      {/*
+        Fixed (not sticky): sticky only pins after the flex column grows past
+        the viewport, so the bar was invisible until the user scrolled to the
+        end of content. Fixed keeps it layered over content at all times.
+      */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto w-full min-w-0 max-w-md pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
+        <div className="pointer-events-auto">
+          <TabBar
+            tabs={TABS}
+            activeId={activeTabFor(pathname)}
+            onChange={(id) => navigate(id)}
+            onFabClick={() => setAddOpen(true)}
+            fabLabel="Add"
+          />
+        </div>
       </div>
       {addOpen ? <AddSheet onClose={() => setAddOpen(false)} /> : null}
     </div>
@@ -189,6 +201,22 @@ export function App() {
     return (
       <Routes>
         <Route path="/recipes/:id/cooking" element={<CookingModePage />} />
+      </Routes>
+    );
+  }
+
+  /*
+    Cook preview is also full-screen, and this one was a real bug rather than a
+    preference: its "Confirm cook" bar is `fixed bottom-0`, and so is the shell's
+    tab bar. The tab bar comes later in the DOM, so it painted on top and the
+    confirm button was unreachable — the screen became a dead end with no way to
+    complete or leave the cook. It is a focused decision like cooking mode, so it
+    gets the full screen and relies on its own back link.
+  */
+  if (/\/recipes\/[^/]+\/cook$/.test(pathname)) {
+    return (
+      <Routes>
+        <Route path="/recipes/:id/cook" element={<CookPage />} />
       </Routes>
     );
   }

@@ -48,19 +48,29 @@ export function NegativeStockPrompt({
 
         <ul className="mt-4 max-h-48 space-y-2 overflow-y-auto">
           {candidates.map((line) => {
+            const sub = line.substitution?.kind === 'pantry' ? line.substitution : null;
+            const have = sub ? sub.haveBase : line.haveBase;
+            const used = sub ? sub.actualUsedBase : line.actualUsedBase;
+            const dim = sub ? sub.dim : line.needDim;
             const projected =
-              line.haveBase != null && line.actualUsedBase != null
-                ? line.haveBase - line.actualUsedBase
-                : null;
+              have != null && used != null ? have - used : null;
             return (
               <li
                 key={line.index}
                 className="rounded-xl bg-critical/5 px-3 py-2 text-sm"
               >
-                <div className="font-medium text-ink">{line.rawText}</div>
+                <div className="font-medium text-ink">
+                  {line.rawText}
+                  {sub ? (
+                    <span className="font-normal text-ink-muted">
+                      {' '}
+                      (via {sub.name})
+                    </span>
+                  ) : null}
+                </div>
                 <div className="text-xs text-critical">
-                  Have {formatBaseQty(line.haveBase, line.needDim)} → after cook{' '}
-                  {formatBaseQty(projected, line.needDim)}
+                  Have {formatBaseQty(have, dim)} → after cook{' '}
+                  {formatBaseQty(projected, dim)}
                 </div>
               </li>
             );

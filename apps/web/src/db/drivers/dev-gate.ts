@@ -16,6 +16,13 @@ export function shouldUseBrowserDevDriver(): boolean {
   if (import.meta.env.DEV) {
     return true;
   }
+  // Explicit opt-in for the GitHub Pages demo build, so the app can be walked
+  // in a browser (and driven by automation) without a TestFlight round trip.
+  // Set only by the pages workflow — a real production web deploy leaves it
+  // unset and keeps online-companion behaviour.
+  if (import.meta.env.VITE_PREVIEW_DEMO === '1') {
+    return true;
+  }
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {

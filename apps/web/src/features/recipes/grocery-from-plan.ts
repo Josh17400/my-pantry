@@ -93,7 +93,11 @@ export function groceryItemsFromCookLines(
       notes:
         line.status === 'not-convertible'
           ? 'Not convertible — check form/unit manually'
-          : line.substitutionNote || null,
+          : line.substitution?.kind === 'other'
+            ? `Other sub: ${line.substitution.note} (nothing deducted)`
+            : line.substitution?.kind === 'pantry'
+              ? `Substituted with ${line.substitution.name}`
+              : line.substitutionNote || null,
     });
   }
   return items;

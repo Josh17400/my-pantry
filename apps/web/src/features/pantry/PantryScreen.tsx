@@ -4,7 +4,6 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import { useLocations, usePantry } from '../../state';
 import { hasActiveRepository } from '../../state';
-import { Fab } from '../../ui/Fab';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { AddItemSheet } from './components/AddItemSheet';
 import {
@@ -174,7 +173,7 @@ export function PantryScreen({ nowMs }: PantryScreenProps) {
   const showError = Boolean(error || locError);
 
   return (
-    <div className="relative flex min-h-[100dvh] min-w-0 flex-col overflow-x-hidden bg-bg pb-safe-b pt-safe-t">
+    <div className="relative flex min-h-[100dvh] min-w-0 flex-col overflow-x-hidden bg-bg">
       <header className="shrink-0 px-4 pb-3 pt-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -190,12 +189,24 @@ export function PantryScreen({ nowMs }: PantryScreenProps) {
               </Link>
             ) : null}
           </div>
-          <Link
-            to="/locations"
-            className="min-h-tap shrink-0 rounded-pill px-3 text-sm font-medium text-primary"
-          >
-            Locations
-          </Link>
+          <div className="flex shrink-0 items-center gap-1">
+            {repoReady ? (
+              <button
+                type="button"
+                onClick={() => setAddOpen(true)}
+                data-testid="pantry-header-add"
+                className="min-h-tap shrink-0 rounded-pill bg-primary px-3 text-sm font-semibold text-white"
+              >
+                Add
+              </button>
+            ) : null}
+            <Link
+              to="/locations"
+              className="min-h-tap shrink-0 rounded-pill px-3 text-sm font-medium text-primary"
+            >
+              Locations
+            </Link>
+          </div>
         </div>
 
         <label className="sr-only" htmlFor="pantry-search">
@@ -295,14 +306,6 @@ export function PantryScreen({ nowMs }: PantryScreenProps) {
           />
         )}
       </div>
-
-      {repoReady ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] z-30 flex justify-center">
-          <div className="pointer-events-auto">
-            <Fab label="Add item" onClick={() => setAddOpen(true)} />
-          </div>
-        </div>
-      ) : null}
 
       <AddItemSheet
         open={addOpen}

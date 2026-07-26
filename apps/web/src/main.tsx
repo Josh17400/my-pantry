@@ -94,9 +94,13 @@ function BootGate({ children }: { children: ReactNode }) {
   return children;
 }
 
+// GitHub Pages serves under /<repo>/, so the router needs that basename or every
+// route 404s. BASE_URL is '/' locally and in the native build, where this is a no-op.
+const basename = import.meta.env.BASE_URL.replace(/\/$/, '');
+
 createRoot(rootEl).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <BootGate>
         <App />
       </BootGate>

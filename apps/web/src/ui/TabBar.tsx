@@ -43,6 +43,7 @@ export function TabBar({
   return (
     <nav
       aria-label="Main"
+      data-testid="app-tab-bar"
       className={cn(
         'relative border-t border-black/[0.04] bg-surface-raised shadow-tab',
         className,

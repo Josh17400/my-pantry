@@ -117,7 +117,7 @@ export function CookingModeScreen({
       return;
     }
     void navigate(
-      `/recipes/${recipe.id}/cook?servings=${encodeURIComponent(String(servings))}`,
+      `/recipes/${recipe.id}/cook?servings=${encodeURIComponent(String(servings))}&from=cooking`,
     );
   }, [navigate, onExitToCookPreview, recipe.id, servings]);
 

@@ -19,6 +19,34 @@ function tintFor(name: string): TintName {
   return TINTS[h % TINTS.length]!;
 }
 
+/**
+ * Safe title for a pantry row when the catalog join may have failed.
+ * Never shows a location name or a raw ingredient id as the title — stale
+ * SQLite rows from an older build can leave unresolved ids after updates.
+ */
+export function resolvePantryItemDisplayName(item: {
+  ingredientName?: string | null;
+  ingredientId: string;
+  locationName?: string | null;
+}): string {
+  const name = (item.ingredientName ?? '').trim();
+  const loc = (item.locationName ?? '').trim();
+  const id = item.ingredientId;
+
+  if (!name) return 'Unknown item';
+  // Domain layer falls back to ingredientId when the join misses.
+  if (name === id) return 'Unknown item';
+  if (loc && name.toLowerCase() === loc.toLowerCase()) return 'Unknown item';
+  // Raw slug / uuid-shaped strings are not product titles.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(name)) {
+    return 'Unknown item';
+  }
+  if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(name) && name === name.toLowerCase()) {
+    return 'Unknown item';
+  }
+  return name;
+}
+
 export type PantryItemRowProps = {
   item: PantryItemView;
   nowMs?: number;
@@ -33,12 +61,7 @@ export function PantryItemRow({
   className,
   onSelect,
 }: PantryItemRowProps) {
-  // Always the catalog ingredient name — never locationName / location id.
-  // Fallback chain if a join failed: explicit name → ingredientId (humanized).
-  const displayName =
-    (item.ingredientName && item.ingredientName.trim()) ||
-    item.ingredientId.replace(/-/g, ' ') ||
-    'Item';
+  const displayName = resolvePantryItemDisplayName(item);
 
   const fields = {
     lastVerifiedAt: item.lastVerifiedAt,

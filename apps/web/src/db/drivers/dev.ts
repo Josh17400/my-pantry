@@ -1253,6 +1253,15 @@ export class DevPantryRepository implements PantryRepository {
     await this.store.persist();
   }
 
+  /**
+   * Settings → Diagnostics: clear local IndexedDB, re-migrate/seed catalogue.
+   * Never loads fixtures; cloud is untouched (dev driver is local-only).
+   */
+  async resetLocalData(): Promise<void> {
+    await this.reset();
+    await this.initialize({ loadFixtures: false });
+  }
+
   // ── Health probe (M0) ───────────────────────────────────────────────────
 
   async insertBatch(
