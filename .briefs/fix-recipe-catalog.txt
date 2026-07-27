@@ -1,0 +1,90 @@
+# BRIEF: The 50 catalogue recipes never reach the app — wire and browse them
+
+## Context
+
+**The Good Pantry.** Owner: *"I can create a recipe but I can't browse recipes?"*
+
+Correct, and the cause is an integration gap:
+
+- `packages/core/src/seed/recipes/` holds **50 recipes** across 9 files, ids validated by tests.
+- They are **not exported** from `packages/core/src/index.ts`.
+- `apps/web/src/db/seed.ts` **never loads them**.
+
+So the Recipes tab shows only the 4 demo fixtures. The catalogue was written, tested in
+isolation, and never wired — the same failure mode as the inert home screen.
+
+## Scope
+
+`packages/core/src/index.ts` (**export only** — do not change recipe data or logic),
+`apps/web/src/db/**`, `apps/web/src/features/recipes/**`,
+`apps/web/src/routes/RecipesPage.tsx`.
+
+**Do NOT touch** anything else in `packages/core` (279 tests), `supabase/**`, `native/**`,
+`apps/web/src/features/pantry/**`.
+
+## 1. Export and seed the catalogue
+
+- Export the catalogue from core's barrel alongside the ingredient seed.
+- Seed the 50 recipes into the local DB on first run, **idempotently and versioned** the same
+  way ingredients are. Re-running must not duplicate.
+- Mark them as catalogue-sourced (a `source: 'catalog'` field or equivalent) — this matters for
+  the next point.
+- Existing installs must pick them up: bump the seed version so a device that already ran an
+  earlier seed gains the recipes without wiping user data. **Do not clobber user-created
+  recipes.**
+
+## 2. Browsing — catalogue is not "My Recipes"
+
+The screen is titled **My Recipes**. Dropping 50 catalogue recipes into it would be wrong:
+they are not the user's, and a new user's own book would be buried under starter content.
+
+Separate them clearly. A segmented control on the Recipes screen is the lightest option:
+
+- **Mine** — user-created and saved recipes (empty state invites creating or browsing)
+- **Browse** — the 50 catalogue recipes
+- keep the existing **Can make now** filter working across both
+
+Saving a catalogue recipe copies it into Mine (the fork behaviour that already exists for
+community recipes — reuse it rather than writing a second path).
+
+Search must cover the visible set, by title **and by ingredient** ("what can I make with
+chicken and rice" is in SPEC).
+
+## 3. Community
+
+`/community` exists and has no entry point from the Recipes screen. Surface it — a third
+segment or a clear link — so community browsing is reachable. Check it renders sensibly with
+no backend data rather than erroring.
+
+## Constraints
+
+TypeScript `strict`, no `any`. Mobile-first. Reuse `ui/Sheet.tsx`, `Z_CLASS`, and the existing
+`SegmentedControl`. No new deps. Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+node scripts/verify-interactivity.mjs && node scripts/verify-chrome.mjs
+```
+
+279 core + 283 web must stay green.
+
+**Required tests — these are the ones that would have caught the bug:**
+- After seeding, the repository returns **50+ recipes**, not 4
+- The Recipes screen **renders more than 10 recipe cards** in Browse
+- Seeding twice does not duplicate
+- A user-created recipe survives a re-seed
+- Opening a catalogue recipe reaches its detail page
+
+Extend `verify-interactivity.mjs` to assert the Browse list is populated — a count, not just
+"the route rendered". The existing check passed the whole time this was broken because it only
+looked for text.
+
+## Report
+
+`reports/fix-recipe-catalog.md`: how the catalogue is exported and seeded, the versioning that
+lets existing installs gain recipes without losing their own, the Mine/Browse split, how
+community is now reachable, and the new count-based assertions.
+
+Work continuously; do not stall waiting for input.

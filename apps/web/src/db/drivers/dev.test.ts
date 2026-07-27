@@ -41,7 +41,10 @@ describe('DevPantryRepository (M1-L)', () => {
       );
 
       const recipes = await domain.listRecipes(DEFAULT_HOUSEHOLD_ID);
-      expect(recipes.length).toBeGreaterThanOrEqual(4);
+      // 50 catalogue + 4 fixtures
+      expect(recipes.length).toBeGreaterThanOrEqual(54);
+      expect(recipes.filter((r) => r.source === 'catalog').length).toBe(50);
+      expect(result.seed.recipesUpserted).toBeGreaterThanOrEqual(50);
 
       const locations = await domain.listLocations();
       expect(locations.length).toBe(7);
@@ -51,10 +54,14 @@ describe('DevPantryRepository (M1-L)', () => {
       await repo.initialize({ loadFixtures: true });
       const second = await repo.initialize({ loadFixtures: true });
       expect(second.seed.skippedCatalog).toBe(true);
+      expect(second.seed.skippedRecipes).toBe(true);
       expect(second.fixtures?.skipped).toBe(true);
 
       const items = await repo.domain().listPantryItems();
       expect(items.length).toBeGreaterThan(10);
+
+      const recipes = await repo.domain().listRecipes(DEFAULT_HOUSEHOLD_ID);
+      expect(recipes.filter((r) => r.source === 'catalog')).toHaveLength(50);
     });
   });
 

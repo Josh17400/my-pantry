@@ -1,6 +1,11 @@
 /**
- * Assemble GrocerySource[] from pantry stock, reorder cadence, and recipes.
+ * Assemble GrocerySource[] from pantry stock, reorder cadence, and user intent.
  * Pure orchestration — aggregation is core buildList.
+ *
+ * Recipe shortfalls are NOT derived by sweeping the catalogue. They arrive only
+ * when the user has already written them to the list ("Add missing to grocery",
+ * cook-preview shortfall ticks). Rebuild re-feeds those persisted rows as
+ * sources so stock/reorder re-aggregation cannot wipe them.
  */
 
 import {
@@ -24,6 +29,7 @@ import type { PantryItemView } from '../../db/types';
 import type { RecipeDetail } from '../../db/types';
 import {
   type GrocerySource,
+  type GrocerySourceKind,
   manualSource,
   type ReorderSuggestion,
   sourcesFromPlans,
@@ -152,7 +158,10 @@ function medianQty(values: number[]): number {
   return s[mid]!;
 }
 
-/** Recipe shortfalls → sources via core planCook + sourcesFromPlans. */
+/**
+ * Plan shortfalls for an explicit set of recipes (user-selected only).
+ * Do not pass the whole catalogue — use intentSourcesFromListItems on rebuild.
+ */
 export function recipeShortfallSources(
   recipes: readonly RecipeDetail[],
   pantry: readonly PantryItemView[],
@@ -203,6 +212,114 @@ export function recipeShortfallSources(
   return sourcesFromPlans(plans, { names, categories });
 }
 
+/** Minimal list-row shape needed to rehydrate user-intent sources. */
+export type IntentListItem = {
+  ingredientId?: string | null;
+  formId?: string | null;
+  name: string;
+  category?: string | null;
+  qtyBase?: number | null;
+  dim?: string | null;
+  sources: readonly string[];
+  recipeIds?: readonly string[] | null;
+  notes?: string | null;
+};
+
+const STOCK_KINDS = new Set<string>(['stock-low', 'stock-out']);
+
+/**
+ * Rehydrate manual + recipe-shortfall sources from list rows the user already
+ * put on the list. Stock/reorder are re-derived live and must not be copied
+ * here (would double-count qty when merged with live stock).
+ *
+ * When a row is both stock-* and recipe-shortfall, recipe is attribution-only
+ * (no qty) so live stock supplies the purchase amount. Pure recipe rows keep
+ * their full qty so they survive stock changes.
+ */
+export function intentSourcesFromListItems(
+  items: readonly IntentListItem[],
+): GrocerySource[] {
+  const out: GrocerySource[] = [];
+
+  for (const item of items) {
+    const kinds = new Set(item.sources);
+    const hasStock = [...STOCK_KINDS].some((k) => kinds.has(k));
+    const dim =
+      item.dim === 'mass' || item.dim === 'volume' || item.dim === 'count'
+        ? item.dim
+        : undefined;
+
+    if (kinds.has('manual')) {
+      out.push(
+        manualSource({
+          ingredientId: item.ingredientId ?? undefined,
+          formId: item.formId ?? undefined,
+          name: item.name,
+          category: item.category ?? 'Other',
+          qtyBase: item.qtyBase ?? undefined,
+          dim,
+          note: item.notes ?? undefined,
+        }),
+      );
+    }
+
+    if (kinds.has('recipe-shortfall')) {
+      const recipeIds =
+        item.recipeIds && item.recipeIds.length > 0
+          ? item.recipeIds
+          : [undefined];
+      // Attribution-only when stock also owns qty on this line.
+      const qtyBase = hasStock ? undefined : (item.qtyBase ?? undefined);
+      const qtyDim = hasStock ? undefined : dim;
+
+      for (const recipeId of recipeIds) {
+        out.push({
+          kind: 'recipe-shortfall',
+          ingredientId: item.ingredientId ?? undefined,
+          formId: item.formId ?? undefined,
+          name: item.name,
+          category: item.category ?? undefined,
+          qtyBase,
+          dim: qtyDim,
+          recipeId,
+          note: item.notes ?? undefined,
+        });
+      }
+    }
+  }
+
+  return out;
+}
+
+/** Stable key for deduping intent sources from persisted + in-memory paths. */
+export function grocerySourceDedupeKey(source: GrocerySource): string {
+  return [
+    source.kind,
+    source.ingredientId ?? source.name ?? '',
+    source.formId ?? '',
+    source.recipeId ?? '',
+  ].join('|');
+}
+
+/**
+ * Union source lists by dedupe key (first wins — prefer persisted qty/notes).
+ */
+export function mergeGrocerySources(
+  ...groups: readonly (readonly GrocerySource[])[]
+): GrocerySource[] {
+  const seen = new Set<string>();
+  const out: GrocerySource[] = [];
+  for (const group of groups) {
+    for (const source of group) {
+      const key = grocerySourceDedupeKey(source);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(source);
+    }
+  }
+  return out;
+}
+
 export function manualAddSource(input: {
   name: string;
   ingredientId?: string;
@@ -225,4 +342,11 @@ export function manualAddSource(input: {
     unit: input.unit,
     note: input.note,
   });
+}
+
+/** True when a list row carries user-requested recipe shortfall provenance. */
+export function isRecipeSourcedItem(item: {
+  sources: readonly string[];
+}): boolean {
+  return item.sources.includes('recipe-shortfall' satisfies GrocerySourceKind);
 }

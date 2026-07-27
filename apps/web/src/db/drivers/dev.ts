@@ -16,15 +16,13 @@ import {
   type Dimension,
   foldLedger,
   type PantryTxn,
-} from '@larder/core';
-
-import {
   SEED_VERSION,
   seedEdges,
   seedForms,
   seedIngredients,
   seedPackages,
-} from '../../../../../packages/core/src/seed/index.ts';
+} from '@larder/core';
+
 import {
   DEFAULT_DEVICE_ID,
   DEFAULT_HOUSEHOLD_ID,
@@ -34,7 +32,9 @@ import {
   META_FIXTURES_VERSION,
   META_LOCATIONS_SEEDED,
   META_LOCATIONS_TREE_VERSION,
+  META_RECIPE_SEED_VERSION,
   META_SEED_VERSION,
+  RECIPE_SEED_VERSION,
 } from '../constants';
 import { DEFAULT_LOCATIONS } from '../default-locations';
 import type { DomainRepository } from '../domain-repository';
@@ -55,6 +55,7 @@ import {
   type VerifyResult,
 } from '../repository';
 import type { SeedResult } from '../seed';
+import { recipeSource, seedStarterRecipes } from '../seed-recipes';
 import type {
   AppendTxnInput,
   AppendTxnResult,
@@ -541,18 +542,25 @@ export class DevDomainRepository {
       );
     }
     rows.sort((a, b) => a.title.localeCompare(b.title));
-    return rows.map((r) => ({
-      id: r.id,
-      householdId: r.householdId,
-      title: r.title,
-      servings: r.servings,
-      prepMin: r.prepMin,
-      cookMin: r.cookMin,
-      visibility: r.visibility,
-      tags: parseJsonArray(r.tags),
-      imageUrl: r.imageUrl,
-      updatedAt: r.updatedAt,
-    }));
+    return rows.map((r) => {
+      const tags = parseJsonArray(r.tags);
+      const authorId = r.authorId;
+      const householdId = r.householdId;
+      return {
+        id: r.id,
+        householdId,
+        title: r.title,
+        servings: r.servings,
+        prepMin: r.prepMin,
+        cookMin: r.cookMin,
+        visibility: r.visibility,
+        authorId,
+        tags,
+        imageUrl: r.imageUrl,
+        updatedAt: r.updatedAt,
+        source: recipeSource({ householdId, authorId, tags }),
+      };
+    });
   }
 
   async getRecipe(id: string): Promise<RecipeDetail | null> {
@@ -569,19 +577,24 @@ export class DevDomainRepository {
       .slice()
       .sort((a, b) => a.sortOrder - b.sortOrder);
 
+    const tags = parseJsonArray(r.tags);
+    const authorId = r.authorId;
+    const householdId = r.householdId;
+
     return {
       id: r.id,
-      householdId: r.householdId,
+      householdId,
       title: r.title,
       servings: r.servings,
       prepMin: r.prepMin,
       cookMin: r.cookMin,
       visibility: r.visibility,
-      tags: parseJsonArray(r.tags),
+      authorId,
+      tags,
       imageUrl: r.imageUrl,
       updatedAt: r.updatedAt,
+      source: recipeSource({ householdId, authorId, tags }),
       yieldNote: r.yieldNote,
-      authorId: r.authorId,
       forkedFrom: r.forkedFrom,
       createdAt: r.createdAt,
       ingredients: lines.map((line) => ({
@@ -894,13 +907,19 @@ async function runDevSeed(
 ): Promise<SeedResult> {
   const householdId = options.householdId ?? DEFAULT_HOUSEHOLD_ID;
   const previousSeedVersion = store.getMeta(META_SEED_VERSION);
+  const previousRecipeSeedVersion = store.getMeta(META_RECIPE_SEED_VERSION);
   const locationsFlag = store.getMeta(META_LOCATIONS_SEEDED);
 
-  let result!: SeedResult;
+  let locationsSeeded = false;
+  let ingredientsUpserted = 0;
+  let formsUpserted = 0;
+  let edgesUpserted = 0;
+  let packagesUpserted = 0;
+  let skippedCatalog = false;
+
   await store.batch(() => {
     const s = store.snapshot;
 
-    let locationsSeeded = false;
     if (locationsFlag !== '1' || options.force) {
       for (const loc of DEFAULT_LOCATIONS) {
         if (!s.locations.some((l) => l.id === loc.id)) {
@@ -949,17 +968,7 @@ async function runDevSeed(
     }
 
     if (previousSeedVersion === SEED_VERSION && !options.force) {
-      result = {
-        seedVersion: SEED_VERSION,
-        previousSeedVersion,
-        ingredientsUpserted: 0,
-        formsUpserted: 0,
-        edgesUpserted: 0,
-        packagesUpserted: 0,
-        locationsSeeded,
-        locationsTreeVersion: LOCATIONS_TREE_VERSION,
-        skippedCatalog: true,
-      };
+      skippedCatalog = true;
       return;
     }
 
@@ -1023,20 +1032,43 @@ async function runDevSeed(
     }
 
     store.setMeta(META_SEED_VERSION, SEED_VERSION);
-    result = {
-      seedVersion: SEED_VERSION,
-      previousSeedVersion,
-      ingredientsUpserted: seedIngredients.length,
-      formsUpserted: seedForms.length,
-      edgesUpserted: seedEdges.length,
-      packagesUpserted: seedPackages.length,
-      locationsSeeded,
-      locationsTreeVersion: LOCATIONS_TREE_VERSION,
-      skippedCatalog: false,
-    };
+    ingredientsUpserted = seedIngredients.length;
+    formsUpserted = seedForms.length;
+    edgesUpserted = seedEdges.length;
+    packagesUpserted = seedPackages.length;
   });
 
-  return result;
+  // Recipe catalogue — independent version (outside ingredient batch so we can
+  // use DevDomainRepository create/update with persist).
+  let recipesUpserted = 0;
+  let skippedRecipes = false;
+  if (previousRecipeSeedVersion === RECIPE_SEED_VERSION && !options.force) {
+    skippedRecipes = true;
+  } else {
+    const domain = new DevDomainRepository(store);
+    // Batch recipe writes into one IndexedDB flush.
+    await store.batch(async () => {
+      const seeded = await seedStarterRecipes(domain);
+      recipesUpserted = seeded.recipesUpserted;
+      store.setMeta(META_RECIPE_SEED_VERSION, RECIPE_SEED_VERSION);
+    });
+  }
+
+  return {
+    seedVersion: SEED_VERSION,
+    previousSeedVersion,
+    ingredientsUpserted,
+    formsUpserted,
+    edgesUpserted,
+    packagesUpserted,
+    locationsSeeded,
+    locationsTreeVersion: LOCATIONS_TREE_VERSION,
+    skippedCatalog,
+    recipeSeedVersion: RECIPE_SEED_VERSION,
+    previousRecipeSeedVersion,
+    recipesUpserted,
+    skippedRecipes,
+  };
 }
 
 async function runDevFixtures(

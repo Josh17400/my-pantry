@@ -6,12 +6,16 @@ import {
   BASE_UNIT,
   convert,
   CORE_PACKAGE_NAME,
+  countStarterRecipes,
   type Dimension,
   foldLedger,
   type Ingredient,
   knownAllergens,
   type PantryTxn,
   parseQuantity,
+  SEED_VERSION,
+  seedIngredients,
+  starterRecipes,
   unknownAllergenTags,
 } from '../../src/index';
 
@@ -72,5 +76,13 @@ describe('root barrel wiring', () => {
       defaultFormId: 'x-whole',
     };
     expect(ing.isStaple).toBe(true);
+  });
+
+  it('exports ingredient seed + starter recipe catalogue', () => {
+    expect(SEED_VERSION).toBeTruthy();
+    expect(seedIngredients.length).toBeGreaterThan(250);
+    expect(countStarterRecipes()).toBe(50);
+    expect(starterRecipes).toHaveLength(50);
+    expect(starterRecipes[0]?.id).toMatch(/^recipe-/);
   });
 });

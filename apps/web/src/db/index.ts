@@ -52,7 +52,22 @@ export {
   migrateLocationsTree,
 } from './locations-migration';
 export { runMigrations } from './migrate';
+export type { SeedResult } from './seed';
 export { runSeed, seedCatalogStats } from './seed';
+export type {
+  RecipeSeedPort,
+  RecipeSource,
+  SeedRecipesResult,
+} from './seed-recipes';
+export {
+  CATALOG_AUTHOR_ID,
+  CATALOG_TAG,
+  isCatalogRecipe,
+  recipeSource,
+  seedStarterRecipes,
+  starterCatalogSize,
+  starterRecipeToWrite,
+} from './seed-recipes';
 export type * from './types';
 // NodeSqliteRepository is test-only (better-sqlite3) — import from
 // './drivers/node-sqlite' in tests, never from the app bundle.

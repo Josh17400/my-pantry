@@ -29,4 +29,5 @@ export {
   seedEdges,
   seedForms,
   seedIngredients,
-} from '../../../../../packages/core/src/seed/index.ts';
+  starterRecipes,
+} from '@larder/core';

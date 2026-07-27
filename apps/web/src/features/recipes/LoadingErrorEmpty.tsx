@@ -44,20 +44,30 @@ export function ErrorBlock({
   );
 }
 
-export function RecipesEmptyState({ className }: { className?: string }) {
+export function RecipesEmptyState({
+  className,
+  shelf = 'mine',
+}: {
+  className?: string;
+  /** Which shelf is empty — copy invites the right next action. */
+  shelf?: 'mine' | 'browse';
+}) {
+  const isBrowse = shelf === 'browse';
   return (
     <div
       className={cn(
         'flex flex-col items-center rounded-card bg-surface px-6 py-12 text-center shadow-card',
         className,
       )}
+      data-testid="recipes-empty"
     >
       <p className="font-display text-xl font-semibold text-ink">
-        No recipes yet
+        {isBrowse ? 'Catalogue empty' : 'No recipes yet'}
       </p>
       <p className="mt-2 max-w-xs text-sm text-ink-muted">
-        Add your first recipe, or browse once community recipes land. Cooking
-        is how the pantry updates itself.
+        {isBrowse
+          ? 'Starter recipes should appear here after seed. Try refreshing, or create your own.'
+          : 'Create a recipe, or browse the starter catalogue and save one to your book. Cooking is how the pantry updates itself.'}
       </p>
       <div className="mt-6 flex flex-col gap-2 sm:flex-row">
         <Link
@@ -66,12 +76,21 @@ export function RecipesEmptyState({ className }: { className?: string }) {
         >
           Create a recipe
         </Link>
-        <Link
-          to="/recipes"
-          className="inline-flex min-h-tap items-center justify-center rounded-pill border border-black/[0.08] bg-surface-raised px-5 text-sm font-semibold text-ink"
-        >
-          Browse recipes
-        </Link>
+        {isBrowse ? (
+          <Link
+            to="/community"
+            className="inline-flex min-h-tap items-center justify-center rounded-pill border border-black/[0.08] bg-surface-raised px-5 text-sm font-semibold text-ink"
+          >
+            Community
+          </Link>
+        ) : (
+          <Link
+            to="/recipes?shelf=browse"
+            className="inline-flex min-h-tap items-center justify-center rounded-pill border border-black/[0.08] bg-surface-raised px-5 text-sm font-semibold text-ink"
+          >
+            Browse catalogue
+          </Link>
+        )}
       </div>
     </div>
   );

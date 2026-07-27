@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
+import { DEFAULT_HOUSEHOLD_ID, DEFAULT_USER_ID } from '../db/constants';
+import { newId } from '../db/id';
+import { buildForkedRecipe } from '../features/community';
 import {
   AllergenUnknownBadge,
   catalogConversionContext,
@@ -8,6 +11,7 @@ import {
   formatBaseQty,
   formatMinutes,
   groceryItemsFromPlan,
+  isCatalogRecipe,
   LoadingBlock,
   pantryItemsToStock,
   planCook,
@@ -41,6 +45,8 @@ export function RecipeDetailPage() {
   const [servings, setServings] = useState(1);
   const [groceryMsg, setGroceryMsg] = useState<string | null>(null);
   const [groceryBusy, setGroceryBusy] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [saveBusy, setSaveBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!id || !hasActiveRepository()) return;
@@ -117,6 +123,34 @@ export function RecipeDetailPage() {
     }
   };
 
+  /** Copy catalogue recipe into Mine via the same fork path as community. */
+  const saveToMine = async () => {
+    if (!detail || !isCatalogRecipe(detail)) return;
+    setSaveBusy(true);
+    setSaveMsg(null);
+    try {
+      const fork = buildForkedRecipe({
+        source: detail,
+        newId: newId('recipe'),
+        householdId: DEFAULT_HOUSEHOLD_ID,
+        authorId: DEFAULT_USER_ID,
+      });
+      const created = await useRecipesStore.getState().create(fork);
+      if (created) {
+        setSaveMsg(`Saved “${created.title}” to My Recipes.`);
+        void navigate(`/recipes/${created.id}`);
+      } else {
+        setSaveMsg('Could not save recipe.');
+      }
+    } catch (err) {
+      setSaveMsg(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaveBusy(false);
+    }
+  };
+
+  const catalog = detail ? isCatalogRecipe(detail) : false;
+
   if (!hasActiveRepository()) {
     return (
       <div className="mx-auto max-w-lg pb-24">
@@ -185,13 +219,35 @@ export function RecipeDetailPage() {
           </p>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <ServingsStepper value={servings} onChange={setServings} />
-            <Link
-              to={`/recipes/${detail.id}/edit`}
-              className="min-h-tap text-sm font-medium text-primary"
-            >
-              Edit
-            </Link>
+            {catalog ? (
+              <button
+                type="button"
+                data-testid="save-catalog-recipe"
+                disabled={saveBusy}
+                onClick={() => void saveToMine()}
+                className="min-h-tap rounded-pill bg-primary px-4 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {saveBusy ? 'Saving…' : 'Save to My Recipes'}
+              </button>
+            ) : (
+              <Link
+                to={`/recipes/${detail.id}/edit`}
+                className="min-h-tap text-sm font-medium text-primary"
+              >
+                Edit
+              </Link>
+            )}
           </div>
+          {saveMsg ? (
+            <p className="mt-2 text-sm text-ink-muted" role="status">
+              {saveMsg}
+            </p>
+          ) : null}
+          {catalog ? (
+            <p className="mt-2 text-xs text-ink-muted">
+              Catalogue recipe · saving copies it into your book
+            </p>
+          ) : null}
         </div>
       </div>
 

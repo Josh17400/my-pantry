@@ -1,5 +1,5 @@
-import { type ReactNode,useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import type { RecipeDetail, RecipeSummary } from '../db/types';
 import {
@@ -14,6 +14,13 @@ import {
 } from '../features/recipes';
 import type { Recipe } from '../features/recipes/core-imports';
 import {
+  filterByShelf,
+  filterCanMake,
+  type RecipeFilterMode,
+  type RecipeShelf,
+  searchRecipes,
+} from '../features/recipes/shelf';
+import {
   getDomainRepository,
   hasActiveRepository,
   usePantry,
@@ -24,10 +31,11 @@ import {
 import { cn } from '../ui/cn';
 import { SegmentedControl } from '../ui/SegmentedControl';
 
-type FilterMode = 'all' | 'can-make';
+type ShelfControl = RecipeShelf | 'community';
 
 /**
- * Recipe list — cards, can-make-now filter, search by name / ingredient.
+ * Recipe list — Mine / Browse shelves, can-make-now filter, search by name / ingredient.
+ * Catalogue recipes live under Browse; user book under Mine. Community is a third entry.
  */
 export function RecipesPage() {
   const {
@@ -37,21 +45,48 @@ export function RecipesPage() {
     clearError,
   } = useRecipes();
   const pantry = usePantry();
-  const [searchParams] = useSearchParams();
-  const initialFilter: FilterMode =
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const shelfParam = searchParams.get('shelf');
+  const initialShelf: RecipeShelf =
+    shelfParam === 'browse' ? 'browse' : 'mine';
+  const initialFilter: RecipeFilterMode =
     searchParams.get('filter') === 'can-make' ? 'can-make' : 'all';
-  const [filter, setFilter] = useState<FilterMode>(initialFilter);
+
+  const [shelf, setShelf] = useState<RecipeShelf>(initialShelf);
+  const [filter, setFilter] = useState<RecipeFilterMode>(initialFilter);
   const [query, setQuery] = useState('');
   const [details, setDetails] = useState<RecipeDetail[]>([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
 
-  // Keep segment in sync when arriving via home cook-now CTA.
+  // Keep segments in sync with URL (home cook-now CTA, empty-state Browse link).
   useEffect(() => {
     if (searchParams.get('filter') === 'can-make') {
       setFilter('can-make');
     }
+    if (searchParams.get('shelf') === 'browse') {
+      setShelf('browse');
+    } else if (searchParams.get('shelf') === 'mine') {
+      setShelf('mine');
+    }
   }, [searchParams]);
+
+  const onShelfChange = useCallback(
+    (value: ShelfControl) => {
+      if (value === 'community') {
+        void navigate('/community');
+        return;
+      }
+      setShelf(value);
+      const next = new URLSearchParams(searchParams);
+      if (value === 'browse') next.set('shelf', 'browse');
+      else next.delete('shelf');
+      setSearchParams(next, { replace: true });
+    },
+    [navigate, searchParams, setSearchParams],
+  );
 
   // Stable actions from getState — do not put the whole store in deps
   // (that re-runs every item update and livelocks the page).
@@ -115,30 +150,20 @@ export function RecipesPage() {
     );
   }, [coreRecipes, pantry.items]);
 
+  const shelfRecipes = useMemo(
+    () => filterByShelf(recipes, shelf),
+    [recipes, shelf],
+  );
+
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let listRows: RecipeSummary[] = recipes;
+    const byFilter = filterCanMake(shelfRecipes, cookableIds, filter);
+    return searchRecipes(byFilter, query, details);
+  }, [shelfRecipes, filter, query, cookableIds, details]);
 
-    if (filter === 'can-make') {
-      listRows = listRows.filter((r) => cookableIds.has(r.id));
-    }
-
-    if (q) {
-      const detailById = new Map(details.map((d) => [d.id, d]));
-      listRows = listRows.filter((r) => {
-        if (r.title.toLowerCase().includes(q)) return true;
-        const d = detailById.get(r.id);
-        if (!d) return false;
-        return d.ingredients.some(
-          (line) =>
-            line.rawText.toLowerCase().includes(q) ||
-            (line.ingredientId?.toLowerCase().includes(q) ?? false),
-        );
-      });
-    }
-
-    return listRows;
-  }, [recipes, filter, query, cookableIds, details]);
+  const cookableOnShelf = useMemo(
+    () => shelfRecipes.filter((r) => cookableIds.has(r.id)).length,
+    [shelfRecipes, cookableIds],
+  );
 
   if (!hasActiveRepository()) {
     return (
@@ -149,6 +174,7 @@ export function RecipesPage() {
   }
 
   const showLoading = loading && recipes.length === 0;
+  const emptyShelf = shelfRecipes.length === 0;
 
   return (
     <PageShell>
@@ -158,9 +184,11 @@ export function RecipesPage() {
             My Recipes
           </h1>
           <p className="mt-1 text-sm text-ink-muted">
-            {cookableIds.size > 0
-              ? `You have everything for ${cookableIds.size} recipe${cookableIds.size === 1 ? '' : 's'}`
-              : 'Plan a cook — the pantry updates when you confirm'}
+            {cookableOnShelf > 0
+              ? `You have everything for ${cookableOnShelf} recipe${cookableOnShelf === 1 ? '' : 's'} in ${shelf === 'mine' ? 'your book' : 'the catalogue'}`
+              : shelf === 'mine'
+                ? 'Your book — save from Browse or create your own'
+                : 'Starter catalogue — save any recipe into your book'}
           </p>
         </div>
         <Link
@@ -191,6 +219,18 @@ export function RecipesPage() {
           )}
         />
       </div>
+
+      <SegmentedControl<ShelfControl>
+        aria-label="Recipe shelf"
+        className="mb-3"
+        value={shelf}
+        onChange={onShelfChange}
+        options={[
+          { value: 'mine', label: 'Mine' },
+          { value: 'browse', label: 'Browse' },
+          { value: 'community', label: 'Community' },
+        ]}
+      />
 
       <SegmentedControl
         aria-label="Recipe filter"
@@ -223,16 +263,19 @@ export function RecipesPage() {
 
       {showLoading || detailsLoading ? (
         <LoadingBlock label="Loading recipes…" />
-      ) : recipes.length === 0 ? (
-        <RecipesEmptyState />
+      ) : emptyShelf ? (
+        <RecipesEmptyState shelf={shelf} />
       ) : filtered.length === 0 ? (
         <p className="rounded-card bg-surface p-6 text-center text-sm text-ink-muted shadow-card">
           No recipes match your search
           {filter === 'can-make' ? ' or can be made with current pantry stock' : ''}.
         </p>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {filtered.map((r) => (
+        <ul
+          className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+          data-testid={shelf === 'browse' ? 'recipes-browse-list' : 'recipes-mine-list'}
+        >
+          {filtered.map((r: RecipeSummary) => (
             <li key={r.id}>
               <RecipeCard
                 recipe={{

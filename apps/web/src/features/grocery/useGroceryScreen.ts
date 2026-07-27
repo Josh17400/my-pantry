@@ -3,20 +3,15 @@
  * end-of-trip purchase txns with shoppingTripId, reorder one-tap add.
  */
 
-import type { Dimension, PantryTxn } from '@larder/core';
+import type { Dimension } from '@larder/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  seedEdges,
-  seedForms,
-  seedIngredients,
-} from '../../../../../packages/core/src/seed/index.ts';
 import {
   DEFAULT_DEVICE_ID,
   DEFAULT_HOUSEHOLD_ID,
   DEFAULT_USER_ID,
 } from '../../db/constants';
-import type { GroceryListItemRow, PantryItemView } from '../../db/types';
+import type { GroceryListItemRow } from '../../db/types';
 import {
   getDomainRepository,
   hasActiveRepository,
@@ -25,13 +20,9 @@ import {
 } from '../../state';
 import {
   manualAddSource,
-  recipeShortfallSources,
   type ReorderDetail,
-  reorderFromPurchaseHistory,
-  stockSourcesFromPantry,
 } from './build-sources';
 import {
-  buildList,
   type GroceryList,
   type GrocerySource,
 } from './core-grocery';
@@ -42,6 +33,7 @@ import {
   groupItemsByAisle,
 } from './map-list';
 import { newClientId } from './new-id';
+import { rebuildLiveGroceryList } from './rebuild-live-list';
 
 export type GroceryScreenMode = 'live' | 'demo';
 
@@ -91,35 +83,11 @@ function toRows(
   }));
 }
 
-function seedIngredientModels() {
-  return seedIngredients.map((ing) => ({
-    id: ing.id,
-    name: ing.name,
-    category: ing.category,
-    allergens: ing.allergens,
-    dietaryFlags: ing.dietaryFlags,
-    isStaple: ing.isStaple,
-    defaultFormId: ing.defaultFormId,
-  }));
-}
-
-function seedNameMaps(): {
-  names: Map<string, string>;
-  categories: Map<string, string>;
-} {
-  const names = new Map<string, string>();
-  const categories = new Map<string, string>();
-  for (const ing of seedIngredients) {
-    names.set(ing.id, ing.name);
-    categories.set(ing.id, ing.category);
-  }
-  return { names, categories };
-}
-
 export function useGroceryScreen(): GroceryScreenState {
-  // Subscribe only to error fields so store updates don't loop refresh
+  // Subscribe to errors + pantryRevision only — never `items` (avoids rebuild loops).
   const groceryError = useGroceryStore((s) => s.error);
   const pantryError = usePantryStore((s) => s.error);
+  const pantryRevision = usePantryStore((s) => s.pantryRevision);
 
   const [mode, setMode] = useState<GroceryScreenMode>('live');
   const [loading, setLoading] = useState(true);
@@ -133,6 +101,11 @@ export function useGroceryScreen(): GroceryScreenState {
   const manualSourcesRef = useRef<GrocerySource[]>([]);
   const itemsRef = useRef<GroceryListItemRow[]>([]);
   const shoppingTripIdRef = useRef<string | null>(null);
+  /** Last pantryRevision we already rebuilt for (skip no-op re-entry). */
+  const lastBuiltRevisionRef = useRef<number | null>(null);
+  /** In-flight / queued rebuild guard — concurrent refresh collapses to one. */
+  const rebuildInFlightRef = useRef(false);
+  const rebuildQueuedRef = useRef(false);
 
   useEffect(() => {
     itemsRef.current = items;
@@ -143,123 +116,24 @@ export function useGroceryScreen(): GroceryScreenState {
   }, [shoppingTripId]);
 
   const buildLive = useCallback(async (): Promise<void> => {
+    // Rebuild reads domain directly. It must never call usePantryStore load /
+    // appendTxn / upsert — those bump pantryRevision and would recurse.
     const domain = getDomainRepository();
     const householdId =
       useGroceryStore.getState().householdId || DEFAULT_HOUSEHOLD_ID;
 
-    const pantryItems: PantryItemView[] =
-      await domain.listPantryItems(householdId);
-    const recipeSummaries = await domain.listRecipes(householdId);
+    const result = await rebuildLiveGroceryList({
+      domain,
+      householdId,
+      manualSources: manualSourcesRef.current,
+      prevItems: itemsRef.current,
+      shoppingTripId: shoppingTripIdRef.current,
+    });
 
-    const recipeDetails = [];
-    for (const s of recipeSummaries) {
-      const d = await domain.getRecipe(s.id);
-      if (d) recipeDetails.push(d);
-    }
-
-    const { names, categories } = seedNameMaps();
-    const now = new Date();
-    const nowIso = now.toISOString();
-
-    const txnsByIngredient = new Map<string, readonly PantryTxn[]>();
-    const uniqueIngredients = new Set(
-      pantryItems.map((p) => p.ingredientId),
-    );
-    for (const id of uniqueIngredients) {
-      const txns = await domain.listTxnsForIngredient(id, householdId);
-      txnsByIngredient.set(id, txns);
-    }
-
-    const stockSources = stockSourcesFromPantry(pantryItems);
-    const { sources: reorderSources, details: reorderDetails } =
-      reorderFromPurchaseHistory(pantryItems, txnsByIngredient, now.getTime());
-
-    const shortfallSources = recipeShortfallSources(
-      recipeDetails,
-      pantryItems,
-      seedForms,
-      seedEdges,
-      names,
-      categories,
-    );
-
-    const sources: GrocerySource[] = [
-      ...stockSources,
-      ...reorderSources,
-      ...shortfallSources,
-      ...manualSourcesRef.current,
-    ];
-
-    const prevItems = itemsRef.current;
-    const nameChecked = new Map(
-      prevItems
-        .filter((r) => r.checked)
-        .map((r) => [`${r.ingredientId ?? r.name}|${r.formId ?? ''}`, true]),
-    );
-
-    let existing = await domain.getActiveGroceryList(householdId);
-    let tripId = existing?.shoppingTripId ?? shoppingTripIdRef.current;
-
-    if (!existing) {
-      tripId = newClientId('trip');
-      const built = buildList({
-        sources,
-        shoppingTripId: tripId,
-        now: nowIso,
-        forms: seedForms,
-        edges: seedEdges,
-        ingredients: seedIngredientModels(),
-        locale: 'us',
-      });
-      const created = await domain.createGroceryList({
-        householdId,
-        shoppingTripId: built.shoppingTripId,
-        items: coreListToItemInputs(built),
-      });
-      existing = created;
-      tripId = created.shoppingTripId;
-    } else {
-      tripId = existing.shoppingTripId;
-      const built = buildList({
-        sources,
-        shoppingTripId: tripId,
-        now: nowIso,
-        forms: seedForms,
-        edges: seedEdges,
-        ingredients: seedIngredientModels(),
-        locale: 'us',
-      });
-
-      for (const row of existing.items) {
-        if (row.checked) {
-          nameChecked.set(
-            `${row.ingredientId ?? row.name}|${row.formId ?? ''}`,
-            true,
-          );
-        }
-      }
-
-      const inputs = coreListToItemInputs(built).map((input) => {
-        const key = `${input.ingredientId ?? input.name}|${input.formId ?? ''}`;
-        return { ...input, checked: nameChecked.get(key) === true };
-      });
-
-      const updated = await domain.updateGroceryListItems(existing.id, inputs);
-      existing = updated ?? existing;
-    }
-
-    const onList = new Set(
-      existing.items
-        .map((i) => i.ingredientId)
-        .filter((id): id is string => Boolean(id)),
-    );
-
-    setReorderPending(
-      reorderDetails.filter((d) => onList.has(d.ingredientId)),
-    );
+    setReorderPending(result.reorderPending);
     setMode('live');
-    setShoppingTripId(existing.shoppingTripId);
-    setItems(existing.items);
+    setShoppingTripId(result.list.shoppingTripId);
+    setItems(result.items);
     setError(null);
   }, []);
 
@@ -297,21 +171,34 @@ export function useGroceryScreen(): GroceryScreenState {
   }, []);
 
   const refresh = useCallback(async () => {
+    // Collapse concurrent refresh calls (revision + focus + mount) into a
+    // single in-flight rebuild plus at most one follow-up.
+    if (rebuildInFlightRef.current) {
+      rebuildQueuedRef.current = true;
+      return;
+    }
+    rebuildInFlightRef.current = true;
     setLoading(true);
     setError(null);
     try {
-      if (hasActiveRepository()) {
-        await buildLive();
-      } else if (import.meta.env.DEV) {
-        // Demo list only for local design review — production first-run is empty.
-        buildDemo();
-      } else {
-        setMode('live');
-        setItems([]);
-        setShoppingTripId(null);
-        setReorderPending([]);
-        setError(null);
-      }
+      do {
+        rebuildQueuedRef.current = false;
+        if (hasActiveRepository()) {
+          await buildLive();
+          // Snapshot revision after build — rebuild itself never bumps it.
+          lastBuiltRevisionRef.current =
+            usePantryStore.getState().pantryRevision;
+        } else if (import.meta.env.DEV) {
+          // Demo list only for local design review — production first-run is empty.
+          buildDemo();
+        } else {
+          setMode('live');
+          setItems([]);
+          setShoppingTripId(null);
+          setReorderPending([]);
+          setError(null);
+        }
+      } while (rebuildQueuedRef.current);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       // Never fall back to fabricated groceries outside DEV.
@@ -332,12 +219,44 @@ export function useGroceryScreen(): GroceryScreenState {
         setError(msg);
       }
     } finally {
+      rebuildInFlightRef.current = false;
       setLoading(false);
     }
   }, [buildDemo, buildLive]);
 
+  // Mount / remount — always current when opening Lists.
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  // Live stock: rebuild when pantryRevision advances (not on first paint —
+  // mount effect already refreshed at the current revision).
+  useEffect(() => {
+    if (lastBuiltRevisionRef.current === null) {
+      // Mount refresh owns the first build; just record baseline.
+      lastBuiltRevisionRef.current = pantryRevision;
+      return;
+    }
+    if (lastBuiltRevisionRef.current === pantryRevision) return;
+    void refresh();
+  }, [pantryRevision, refresh]);
+
+  // App / tab focus — returning from elsewhere must not require Refresh.
+  useEffect(() => {
+    const onFocus = () => {
+      void refresh();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void refresh();
+      }
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [refresh]);
 
   const toggleCheck = useCallback(

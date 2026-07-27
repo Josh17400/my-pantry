@@ -35,6 +35,7 @@ import {
   schema,
   userAliases,
 } from './schema';
+import { recipeSource } from './seed-recipes';
 import type {
   AppendTxnInput,
   AppendTxnResult,
@@ -591,18 +592,25 @@ export class DomainRepository {
             .orderBy(asc(recipes.title))
         : await this.db.select().from(recipes).orderBy(asc(recipes.title));
 
-    return rows.map((r) => ({
-      id: r.id,
-      householdId: r.householdId ?? null,
-      title: r.title,
-      servings: r.servings,
-      prepMin: r.prepMin ?? null,
-      cookMin: r.cookMin ?? null,
-      visibility: r.visibility,
-      tags: parseJsonArray(r.tags),
-      imageUrl: r.imageUrl ?? null,
-      updatedAt: r.updatedAt,
-    }));
+    return rows.map((r) => {
+      const tags = parseJsonArray(r.tags);
+      const authorId = r.authorId ?? null;
+      const householdId = r.householdId ?? null;
+      return {
+        id: r.id,
+        householdId,
+        title: r.title,
+        servings: r.servings,
+        prepMin: r.prepMin ?? null,
+        cookMin: r.cookMin ?? null,
+        visibility: r.visibility,
+        authorId,
+        tags,
+        imageUrl: r.imageUrl ?? null,
+        updatedAt: r.updatedAt,
+        source: recipeSource({ householdId, authorId, tags }),
+      };
+    });
   }
 
   async getRecipe(id: string): Promise<RecipeDetail | null> {
@@ -626,19 +634,24 @@ export class DomainRepository {
       .where(eq(recipeSteps.recipeId, id))
       .orderBy(asc(recipeSteps.sortOrder));
 
+    const tags = parseJsonArray(r.tags);
+    const authorId = r.authorId ?? null;
+    const householdId = r.householdId ?? null;
+
     return {
       id: r.id,
-      householdId: r.householdId ?? null,
+      householdId,
       title: r.title,
       servings: r.servings,
       prepMin: r.prepMin ?? null,
       cookMin: r.cookMin ?? null,
       visibility: r.visibility,
-      tags: parseJsonArray(r.tags),
+      authorId,
+      tags,
       imageUrl: r.imageUrl ?? null,
       updatedAt: r.updatedAt,
+      source: recipeSource({ householdId, authorId, tags }),
       yieldNote: r.yieldNote ?? null,
-      authorId: r.authorId ?? null,
       forkedFrom: r.forkedFrom ?? null,
       createdAt: r.createdAt,
       ingredients: lines.map((line) => ({

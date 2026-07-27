@@ -168,9 +168,19 @@ export type RecipeSummary = {
   prepMin: number | null;
   cookMin: number | null;
   visibility: string;
+  /**
+   * Present when loaded from the repository. Optional on hand-built demo fixtures.
+   * System catalogue author is `good-pantry`.
+   */
+  authorId?: string | null;
   tags: string[];
   imageUrl: string | null;
   updatedAt: string;
+  /**
+   * App-layer source marker. `catalog` = starter catalogue (Browse).
+   * Derived from author/tags/household — not a DB column. Optional on fixtures.
+   */
+  source?: 'catalog' | 'user';
 };
 
 export type RecipeDetail = RecipeSummary & {

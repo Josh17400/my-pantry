@@ -376,7 +376,82 @@ describe('data layer (M1-G)', () => {
       const [recipeCount] = await repo.drizzle
         .select({ n: count() })
         .from(recipes);
-      expect(Number(recipeCount?.n)).toBe(0);
+      // Starter catalogue remains after deleting the user recipe
+      expect(Number(recipeCount?.n)).toBeGreaterThanOrEqual(50);
+    });
+  });
+
+  describe('starter recipe catalogue seed', () => {
+    it('seeds 50+ recipes into the repository (not just fixtures)', async () => {
+      await repo.migrate();
+      const result = await repo.seed();
+      expect(result.skippedRecipes).toBe(false);
+      expect(result.recipesUpserted).toBeGreaterThanOrEqual(50);
+
+      const listed = await repo.domain().listRecipes(DEFAULT_HOUSEHOLD_ID);
+      expect(listed.length).toBeGreaterThanOrEqual(50);
+      expect(listed.filter((r) => r.source === 'catalog').length).toBe(50);
+
+      const one = await repo.domain().getRecipe('recipe-spinach-scramble');
+      expect(one).not.toBeNull();
+      expect(one!.title).toMatch(/spinach/i);
+      expect(one!.ingredients.length).toBeGreaterThanOrEqual(2);
+      expect(one!.steps.length).toBeGreaterThanOrEqual(1);
+      expect(one!.source).toBe('catalog');
+    });
+
+    it('seeding twice does not duplicate catalogue recipes', async () => {
+      await repo.migrate();
+      const first = await repo.seed();
+      const second = await repo.seed();
+
+      expect(first.skippedRecipes).toBe(false);
+      expect(second.skippedRecipes).toBe(true);
+      expect(second.recipesUpserted).toBe(0);
+
+      const listed = await repo.domain().listRecipes(DEFAULT_HOUSEHOLD_ID);
+      const catalog = listed.filter((r) => r.source === 'catalog');
+      expect(catalog).toHaveLength(50);
+      const ids = catalog.map((r) => r.id);
+      expect(new Set(ids).size).toBe(50);
+    });
+
+    it('user-created recipe survives a re-seed', async () => {
+      await repo.migrate();
+      await repo.seed();
+      const domain = repo.domain();
+
+      const mine = await domain.createRecipe({
+        id: 'user-recipe-keeps-surviving',
+        householdId: DEFAULT_HOUSEHOLD_ID,
+        title: 'My Secret Chili',
+        servings: 4,
+        visibility: 'private',
+        authorId: DEFAULT_USER_ID,
+        ingredients: [
+          {
+            rawText: 'beans',
+            ingredientId: 'beans-black',
+            formId: 'beans-black-bulk',
+            qty: 400,
+            unit: 'g',
+          },
+        ],
+        steps: [{ text: 'Simmer forever.' }],
+      });
+
+      // Force re-seed of recipes (and ingredients) without wiping rows.
+      const again = await repo.seed({ force: true });
+      expect(again.skippedRecipes).toBe(false);
+
+      const stillThere = await domain.getRecipe(mine.id);
+      expect(stillThere).not.toBeNull();
+      expect(stillThere!.title).toBe('My Secret Chili');
+      expect(stillThere!.source).toBe('user');
+
+      const listed = await domain.listRecipes(DEFAULT_HOUSEHOLD_ID);
+      expect(listed.some((r) => r.id === mine.id)).toBe(true);
+      expect(listed.filter((r) => r.source === 'catalog')).toHaveLength(50);
     });
   });
 
@@ -386,12 +461,18 @@ describe('data layer (M1-G)', () => {
       const result = await r.initialize({ loadFixtures: true });
       expect(result.migrateApplied.length).toBe(2);
       expect(result.seed.skippedCatalog).toBe(false);
+      expect(result.seed.skippedRecipes).toBe(false);
+      expect(result.seed.recipesUpserted).toBeGreaterThanOrEqual(50);
       expect(result.fixtures?.applied).toBe(true);
       expect(result.fixtures!.pantryItems).toBeGreaterThanOrEqual(35);
       expect(result.fixtures!.recipes).toBe(4);
 
       const items = await r.domain().listPantryItems();
       expect(items.length).toBeGreaterThanOrEqual(35);
+
+      const allRecipes = await r.domain().listRecipes(DEFAULT_HOUSEHOLD_ID);
+      // 50 catalogue + 4 fixtures
+      expect(allRecipes.length).toBeGreaterThanOrEqual(54);
 
       // Second initialize on same DB not available (new memory), but fixtures
       // on same open instance should skip

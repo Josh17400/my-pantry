@@ -70,6 +70,15 @@ export { NegativeStockPrompt } from './NegativeStockPrompt';
 export type { RecipeCardModel } from './RecipeCard';
 export { RecipeCard } from './RecipeCard';
 export { ServingsStepper } from './ServingsStepper';
+export type { RecipeFilterMode, RecipeShelf } from './shelf';
+export {
+  filterByShelf,
+  filterCanMake,
+  isCatalogRecipe,
+  recipeSource,
+  searchRecipes,
+  shelfOf,
+} from './shelf';
 export type { RankedPantryCandidate } from './substitution';
 export {
   buildPantrySubstitution,

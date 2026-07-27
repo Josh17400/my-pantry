@@ -14,6 +14,13 @@ export type PantryState = {
   loading: boolean;
   error: string | null;
   householdId: string;
+  /**
+   * Monotonic counter bumped on pantry/ledger writes (and on load that
+   * absorbs external writes). Screens that must stay live (grocery) subscribe
+   * to this number alone — never to `items` — so rebuilds cannot loop:
+   * rebuilding reads the domain and does not call store write/load paths.
+   */
+  pantryRevision: number;
 
   setHouseholdId: (id: string) => void;
   load: () => Promise<void>;
@@ -38,6 +45,7 @@ export const usePantryStore = create<PantryState>((set, get) => ({
   loading: false,
   error: null,
   householdId: DEFAULT_HOUSEHOLD_ID,
+  pantryRevision: 0,
 
   setHouseholdId: (id) => set({ householdId: id }),
 
@@ -47,7 +55,12 @@ export const usePantryStore = create<PantryState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const items = await getDomainRepository().listPantryItems(get().householdId);
-      set({ items, loading: false });
+      // Bump: absorbs domain writes that bypassed store.appendTxn (quick, etc.)
+      set({
+        items,
+        loading: false,
+        pantryRevision: get().pantryRevision + 1,
+      });
     } catch (err) {
       set({ loading: false, error: errMessage(err) });
     }
@@ -60,6 +73,7 @@ export const usePantryStore = create<PantryState>((set, get) => ({
         locationId,
         get().householdId,
       );
+      // Filtered view only — do not bump revision (not full stock truth).
       set({ items, loading: false });
     } catch (err) {
       set({ loading: false, error: errMessage(err) });
@@ -73,6 +87,7 @@ export const usePantryStore = create<PantryState>((set, get) => ({
         query,
         get().householdId,
       );
+      // Filtered view only — do not bump revision.
       set({ items, loading: false });
     } catch (err) {
       set({ loading: false, error: errMessage(err) });
@@ -87,6 +102,7 @@ export const usePantryStore = create<PantryState>((set, get) => ({
         formId,
         get().householdId,
       );
+      // Read path — never bumps pantryRevision.
       set({ selected, loading: false });
       return selected;
     } catch (err) {
@@ -100,7 +116,11 @@ export const usePantryStore = create<PantryState>((set, get) => ({
     try {
       await getDomainRepository().upsertPantryItem(item);
       const items = await getDomainRepository().listPantryItems(get().householdId);
-      set({ items, loading: false });
+      set({
+        items,
+        loading: false,
+        pantryRevision: get().pantryRevision + 1,
+      });
     } catch (err) {
       set({ loading: false, error: errMessage(err) });
     }
@@ -111,7 +131,11 @@ export const usePantryStore = create<PantryState>((set, get) => ({
     try {
       await getDomainRepository().appendTxn(txn);
       const items = await getDomainRepository().listPantryItems(get().householdId);
-      set({ items, loading: false });
+      set({
+        items,
+        loading: false,
+        pantryRevision: get().pantryRevision + 1,
+      });
     } catch (err) {
       set({ loading: false, error: errMessage(err) });
     }

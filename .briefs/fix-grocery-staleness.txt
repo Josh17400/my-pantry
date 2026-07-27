@@ -1,0 +1,89 @@
+# BRIEF: The grocery list never notices stock changes
+
+## Context
+
+**The Good Pantry.** Owner: *"I removed the chicken breast so we're sitting at 0, went to
+Lists, and it didn't populate that I might need chicken breast."*
+
+Confirmed cause — `apps/web/src/features/grocery/useGroceryScreen.ts` around line 120:
+
+```ts
+// Subscribe only to error fields so store updates don't loop refresh
+const groceryError = useGroceryStore((s) => s.error);
+const pantryError = usePantryStore((s) => s.error);
+```
+
+The screen deliberately does **not** subscribe to pantry data, to avoid a rebuild loop. So the
+list is built once and goes stale the moment stock changes. A manual **Refresh** button exists,
+which is a workaround standing in for the fix.
+
+This matters more than a stale view: SPEC's whole low/out → grocery flow depends on the list
+reflecting reality. A list that silently lags is worse than no list, because the user trusts it.
+
+## Scope
+
+`apps/web/src/features/grocery/**`, `apps/web/src/state/**` (only if a revision counter is
+needed), `apps/web/scripts/verify-interactivity.mjs`.
+
+**Do NOT touch** `packages/core/**` (279 tests, read-only), `supabase/**`, `native/**`, or
+other feature folders. Another track is working in `features/recipes`.
+
+## What to build
+
+**Make the list live, without the loop the current code is avoiding.**
+
+The naive fix — subscribing to the whole pantry store — re-triggers the rebuild, which writes,
+which re-triggers. Do not do that. Use a **monotonic revision counter** that increments on
+pantry/ledger writes, and rebuild only when it changes:
+
+- the store exposes something like `pantryRevision`
+- `useGroceryScreen` subscribes to that number alone, not to the item array
+- rebuilding does not itself bump the revision
+
+Also rebuild on **screen focus / mount**, so returning to Lists after changing stock elsewhere
+is always current. Keep manual **Refresh** as a visible escape hatch.
+
+**Preserve manual additions and check-off state across a rebuild.** A user who ticked three
+items and added one by hand must not lose that because stock changed — merge, do not replace.
+This is the part most likely to be got wrong, so test it explicitly.
+
+## Also verify the projection path
+
+The owner reported a pantry row reading **"Plenty" on an item at 0**. I could not reproduce it
+in a clean profile — list, detail and the Out filter all correctly showed `0 lb / Out` — so it
+is probably stale local data from an earlier build. **Check anyway** that:
+
+- an adjustment/recount updates the projection *and* every screen reading it
+- no screen caches a `qtyBase` that outlives a write
+- the status band is derived from the current projection, never a stored label
+
+If you find a real staleness path beyond grocery, fix it and say so.
+
+## Constraints
+
+TypeScript `strict`, no `any`. No new deps. Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+node scripts/verify-interactivity.mjs && node scripts/verify-chrome.mjs
+```
+
+279 core + 283 web must stay green.
+
+**Required test — the exact reported sequence:**
+1. open a pantry item and remove all of it
+2. navigate to Lists **without pressing Refresh**
+3. assert that item now appears as out-of-stock
+
+Plus: check-off state and manually added items survive a rebuild; and rebuilding does not
+recurse (assert a bounded number of rebuilds for one stock change).
+
+## Report
+
+`reports/fix-grocery-staleness.md`: the revision mechanism and why it cannot loop, how
+check-off and manual items are preserved, anything found in the projection audit, and the new
+tests.
+
+Work continuously; do not stall waiting for input.

@@ -207,3 +207,38 @@ export {
   VERIFYING_REASONS,
   wouldGoNegative,
 } from './pantry';
+
+// ── Ingredient seed catalog ─────────────────────────────────────────────────
+// Same shapes as deep-import consumers; root re-export for app seed wiring.
+
+export type {
+  SeedCatalog,
+  SeedCategoryBundle,
+  SeedIngredient,
+  SeedValidationCode,
+  SeedValidationIssue,
+  SeedValidationResult,
+} from './seed';
+export {
+  assertSeedValid,
+  countByCategory,
+  SEED_CATEGORIES,
+  SEED_VERSION,
+  seedCatalog,
+  seedEdges,
+  seedForms,
+  seedIngredients,
+  seedPackages,
+  validateSeed,
+} from './seed';
+
+// ── Starter recipe catalogue (~50 household recipes) ────────────────────────
+// Data lives in seed/recipes; export only — no recipe logic changes here.
+
+export type { RecipeDef } from './seed/recipes';
+export {
+  countStarterRecipes,
+  getStarterRecipe,
+  STARTER_RECIPE_CATEGORIES,
+  starterRecipes,
+} from './seed/recipes';

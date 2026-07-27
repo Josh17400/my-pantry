@@ -30,6 +30,8 @@ export function RecipeCard({ recipe, className }: RecipeCardProps) {
   return (
     <Link
       to={`/recipes/${recipe.id}`}
+      data-testid="recipe-card"
+      data-recipe-id={recipe.id}
       className={cn(
         'block min-h-tap rounded-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
         className,

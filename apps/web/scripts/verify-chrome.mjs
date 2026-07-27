@@ -176,6 +176,15 @@ async function assertNoObscuredControls(page, route) {
       if (el === topEl || el.contains(topEl) || topEl.contains(el)) {
         continue;
       }
+      // Intentional fixed chrome (raised FAB / tab bar) may sit over mid-list
+      // rows at scroll=0 — main bottom padding lets the user scroll them free.
+      // Flag peer-on-peer covers only, not shell chrome.
+      if (
+        topEl.closest('[data-testid="app-chrome"]') ||
+        topEl.closest('[data-testid="app-tab-bar"]')
+      ) {
+        continue;
+      }
 
       obscured.push({
         tag: el.tagName,

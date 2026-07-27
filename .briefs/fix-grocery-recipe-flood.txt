@@ -1,0 +1,72 @@
+# BRIEF: The grocery list floods with every catalogue recipe's ingredients
+
+## Context
+
+**The Good Pantry.** Wiring the 50 catalogue recipes exposed a pre-existing flaw that was
+invisible while only 4 demo recipes existed.
+
+`apps/web/src/features/grocery/useGroceryScreen.ts` → `buildLive()` calls
+`domain.listRecipes(householdId)` and plans **every recipe in the database**, adding each
+one's shortfalls to the list.
+
+With 4 recipes that produced a 9-item list. With 51 it produces **91 items**, including
+*Chocolate chips*, *Vanilla extract* and *Bottled water* — tagged `Recipe`, none of which the
+user asked for. Browsing a catalogue should never mutate a shopping list.
+
+## The rule
+
+**Recipe shortfalls belong on the grocery list only when the user has expressed intent to cook
+that recipe.** Intent means an explicit action:
+
+- tapping **"Add missing to grocery"** on a recipe (this already exists and works)
+- a planned/queued cook, if such a concept exists in the data
+- a cook preview where the user ticked "add shortfall to grocery list"
+
+Merely *existing* in the catalogue is not intent. Neither is being viewable in Browse.
+
+**Low/out stock suggestions and reorder-cadence suggestions stay** — those are derived from the
+user's own pantry and purchase history, and are the list's real backbone. This change is only
+about recipe-sourced lines.
+
+## Scope
+
+`apps/web/src/features/grocery/**`. Tests alongside.
+
+**Do NOT touch** `packages/core/**` (280 tests, read-only — `buildList` aggregation is correct;
+the caller is feeding it the wrong input), `supabase/**`, `native/**`, or other feature folders.
+
+## What to do
+
+1. Stop `buildLive()` planning the whole recipe table. Recipe-sourced lines must come from a
+   **persisted set of user-requested items**, not from a sweep over every recipe.
+2. "Add missing to grocery" already writes real list items — make that the *only* path by which
+   recipe shortfalls arrive.
+3. Rebuilding the live list must **preserve** those previously added recipe items along with
+   manual additions and check-off state. The revision-driven rebuild added in the previous
+   task must not wipe them.
+4. Recipe-sourced rows should stay attributable — the user should be able to see *which* recipe
+   put an item on the list, and removing it should be easy.
+
+## Verification
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+node scripts/verify-interactivity.mjs && node scripts/verify-chrome.mjs
+```
+
+280 core + 301 web must stay green.
+
+**Required tests:**
+- With 50+ catalogue recipes seeded and **no** user action, the grocery list contains
+  **zero** recipe-sourced lines — only low/out and reorder suggestions.
+- After "Add missing to grocery" on one recipe, exactly that recipe's shortfalls appear.
+- A stock change triggering a rebuild does not drop those items, manual additions, or ticks.
+- Assert the total list size is in a sane band (roughly the 9-item order of magnitude for the
+  demo profile), so a future regression that re-floods it fails loudly.
+
+## Report
+
+`reports/fix-grocery-recipe-flood.md`: where recipe intent is now stored, how rebuild preserves
+it, the before/after list sizes for the demo profile, and the new assertions.
+
+Work continuously; do not stall waiting for input.
