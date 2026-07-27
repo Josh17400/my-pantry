@@ -52,6 +52,17 @@ export {
   migrateLocationsTree,
 } from './locations-migration';
 export { runMigrations } from './migrate';
+export type {
+  ProjectionRepairChange,
+  ProjectionRepairResult,
+} from './projection-repair';
+export {
+  buildProjectionRepairStamp,
+  formatProjectionRepairSummary,
+  maybeRepairProjectionsOnStartup,
+  projectionDiffersFromFold,
+  verifyAndRepairProjections,
+} from './projection-repair';
 export type { SeedResult } from './seed';
 export { runSeed, seedCatalogStats } from './seed';
 export type {

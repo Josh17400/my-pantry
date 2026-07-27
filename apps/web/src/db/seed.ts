@@ -250,6 +250,12 @@ export async function runSeed(
     await setMeta(db, META_RECIPE_SEED_VERSION, RECIPE_SEED_VERSION);
   }
 
+  // Projection self-heal: once per (repair version | seed version). Closes
+  // stale qtyBase left by older builds that wrote the ledger without updating
+  // the cache. Manual Diagnostics can force a re-run any time.
+  const domain = new DomainRepository(db);
+  await domain.verifyAndRepairProjections({ householdId });
+
   return {
     seedVersion: SEED_VERSION,
     previousSeedVersion,

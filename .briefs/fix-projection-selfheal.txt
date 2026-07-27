@@ -1,0 +1,91 @@
+# BRIEF: Projections must self-heal from the ledger
+
+## Context
+
+**The Good Pantry.** Owner reports an item at 0 still showing **Plenty**, and not reaching the
+grocery list even on manual Refresh. In a clean profile the current build is correct:
+
+```
+Chicken breast 1.984 lb Plenty  ->  empty it  ->  0 lb Out, and it appears on the list
+```
+
+So the rendering and grocery logic are right. The device is holding a **stale projection**: the
+removal was performed on an earlier build that wrote the ledger transaction but left
+`pantry_items.qtyBase` wrong. Every screen then faithfully renders the stale cache.
+
+`SPEC.md` is explicit that the projection is a **cache** of the ledger and that the invariant is
+`projection == fold(log)`. Today nothing ever checks that, so once drift happens it is
+permanent — and it is invisible, because a wrong number looks exactly like a right one.
+
+**Telling users to reset their data is not a fix.** Close the gap.
+
+## Scope
+
+`apps/web/src/db/**`, `apps/web/src/state/**`, `apps/web/src/features/settings/**`.
+
+**Do NOT touch** `packages/core/**` (280 tests, read-only — `foldLedger` and `needsRefold`
+already exist and are correct), `supabase/**`, `native/**`, or other feature folders.
+
+## What to build
+
+### 1. A verify/repair pass over projections
+
+For a household, for each `(ingredientId, formId)`:
+
+- recompute the truth with **`foldLedger`** from `@larder/core` — do **not** write a second
+  fold, that is the whole point of it living in core
+- compare against the stored projection
+- where they differ, rewrite the projection from the fold and record what changed
+
+Report counts (`checked`, `repaired`) so the result is observable rather than silent.
+
+### 2. Run it on startup, cheaply
+
+A full re-fold of every item on every launch is wasteful. Do the cheap thing:
+
+- run the repair pass **once per app version / seed-version change** (stamp it in `app_meta`,
+  same pattern as the locations migration), which is exactly when drift from an older build
+  becomes visible
+- keep it bounded and non-blocking — the app must not hang on a large ledger
+
+### 3. A manual "Verify pantry data" action
+
+In Settings → Diagnostics, next to Reset local data. It runs the pass and reports plainly:
+*"Checked 42 items, repaired 1."* Reset destroys data; verify fixes it. Users should reach for
+the second one first, so put it above Reset.
+
+### 4. Make drift impossible to introduce silently
+
+Audit every path that writes a transaction and confirm it updates the projection through the
+same helper. If any path writes a txn without recomputing — that is the original bug — fix it
+and name it in the report.
+
+## Constraints
+
+TypeScript `strict`, no `any`. No new deps. Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+node scripts/verify-interactivity.mjs && node scripts/verify-chrome.mjs
+```
+
+280 core + 305 web must stay green.
+
+**Required tests:**
+- Deliberately corrupt a projection (write `qtyBase` that disagrees with the ledger), run the
+  repair pass, assert it is restored to `fold(log)` — **this is the owner's exact situation**
+- A corrupted item reading "Plenty" at a true quantity of 0 shows **Out** after repair, and
+  then reaches the grocery list
+- The pass is idempotent — a second run repairs nothing
+- Absolute recounts are respected (repair must not resurrect pre-checkpoint history)
+- The version stamp prevents it re-running on every launch
+
+## Report
+
+`reports/fix-projection-selfheal.md`: how the pass works and where it is triggered, any write
+path found that skipped projection recompute (**the likely original cause — say so plainly**),
+the cost on a large ledger, and the new Diagnostics action.
+
+Work continuously; do not stall waiting for input.

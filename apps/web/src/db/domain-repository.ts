@@ -21,6 +21,10 @@ import {
 import { newId } from './id';
 import { parseJsonArray, stringifyJsonArray } from './json';
 import {
+  maybeRepairProjectionsOnStartup,
+  type ProjectionRepairResult,
+} from './projection-repair';
+import {
   type AppSchema,
   groceryListItems,
   groceryLists,
@@ -571,6 +575,22 @@ export class DomainRepository {
         ),
       );
     return rows.map(mapTxnRow);
+  }
+
+  /**
+   * Verify every projection against foldLedger and rewrite drift.
+   * Used by Settings → Diagnostics and (gated) app startup.
+   * Pass `force: true` for the manual Diagnostics action.
+   */
+  async verifyAndRepairProjections(
+    options: { householdId?: string; force?: boolean } = {},
+  ): Promise<ProjectionRepairResult> {
+    return maybeRepairProjectionsOnStartup(
+      this.db,
+      (householdId, ingredientId, formId) =>
+        this.recomputeProjection(householdId, ingredientId, formId),
+      options,
+    );
   }
 
   // ── Recipes ─────────────────────────────────────────────────────────────

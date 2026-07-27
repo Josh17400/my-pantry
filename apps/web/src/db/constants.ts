@@ -34,6 +34,19 @@ export const META_LOCATIONS_TREE_VERSION = 'locations_tree_version' as const;
 export const LOCATIONS_TREE_VERSION = '2' as const;
 
 /**
+ * One-shot projection self-heal stamp key. Value encodes repair-logic version
+ * plus core SEED_VERSION so a new app build or seed re-runs the verify pass
+ * (see `projection-repair.ts`).
+ */
+export const META_PROJECTION_REPAIR_STAMP = 'projection_repair_stamp' as const;
+
+/**
+ * Bump when the repair pass itself changes and existing installs should run
+ * it again even if SEED_VERSION is unchanged.
+ */
+export const PROJECTION_REPAIR_VERSION = '1' as const;
+
+/**
  * Retired root id. Still referenced by migration from older installs; not in
  * DEFAULT_LOCATION_IDS.
  */

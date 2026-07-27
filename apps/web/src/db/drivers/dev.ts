@@ -47,6 +47,11 @@ import {
 import { newId } from '../id';
 import { applyLocationsTreeMigration } from '../locations-migration';
 import {
+  maybeRepairProjectionsWithMeta,
+  type ProjectionRepairPort,
+  type ProjectionRepairResult,
+} from '../projection-repair';
+import {
   type AggregateResult,
   batchValues,
   computeChecksum,
@@ -530,6 +535,58 @@ export class DevDomainRepository {
         (t) => t.householdId === householdId && t.ingredientId === ingredientId,
       )
       .map(mapTxnRow);
+  }
+
+  /**
+   * Verify every projection against foldLedger and rewrite drift.
+   * Same semantics as DomainRepository.verifyAndRepairProjections.
+   */
+  async verifyAndRepairProjections(
+    options: { householdId?: string; force?: boolean } = {},
+  ): Promise<ProjectionRepairResult> {
+    const store = this.store;
+    const snap = this.s;
+    const recompute = (
+      householdId: string,
+      ingredientId: string,
+      formId: string,
+    ) => this.recomputeProjection(householdId, ingredientId, formId);
+    const port: ProjectionRepairPort = {
+      async listProjections(householdId) {
+        return snap.pantryItems
+          .filter((p) => p.householdId === householdId)
+          .map((p) => ({
+            ingredientId: p.ingredientId,
+            formId: p.formId,
+            qtyBase: p.qtyBase,
+            watermarkCursor: p.watermarkCursor,
+            lastAbsoluteCursor: p.lastAbsoluteCursor,
+            lastVerifiedAt: p.lastVerifiedAt,
+            unverifiedCookCount: p.unverifiedCookCount,
+            isNegative: p.isNegative,
+            conflict: p.conflict,
+          }));
+      },
+      async listAllTxns(householdId) {
+        return snap.pantryTxns
+          .filter((t) => t.householdId === householdId)
+          .map(mapTxnRow);
+      },
+      recomputeProjection: recompute,
+    };
+    const result = await maybeRepairProjectionsWithMeta(
+      port,
+      {
+        getMeta: (key) => store.getMeta(key),
+        setMeta: (key, value) => {
+          store.setMeta(key, value);
+        },
+      },
+      options,
+    );
+    // setMeta is in-memory only until persist; keep stamp durable.
+    await store.persist();
+    return result;
   }
 
   // ── Recipes ─────────────────────────────────────────────────────────────
@@ -1053,6 +1110,10 @@ async function runDevSeed(
       store.setMeta(META_RECIPE_SEED_VERSION, RECIPE_SEED_VERSION);
     });
   }
+
+  // Projection self-heal (once per repair|seed stamp) — same as native seed.
+  const domainForRepair = new DevDomainRepository(store);
+  await domainForRepair.verifyAndRepairProjections({ householdId });
 
   return {
     seedVersion: SEED_VERSION,

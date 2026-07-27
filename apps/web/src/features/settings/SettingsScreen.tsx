@@ -6,6 +6,7 @@ import { type ReactNode,useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { DEFAULT_HOUSEHOLD_ID } from '../../db/constants';
+import { formatProjectionRepairSummary } from '../../db/projection-repair';
 import { usePantryStore } from '../../state/pantry-store';
 import {
   getActiveRepository,
@@ -138,6 +139,35 @@ export function SettingsScreen() {
       setDeleteConfirm(false);
     } else {
       setStatus(result.error);
+    }
+  };
+
+  const onVerifyPantryData = async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      if (!hasActiveRepository()) {
+        setStatus(
+          'No local pantry database active — verify needs the native app or browser dev driver.',
+        );
+        return;
+      }
+      const domain = getDomainRepository();
+      if (typeof domain.verifyAndRepairProjections !== 'function') {
+        setStatus('Verify pantry data is not supported on this surface.');
+        return;
+      }
+      const result = await domain.verifyAndRepairProjections({
+        householdId,
+        force: true,
+      });
+      // Reload store so pantry/grocery screens pick up repaired qtyBase.
+      await usePantryStore.getState().load();
+      setStatus(formatProjectionRepairSummary(result));
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -473,6 +503,15 @@ export function SettingsScreen() {
           >
             Design gallery
           </Link>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void onVerifyPantryData()}
+            data-testid="verify-pantry-data"
+            className="min-h-tap rounded-card bg-surface px-4 text-left text-sm font-semibold text-ink shadow-card disabled:opacity-60"
+          >
+            Verify pantry data
+          </button>
           {!resetConfirm ? (
             <button
               type="button"
