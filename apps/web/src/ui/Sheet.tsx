@@ -54,6 +54,21 @@ export function Sheet({
     (focusable ?? panel).focus({ preventScroll: true });
   }, [open]);
 
+  // Escape closes. Expected of any aria-modal dialog, and it was missing —
+  // surfaced when automation could not dismiss a sheet and the still-open
+  // overlay swallowed the next click. Listens on the top sheet only, so a
+  // nested stack closes one layer at a time rather than all at once.
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      onClose();
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (
@@ -78,12 +93,12 @@ export function Sheet({
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          'relative z-10 max-h-[90vh] overflow-y-auto rounded-t-3xl bg-surface-raised shadow-fab outline-none',
+          'relative z-10 flex max-h-[90vh] flex-col rounded-t-3xl bg-surface-raised shadow-fab outline-none',
           'pb-[max(1rem,env(safe-area-inset-bottom))]',
           className,
         )}
       >
-        <div className="sticky top-0 z-10 flex items-start gap-3 border-b border-black/[0.04] bg-surface-raised px-4 pb-3 pt-4">
+        <div className="sticky top-0 z-10 flex shrink-0 items-start gap-3 border-b border-black/[0.04] bg-surface-raised px-4 pb-3 pt-4">
           <div className="min-w-0 flex-1">
             <h2
               id={titleId}
@@ -104,10 +119,10 @@ export function Sheet({
             ✕
           </button>
         </div>
-        <div className="px-4 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">{children}</div>
         {footer ? (
           <div
-            className="flex flex-col gap-2 border-t border-black/[0.04] px-4 pt-3"
+            className="flex shrink-0 flex-col gap-2 border-t border-black/[0.04] bg-surface-raised px-4 pt-3"
             data-testid="sheet-footer"
           >
             {footer}

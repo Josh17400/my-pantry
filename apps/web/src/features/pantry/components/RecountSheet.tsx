@@ -1,12 +1,11 @@
 import type { Dimension } from '@larder/core';
 import { useState } from 'react';
 
+import type { PickerOutcome } from '../lib/picker-wheels';
 import type { ProvenanceFields } from '../lib/provenance-display';
 import { formatItemQuantity } from '../lib/provenance-display';
-import { parseHumanQuantity } from '../lib/qty-input';
+import { QuantityPickerWheels } from './QuantityPickerWheels';
 import {
-  FieldInput,
-  FieldLabel,
   PrimaryButton,
   SecondaryButton,
   Sheet,
@@ -24,8 +23,9 @@ type RecountSheetProps = {
 };
 
 /**
- * Recount — absolute target.
+ * Recount — absolute target via two wheels (qty · unit).
  * UI copy: “there is exactly this much” (snap to reality).
+ * No add/remove wheel — direction is meaningless for an absolute statement.
  */
 export function RecountSheet({
   open,
@@ -37,7 +37,7 @@ export function RecountSheet({
   onConfirm,
   busy,
 }: RecountSheetProps) {
-  const [text, setText] = useState('');
+  const [outcome, setOutcome] = useState<PickerOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const currentDisplay = formatItemQuantity(
@@ -46,22 +46,17 @@ export function RecountSheet({
     provenance,
   );
 
-  const unitHint =
-    dim === 'mass' ? 'e.g. 1.5 lb or 500 g' : dim === 'volume' ? 'e.g. 2 cups or 500 ml' : 'e.g. 6 each';
-
   async function submit() {
-    const parsed = parseHumanQuantity(text, dim);
-    if (!parsed.ok) {
-      setError(parsed.message);
+    if (!outcome || outcome.mode !== 'recount') {
+      setError('Choose the exact amount on hand');
       return;
     }
-    if (parsed.qtyBase < 0) {
+    if (outcome.qtyBase < 0) {
       setError('Recount cannot be negative — use adjust if needed');
       return;
     }
     setError(null);
-    await onConfirm(parsed.qtyBase);
-    setText('');
+    await onConfirm(outcome.qtyBase);
   }
 
   return (
@@ -72,7 +67,11 @@ export function RecountSheet({
       subtitle={`Set the exact amount of ${itemName} you have right now.`}
       footer={
         <>
-          <PrimaryButton onClick={() => void submit()} disabled={busy}>
+          <PrimaryButton
+            onClick={() => void submit()}
+            disabled={busy}
+            data-testid="recount-confirm"
+          >
             {busy ? 'Saving…' : 'Set exact amount'}
           </PrimaryButton>
           <SecondaryButton onClick={onClose} disabled={busy}>
@@ -90,16 +89,16 @@ export function RecountSheet({
       <p className="mb-3 text-sm text-ink-muted">
         Currently showing: <span className="font-medium text-ink">{currentDisplay}</span>
       </p>
-      <FieldLabel htmlFor="recount-qty">Exact amount on hand</FieldLabel>
-      <FieldInput
-        id="recount-qty"
-        inputMode="text"
-        autoComplete="off"
-        placeholder={unitHint}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        aria-invalid={error ? true : undefined}
+
+      <QuantityPickerWheels
+        mode="recount"
+        dim={dim}
+        itemName={itemName}
+        currentQtyBase={currentQtyBase}
+        resetKey={open}
+        onOutcomeChange={setOutcome}
       />
+
       {error ? (
         <p className="mt-2 text-sm text-critical" role="alert">
           {error}

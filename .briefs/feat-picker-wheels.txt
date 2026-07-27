@@ -1,0 +1,113 @@
+# BRIEF: iOS-style picker wheels for Adjust / Recount
+
+## Context
+
+**The Good Pantry.** Owner request, from using the app in a kitchen:
+
+> *"When adjusting stock of something or recounting there needs to be essentially wheels. Your
+> first wheel is the quantity, your second wheel is lbs / ounces / grams, and the third wheel
+> should be to remove or add."*
+
+Right now Adjust and Recount use text inputs, which means a keyboard — bad with wet or full
+hands. Wheels are thumb-operated and one-handed.
+
+Read `SPEC.md` (the ledger's two event kinds) and `DESIGN.md`. `packages/core` is **read-only**
+(279 tests) — unit conversion is `convert()`, formatting is `formatQuantity()`. Use them.
+
+## Scope
+
+`apps/web/src/ui/**` (new picker component), `apps/web/src/features/pantry/**`
+(Adjust / Recount / Waste / Add-item sheets), `apps/web/scripts/verify-chrome.mjs`.
+
+**Do NOT touch** `packages/core/**`, `supabase/**`, `native/**`,
+`apps/web/src/features/recipes/**`.
+
+## 1. The wheels — and the difference between Adjust and Recount
+
+**Adjust — three wheels:** `quantity` · `unit` · `add / remove`
+**Recount — TWO wheels:** `quantity` · `unit`
+
+This is not a simplification to argue with. Per `SPEC.md`, adjust writes a **relative** delta
+and recount writes an **absolute** target — *"there is exactly this much."* Direction is
+meaningless for an absolute statement, and offering it would imply the app is adding to a
+recount. Keep them visibly different: recount should read as *setting* a value, adjust as
+*changing* one.
+
+**Waste** and **Mark used up** are relative removals — wheels, direction fixed to remove.
+
+## 2. Unit wheel must respect the item's dimension
+
+An item is mass, volume or count. **Only offer units of that dimension:**
+
+- mass → g, kg, oz, lb
+- volume → ml, l, tsp, tbsp, cup, fl oz
+- count → each (and dozen where sensible)
+
+Offering "lbs" for eggs is wrong and would produce an unconvertible write. The dimension is on
+the pantry item; read it. Default the wheel to the unit the item is currently displayed in, so
+the starting position matches what the user is looking at.
+
+## 3. Quantity wheel — make the steps sensible
+
+A single wheel spanning 0.1 to 5000 is unusable. Step size must adapt to the selected unit:
+
+- g / ml: 1 up to 100, then 5, then 25
+- kg / l: 0.05 up to 2, then 0.25
+- oz / fl oz: 0.5
+- lb: 0.25
+- count: 1
+- cups / tbsp / tsp: common cooking fractions (¼, ⅓, ½, ⅔, ¾, 1 …)
+
+Changing the unit wheel must **re-scale the quantity wheel and keep the selected amount
+equivalent** (2 lb stays ≈ 907 g), not reset to zero. Convert through `@larder/core`.
+
+Seed the starting position from the item's current quantity for Recount, and from zero for
+Adjust.
+
+## 4. Feel
+
+- CSS scroll-snap columns, momentum scrolling, a centred selection band — the iOS wheel idiom.
+- **Haptic tick on each detent** via `@capacitor/haptics` where available; silently skip on web.
+- Live preview of the resulting quantity under the wheels: *"Flour: 4 lb → 2 lb"* for adjust,
+  *"Flour will be set to 2 lb"* for recount. The user should never have to guess the outcome.
+- Respect `prefers-reduced-motion`.
+
+## 5. Accessibility — do not drop the keyboard path
+
+Wheels are hostile to screen readers and to anyone who wants to type an exact number.
+
+- Each wheel is a real listbox with arrow-key support and proper labels.
+- Keep a **"Type a value"** affordance that reveals the numeric input. Do not delete the
+  existing input path — demote it.
+
+## Constraints
+
+TypeScript `strict`, no `any`. 44px minimum targets; wheel rows comfortably tappable.
+No new heavy dependencies — build the picker, do not pull in a library.
+Sheets already hide the tab bar (`ui/layers.ts`, `Z_CLASS`) — use the existing primitive, do
+not invent new overlay z-indexes. Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+node scripts/verify-chrome.mjs && node scripts/verify-interactivity.mjs
+```
+
+279 core + 252 web must stay green.
+
+Add tests for: unit options match the item's dimension, changing unit preserves the equivalent
+amount, step sizes per unit, **recount produces an absolute txn and adjust a relative one**
+(the ledger distinction must survive the new UI), and the resulting quantity matches the
+preview.
+
+Extend `verify-chrome.mjs` to open Adjust and Recount, hit-test the wheels and the confirm
+button, and assert **Recount has two wheels and Adjust has three**.
+
+## Report
+
+`reports/feat-picker-wheels.md`: the component API, step tables per unit, how unit changes
+preserve the amount, how Adjust/Recount stay distinct, haptics and accessibility fallback,
+and a screenshot of each at 390px.
+
+Work continuously; do not stall waiting for input.

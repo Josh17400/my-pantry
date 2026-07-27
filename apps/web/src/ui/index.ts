@@ -10,6 +10,7 @@ export {
 } from './contrast';
 export { Fab } from './Fab';
 export { FreshnessBar } from './FreshnessBar';
+export { selectionTick } from './haptics';
 export type { ItemTileProps } from './ItemTile';
 export { ItemTile } from './ItemTile';
 export type { ZLayer } from './layers';
@@ -48,4 +49,6 @@ export {
   statusTextColor,
   tints,
 } from './tokens';
+export type { WheelColumnProps, WheelOption } from './WheelColumn';
+export { WheelColumn } from './WheelColumn';
 export { Wordmark } from './Wordmark';

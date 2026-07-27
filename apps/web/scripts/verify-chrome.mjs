@@ -505,6 +505,117 @@ async function openSheetAndAssert(page, label, openFn) {
   return true;
 }
 
+/**
+ * iOS-style picker wheels on Adjust / Recount / Waste.
+ * Assert wheel count (Adjust=3, Recount/Waste=2), hit-test each wheel
+ * listbox + confirm button.
+ */
+async function assertPickerWheels(page, sheetName) {
+  const expected =
+    sheetName === 'Adjust' ? 3 : sheetName === 'Recount' || sheetName === 'Waste' ? 2 : null;
+  if (expected === null) return;
+
+  const picker = page.locator('[data-testid="quantity-picker-wheels"]');
+  if ((await picker.count()) === 0) {
+    fail(`pantry item → ${sheetName}: quantity picker wheels missing`);
+    return;
+  }
+
+  const attr = await picker.getAttribute('data-wheel-count');
+  const attrN = attr ? Number(attr) : NaN;
+  if (attrN === expected) {
+    ok(`pantry item → ${sheetName}: data-wheel-count=${expected}`);
+  } else {
+    fail(
+      `pantry item → ${sheetName}: expected data-wheel-count=${expected}, got ${attr}`,
+    );
+  }
+
+  const wheels = page.locator('[data-picker-wheel="true"]');
+  const wheelN = await wheels.count();
+  if (wheelN === expected) {
+    ok(`pantry item → ${sheetName}: ${wheelN} wheel columns (expected ${expected})`);
+  } else {
+    fail(
+      `pantry item → ${sheetName}: expected ${expected} wheels, found ${wheelN}`,
+    );
+  }
+
+  // Hit-test each wheel listbox centre
+  for (let i = 0; i < wheelN; i++) {
+    const wheel = wheels.nth(i);
+    const box = await wheel.boundingBox();
+    if (!box) {
+      fail(`pantry item → ${sheetName}: wheel ${i} has no box`);
+      continue;
+    }
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const top = await page.evaluate(
+      ({ x, y }) => {
+        const el = document.elementFromPoint(x, y);
+        if (!el) return null;
+        return {
+          tag: el.tagName,
+          inWheel: Boolean(el.closest('[data-picker-wheel="true"]')),
+        };
+      },
+      { x: cx, y: cy },
+    );
+    if (top && top.inWheel) {
+      ok(`pantry item → ${sheetName}: wheel ${i} hit-test free`);
+    } else {
+      fail(
+        `pantry item → ${sheetName}: wheel ${i} obscured (top=${top ? top.tag : 'null'})`,
+      );
+    }
+  }
+
+  // Confirm button must be a free target
+  const confirmSel =
+    sheetName === 'Adjust'
+      ? '[data-testid="adjust-confirm"]'
+      : sheetName === 'Recount'
+        ? '[data-testid="recount-confirm"]'
+        : '[data-testid="waste-confirm"]';
+  const confirm = page.locator(confirmSel).first();
+  if ((await confirm.count()) === 0) {
+    fail(`pantry item → ${sheetName}: confirm button missing (${confirmSel})`);
+    return;
+  }
+  const cBox = await confirm.boundingBox();
+  if (!cBox) {
+    fail(`pantry item → ${sheetName}: confirm has no box`);
+    return;
+  }
+  const free = await page.evaluate(
+    ({ x, y }) => {
+      const el = document.elementFromPoint(x, y);
+      if (!el) return false;
+      const btn = el.closest('button');
+      return Boolean(btn && !btn.disabled);
+    },
+    { x: cBox.x + cBox.width / 2, y: cBox.y + cBox.height / 2 },
+  );
+  if (free) {
+    ok(`pantry item → ${sheetName}: confirm button hit-test free`);
+  } else {
+    fail(`pantry item → ${sheetName}: confirm button not free at centre`);
+  }
+
+  // Direction wheel only on Adjust
+  const dir = page.locator('[data-testid="picker-wheel-direction"]');
+  const dirN = await dir.count();
+  if (sheetName === 'Adjust') {
+    if (dirN === 1) ok('pantry item → Adjust: direction wheel present');
+    else fail(`pantry item → Adjust: direction wheel missing (count=${dirN})`);
+  } else if (dirN === 0) {
+    ok(`pantry item → ${sheetName}: no direction wheel (correct)`);
+  } else {
+    fail(`pantry item → ${sheetName}: unexpected direction wheel`);
+  }
+}
+
 async function closeSheetIfOpen(page) {
   // Prefer the X / Cancel in the sheet chrome — never the full-screen dimmer
   // (its centre is under the panel, so Playwright cannot click it).
@@ -657,6 +768,10 @@ async function assertSheetInteractiveStates(browser, iPhone) {
           t.click,
         );
         if (opened) {
+          // Adjust: 3 wheels (qty · unit · add/remove). Recount: 2 (qty · unit).
+          if (t.name === 'Adjust' || t.name === 'Recount' || t.name === 'Waste') {
+            await assertPickerWheels(page, t.name);
+          }
           await closeSheetIfOpen(page);
           await page.waitForTimeout(200);
         }

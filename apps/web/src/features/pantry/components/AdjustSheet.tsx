@@ -1,10 +1,9 @@
 import type { Dimension } from '@larder/core';
 import { useState } from 'react';
 
-import { parseHumanDelta } from '../lib/qty-input';
+import type { PickerOutcome } from '../lib/picker-wheels';
+import { QuantityPickerWheels } from './QuantityPickerWheels';
 import {
-  FieldInput,
-  FieldLabel,
   PrimaryButton,
   SecondaryButton,
   Sheet,
@@ -14,42 +13,35 @@ type AdjustSheetProps = {
   open: boolean;
   itemName: string;
   dim: Dimension;
+  currentQtyBase: number;
   onClose: () => void;
   onConfirm: (deltaBase: number) => void | Promise<void>;
   busy?: boolean;
 };
 
 /**
- * Adjust quantity — relative delta.
+ * Adjust quantity — relative delta via three wheels (qty · unit · add/remove).
  * Copy makes the semantics clear: "add or remove this much", not "set to".
  */
 export function AdjustSheet({
   open,
   itemName,
   dim,
+  currentQtyBase,
   onClose,
   onConfirm,
   busy,
 }: AdjustSheetProps) {
-  const [text, setText] = useState('');
+  const [outcome, setOutcome] = useState<PickerOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const unitHint =
-    dim === 'mass' ? 'e.g. +2 oz or −100 g' : dim === 'volume' ? 'e.g. +1 cup or −50 ml' : 'e.g. +2 or −1 each';
-
   async function submit() {
-    const parsed = parseHumanDelta(text, dim);
-    if (!parsed.ok) {
-      setError(parsed.message);
-      return;
-    }
-    if (parsed.qtyBase === 0) {
-      setError('Enter a non-zero amount');
+    if (!outcome || outcome.mode !== 'adjust' || outcome.qtyBase === 0) {
+      setError('Choose a non-zero amount to add or remove');
       return;
     }
     setError(null);
-    await onConfirm(parsed.qtyBase);
-    setText('');
+    await onConfirm(outcome.qtyBase);
   }
 
   return (
@@ -60,7 +52,11 @@ export function AdjustSheet({
       subtitle={`Add or remove some ${itemName}. This does not set an exact total.`}
       footer={
         <>
-          <PrimaryButton onClick={() => void submit()} disabled={busy}>
+          <PrimaryButton
+            onClick={() => void submit()}
+            disabled={busy}
+            data-testid="adjust-confirm"
+          >
             {busy ? 'Saving…' : 'Apply adjustment'}
           </PrimaryButton>
           <SecondaryButton onClick={onClose} disabled={busy}>
@@ -75,22 +71,24 @@ export function AdjustSheet({
         To snap the count to what you actually see on the shelf, use{' '}
         <strong className="font-semibold">Recount</strong> instead.
       </p>
-      <FieldLabel htmlFor="adjust-qty">Amount to add (+) or remove (−)</FieldLabel>
-      <FieldInput
-        id="adjust-qty"
-        inputMode="text"
-        autoComplete="off"
-        placeholder={unitHint}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        aria-invalid={error ? true : undefined}
+
+      <QuantityPickerWheels
+        mode="adjust"
+        dim={dim}
+        itemName={itemName}
+        currentQtyBase={currentQtyBase}
+        resetKey={open}
+        onOutcomeChange={setOutcome}
       />
+
       {error ? (
         <p className="mt-2 text-sm text-critical" role="alert">
           {error}
         </p>
       ) : (
-        <p className="mt-2 text-xs text-ink-muted">Unit must match this item ({dim}).</p>
+        <p className="mt-2 text-xs text-ink-muted">
+          Writes a relative ledger event (add/remove), not a set-to total.
+        </p>
       )}
     </Sheet>
   );

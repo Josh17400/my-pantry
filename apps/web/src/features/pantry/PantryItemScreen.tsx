@@ -16,6 +16,7 @@ import {
   LoadingBlock,
 } from './components/AsyncState';
 import { ProvenanceLine } from './components/ProvenanceLine';
+import { QuantityPickerWheels } from './components/QuantityPickerWheels';
 import { RecountSheet } from './components/RecountSheet';
 import {
   FieldInput,
@@ -107,7 +108,9 @@ export function PantryItemScreen({
   const [historyLoading, setHistoryLoading] = useState(false);
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [busy, setBusy] = useState(false);
-  const [wasteText, setWasteText] = useState('');
+  const [wasteOutcome, setWasteOutcome] = useState<{ qtyBase: number } | null>(
+    null,
+  );
   const [wasteError, setWasteError] = useState<string | null>(null);
 
   // Edit form state
@@ -217,21 +220,15 @@ export function PantryItemScreen({
 
   async function handleWaste() {
     if (!item) return;
-    const { parseHumanQuantity } = await import('./lib/qty-input');
-    const parsed = parseHumanQuantity(wasteText, item.dim);
-    if (!parsed.ok) {
-      setWasteError(parsed.message);
-      return;
-    }
-    if (parsed.qtyBase <= 0) {
+    if (!wasteOutcome || wasteOutcome.qtyBase <= 0) {
       setWasteError('Enter how much was wasted');
       return;
     }
     setWasteError(null);
     await runTxn('Waste logged', item.qtyBase, () =>
-      buildWasteTxn(item, parsed.qtyBase, { householdId }),
+      buildWasteTxn(item, wasteOutcome.qtyBase, { householdId }),
     );
-    setWasteText('');
+    setWasteOutcome(null);
   }
 
   async function handleSaveEdit() {
@@ -493,6 +490,7 @@ export function PantryItemScreen({
         open={sheet === 'adjust'}
         itemName={item.ingredientName}
         dim={item.dim}
+        currentQtyBase={item.qtyBase}
         onClose={() => setSheet(null)}
         onConfirm={handleAdjust}
         busy={busy}
@@ -517,19 +515,27 @@ export function PantryItemScreen({
         data-testid="app-sheet"
         footer={
           <>
-            <PrimaryButton onClick={() => void handleWaste()} disabled={busy}>
+            <PrimaryButton
+              onClick={() => void handleWaste()}
+              disabled={busy}
+              data-testid="waste-confirm"
+            >
               {busy ? 'Saving…' : 'Log waste'}
             </PrimaryButton>
             <SecondaryButton onClick={() => setSheet(null)}>Cancel</SecondaryButton>
           </>
         }
       >
-        <FieldLabel htmlFor="waste-qty">Amount wasted</FieldLabel>
-        <FieldInput
-          id="waste-qty"
-          value={wasteText}
-          onChange={(e) => setWasteText(e.target.value)}
-          placeholder="e.g. 100 g"
+        <p className="mb-3 text-sm text-ink-muted">
+          Waste is always a removal — pick how much left the pantry.
+        </p>
+        <QuantityPickerWheels
+          mode="waste"
+          dim={item.dim}
+          itemName={item.ingredientName}
+          currentQtyBase={item.qtyBase}
+          resetKey={sheet === 'waste'}
+          onOutcomeChange={(o) => setWasteOutcome(o)}
         />
         {wasteError ? (
           <p className="mt-2 text-sm text-critical">{wasteError}</p>

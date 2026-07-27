@@ -8,7 +8,8 @@ import {
   searchCatalog,
 } from '../lib/catalog';
 import { locationSelectOptions } from '../lib/filter-group';
-import { parseHumanQuantity } from '../lib/qty-input';
+import type { PickerOutcome } from '../lib/picker-wheels';
+import { QuantityPickerWheels } from './QuantityPickerWheels';
 import {
   FieldInput,
   FieldLabel,
@@ -51,7 +52,7 @@ export function AddItemSheet({
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<CatalogIngredient | null>(null);
   const [formId, setFormId] = useState('');
-  const [qtyText, setQtyText] = useState('');
+  const [qtyOutcome, setQtyOutcome] = useState<PickerOutcome | null>(null);
   const [locationId, setLocationId] = useState(defaultLocationId ?? '');
   const [error, setError] = useState<string | null>(null);
 
@@ -68,7 +69,7 @@ export function AddItemSheet({
     setQuery('');
     setPicked(null);
     setFormId('');
-    setQtyText('');
+    setQtyOutcome(null);
     setError(null);
   }
 
@@ -83,6 +84,7 @@ export function AddItemSheet({
       ing.forms.find((f) => f.id === ing.defaultFormId) ?? ing.forms[0];
     setFormId(def?.id ?? '');
     setStep('details');
+    setQtyOutcome(null);
     setError(null);
     if (!locationId && locations[0]) {
       setLocationId(locations[0].id);
@@ -98,12 +100,7 @@ export function AddItemSheet({
       setError('Choose a location');
       return;
     }
-    const parsed = parseHumanQuantity(qtyText, form.dim);
-    if (!parsed.ok) {
-      setError(parsed.message);
-      return;
-    }
-    if (parsed.qtyBase <= 0) {
+    if (!qtyOutcome || qtyOutcome.qtyBase <= 0) {
       setError('Quantity must be greater than zero');
       return;
     }
@@ -111,7 +108,7 @@ export function AddItemSheet({
     await onConfirm({
       ingredientId: picked.id,
       formId: form.id,
-      qtyBase: parsed.qtyBase,
+      qtyBase: qtyOutcome.qtyBase,
       dim: form.dim,
       locationId,
       ingredientName: picked.name,
@@ -186,7 +183,10 @@ export function AddItemSheet({
           <FieldSelect
             id="add-form"
             value={formId}
-            onChange={(e) => setFormId(e.target.value)}
+            onChange={(e) => {
+              setFormId(e.target.value);
+              setQtyOutcome(null);
+            }}
           >
             {(picked?.forms ?? []).map((f) => (
               <option key={f.id} value={f.id}>
@@ -195,21 +195,19 @@ export function AddItemSheet({
             ))}
           </FieldSelect>
 
-          <div className="mt-4">
-            <FieldLabel htmlFor="add-qty">Quantity</FieldLabel>
-            <FieldInput
-              id="add-qty"
-              value={qtyText}
-              onChange={(e) => setQtyText(e.target.value)}
-              placeholder={
-                form?.dim === 'mass'
-                  ? 'e.g. 2 lb'
-                  : form?.dim === 'volume'
-                    ? 'e.g. 500 ml'
-                    : 'e.g. 12 each'
-              }
-            />
-          </div>
+          {form ? (
+            <div className="mt-4">
+              <FieldLabel>Quantity</FieldLabel>
+              <QuantityPickerWheels
+                mode="add"
+                dim={form.dim}
+                itemName={picked?.name ?? 'item'}
+                currentQtyBase={0}
+                resetKey={`${form.id}-${step}`}
+                onOutcomeChange={setQtyOutcome}
+              />
+            </div>
+          ) : null}
 
           <div className="mt-4">
             <FieldLabel htmlFor="add-loc">Location</FieldLabel>
