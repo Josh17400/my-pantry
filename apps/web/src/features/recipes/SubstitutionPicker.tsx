@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import type { PantryItemView } from '../../db/types';
+import { useSheetLifecycle, Z_CLASS } from '../../ui';
 import { cn } from '../../ui/cn';
 import type { CookLineEdit } from './cook-machine';
 import {
@@ -44,13 +45,18 @@ export function SubstitutionPicker({
   const otherInStock = ranked.filter((c) => !c.sameCategory && c.inStock);
   const outOfStock = ranked.filter((c) => !c.inStock);
 
+  // Full-screen picker keeps its own markup but joins sheet-presence so any
+  // shell chrome (if present) hides while open.
+  useSheetLifecycle(true);
+
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-bg"
+      className={cn('fixed inset-0 flex flex-col bg-bg', Z_CLASS.sheet)}
       role="dialog"
       aria-modal="true"
       aria-labelledby="sub-picker-title"
       data-testid="substitution-picker"
+      data-sheet="true"
     >
       <header className="border-b border-black/[0.06] bg-surface px-4 pb-3 pt-safe">
         <div className="flex items-center justify-between gap-2 pt-2">

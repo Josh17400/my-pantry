@@ -23,6 +23,7 @@ import {
   FieldSelect,
   PrimaryButton,
   SecondaryButton,
+  Sheet,
 } from './components/Sheet';
 import { UndoToast } from './components/UndoToast';
 import { useUndoStack } from './hooks/useUndoStack';
@@ -508,109 +509,98 @@ export function PantryItemScreen({
         busy={busy}
       />
 
-      {sheet === 'waste' ? (
-        <div className="fixed inset-0 z-40 flex flex-col justify-end">
-          <button
-            type="button"
-            className="absolute inset-0 bg-ink/30"
-            aria-label="Close"
-            onClick={() => setSheet(null)}
-          />
-          <div className="relative z-10 rounded-t-3xl bg-surface-raised px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-fab">
-            <h2 className="font-display text-xl font-semibold">Log waste</h2>
-            <p className="mt-1 text-sm text-ink-muted">
-              How much of {item.ingredientName} was thrown out?
-            </p>
-            <div className="mt-4">
-              <FieldLabel htmlFor="waste-qty">Amount wasted</FieldLabel>
-              <FieldInput
-                id="waste-qty"
-                value={wasteText}
-                onChange={(e) => setWasteText(e.target.value)}
-                placeholder="e.g. 100 g"
-              />
-              {wasteError ? (
-                <p className="mt-2 text-sm text-critical">{wasteError}</p>
-              ) : null}
-            </div>
-            <div className="mt-4 flex flex-col gap-2">
-              <PrimaryButton onClick={() => void handleWaste()} disabled={busy}>
-                {busy ? 'Saving…' : 'Log waste'}
-              </PrimaryButton>
-              <SecondaryButton onClick={() => setSheet(null)}>Cancel</SecondaryButton>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <Sheet
+        open={sheet === 'waste'}
+        title="Log waste"
+        subtitle={`How much of ${item.ingredientName} was thrown out?`}
+        onClose={() => setSheet(null)}
+        data-testid="app-sheet"
+        footer={
+          <>
+            <PrimaryButton onClick={() => void handleWaste()} disabled={busy}>
+              {busy ? 'Saving…' : 'Log waste'}
+            </PrimaryButton>
+            <SecondaryButton onClick={() => setSheet(null)}>Cancel</SecondaryButton>
+          </>
+        }
+      >
+        <FieldLabel htmlFor="waste-qty">Amount wasted</FieldLabel>
+        <FieldInput
+          id="waste-qty"
+          value={wasteText}
+          onChange={(e) => setWasteText(e.target.value)}
+          placeholder="e.g. 100 g"
+        />
+        {wasteError ? (
+          <p className="mt-2 text-sm text-critical">{wasteError}</p>
+        ) : null}
+      </Sheet>
 
-      {sheet === 'edit' ? (
-        <div className="fixed inset-0 z-40 flex flex-col justify-end">
-          <button
-            type="button"
-            className="absolute inset-0 bg-ink/30"
-            aria-label="Close"
-            onClick={() => setSheet(null)}
-          />
-          <div className="relative z-10 max-h-[90vh] overflow-y-auto rounded-t-3xl bg-surface-raised px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-fab">
-            <h2 className="font-display text-xl font-semibold">Edit details</h2>
-            <div className="mt-4 space-y-3">
-              <div>
-                <FieldLabel htmlFor="edit-loc">Location</FieldLabel>
-                <FieldSelect
-                  id="edit-loc"
-                  value={editLocationId}
-                  onChange={(e) => setEditLocationId(e.target.value)}
-                >
-                  <option value="">Unassigned</option>
-                  {locationSelectOptions(locations).map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </FieldSelect>
-              </div>
-              <div>
-                <FieldLabel htmlFor="edit-par">
-                  Par level (base units: {item.dim === 'mass' ? 'g' : item.dim === 'volume' ? 'ml' : 'each'})
-                </FieldLabel>
-                <FieldInput
-                  id="edit-par"
-                  inputMode="decimal"
-                  value={editPar}
-                  onChange={(e) => setEditPar(e.target.value)}
-                />
-              </div>
-              <div>
-                <FieldLabel htmlFor="edit-thr">Low threshold (%)</FieldLabel>
-                <FieldInput
-                  id="edit-thr"
-                  inputMode="numeric"
-                  value={editThreshold}
-                  onChange={(e) => setEditThreshold(e.target.value)}
-                />
-              </div>
-              <div>
-                <FieldLabel htmlFor="edit-exp">Expiry date</FieldLabel>
-                <FieldInput
-                  id="edit-exp"
-                  type="date"
-                  value={editExpiry}
-                  onChange={(e) => setEditExpiry(e.target.value)}
-                />
-              </div>
-              {editError ? (
-                <p className="text-sm text-critical">{editError}</p>
-              ) : null}
-            </div>
-            <div className="mt-4 flex flex-col gap-2">
-              <PrimaryButton onClick={() => void handleSaveEdit()} disabled={busy}>
-                {busy ? 'Saving…' : 'Save'}
-              </PrimaryButton>
-              <SecondaryButton onClick={() => setSheet(null)}>Cancel</SecondaryButton>
-            </div>
+      <Sheet
+        open={sheet === 'edit'}
+        title="Edit details"
+        onClose={() => setSheet(null)}
+        data-testid="app-sheet"
+        footer={
+          <>
+            <PrimaryButton onClick={() => void handleSaveEdit()} disabled={busy}>
+              {busy ? 'Saving…' : 'Save'}
+            </PrimaryButton>
+            <SecondaryButton onClick={() => setSheet(null)}>Cancel</SecondaryButton>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <FieldLabel htmlFor="edit-loc">Location</FieldLabel>
+            <FieldSelect
+              id="edit-loc"
+              value={editLocationId}
+              onChange={(e) => setEditLocationId(e.target.value)}
+            >
+              <option value="">Unassigned</option>
+              {locationSelectOptions(locations).map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+            </FieldSelect>
           </div>
+          <div>
+            <FieldLabel htmlFor="edit-par">
+              Par level (base units:{' '}
+              {item.dim === 'mass' ? 'g' : item.dim === 'volume' ? 'ml' : 'each'})
+            </FieldLabel>
+            <FieldInput
+              id="edit-par"
+              inputMode="decimal"
+              value={editPar}
+              onChange={(e) => setEditPar(e.target.value)}
+            />
+          </div>
+          <div>
+            <FieldLabel htmlFor="edit-thr">Low threshold (%)</FieldLabel>
+            <FieldInput
+              id="edit-thr"
+              inputMode="numeric"
+              value={editThreshold}
+              onChange={(e) => setEditThreshold(e.target.value)}
+            />
+          </div>
+          <div>
+            <FieldLabel htmlFor="edit-exp">Expiry date</FieldLabel>
+            <FieldInput
+              id="edit-exp"
+              type="date"
+              value={editExpiry}
+              onChange={(e) => setEditExpiry(e.target.value)}
+            />
+          </div>
+          {editError ? (
+            <p className="text-sm text-critical">{editError}</p>
+          ) : null}
         </div>
-      ) : null}
+      </Sheet>
 
       {undo ? (
         <UndoToast

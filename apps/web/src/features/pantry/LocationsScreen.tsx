@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import type { LocationRow } from '../../db/types';
 import { hasActiveRepository, useLocations } from '../../state';
+import { useSheetLifecycle, Z_CLASS } from '../../ui';
 import { Card } from '../../ui/Card';
 import {
   EmptyBlock,
@@ -58,6 +59,53 @@ const ICON_GLYPH: Record<string, string> = {
 };
 
 type FormMode = { kind: 'create' } | { kind: 'edit'; loc: LocationRow } | null;
+
+function DeleteLocationDialog({
+  location,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  location: LocationRow | null;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const open = location != null;
+  useSheetLifecycle(open);
+  if (!location) return null;
+
+  return (
+    <div
+      className={`fixed inset-0 flex items-center justify-center bg-ink/30 p-4 ${Z_CLASS.sheet}`}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-loc-title"
+      data-testid="app-sheet"
+      data-sheet="true"
+    >
+      <Card padding="lg" className="w-full max-w-sm">
+        <h2 id="delete-loc-title" className="font-display text-lg font-semibold">
+          Delete {location.name}?
+        </h2>
+        <p className="mt-2 text-sm text-ink-muted">
+          Items keep their data; they will show as unassigned until you move
+          them.
+        </p>
+        <div className="mt-4 flex flex-col gap-2" data-testid="sheet-footer">
+          <PrimaryButton
+            className="!bg-critical"
+            onClick={onConfirm}
+            disabled={busy}
+          >
+            {busy ? 'Deleting…' : 'Delete'}
+          </PrimaryButton>
+          <SecondaryButton onClick={onCancel}>Cancel</SecondaryButton>
+        </div>
+      </Card>
+    </div>
+  );
+}
 
 /**
  * Locations CRUD — user-defined, one-level nestable, icon + tint.
@@ -409,31 +457,12 @@ export function LocationsScreen() {
         ) : null}
       </Sheet>
 
-      {deleteConfirm ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4">
-          <Card padding="lg" className="w-full max-w-sm">
-            <h2 className="font-display text-lg font-semibold">
-              Delete {deleteConfirm.name}?
-            </h2>
-            <p className="mt-2 text-sm text-ink-muted">
-              Items keep their data; they will show as unassigned until you
-              move them.
-            </p>
-            <div className="mt-4 flex flex-col gap-2">
-              <PrimaryButton
-                className="!bg-critical"
-                onClick={() => void confirmDelete()}
-                disabled={busy}
-              >
-                {busy ? 'Deleting…' : 'Delete'}
-              </PrimaryButton>
-              <SecondaryButton onClick={() => setDeleteConfirm(null)}>
-                Cancel
-              </SecondaryButton>
-            </div>
-          </Card>
-        </div>
-      ) : null}
+      <DeleteLocationDialog
+        location={deleteConfirm}
+        busy={busy}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }

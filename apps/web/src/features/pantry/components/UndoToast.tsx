@@ -1,4 +1,5 @@
 import { cn } from '../../../ui/cn';
+import { Z_CLASS } from '../../../ui/layers';
 
 type UndoToastProps = {
   message: string;
@@ -10,6 +11,7 @@ type UndoToastProps = {
 /**
  * Transient undo affordance after destructive-feeling ledger writes.
  * Undo issues a compensating txn (caller owns that).
+ * z-toast sits above sheets so undo stays reachable after a sheet write.
  */
 export function UndoToast({
   message,
@@ -20,7 +22,8 @@ export function UndoToast({
   return (
     <div
       className={cn(
-        'fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-50 mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-primary px-4 py-3 text-white shadow-fab',
+        'fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-primary px-4 py-3 text-white shadow-fab',
+        Z_CLASS.toast,
         className,
       )}
       role="status"

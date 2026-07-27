@@ -23,7 +23,7 @@ import { RecipeEditPage } from './routes/RecipeEditPage';
 import { RecipesPage } from './routes/RecipesPage';
 import { ScanPage } from './routes/ScanPage';
 import { SettingsPage } from './routes/SettingsPage';
-import { TabBar } from './ui';
+import { TabBar, useSheetLifecycle, useSheetOpenCount, Z_CLASS } from './ui';
 
 /** Tab icons. Kept inline and minimal — the design system owns LeafIcon only. */
 const icon = {
@@ -87,17 +87,29 @@ const ADD_ACTIONS = [
   { to: '/pantry', label: 'Add by hand', hint: 'Search the catalogue' },
 ] as const;
 
-function AddSheet({ onClose }: { onClose: () => void }) {
+function AddSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
+  // Action picker is sheet-like but not the bottom-sheet form chrome —
+  // still participates in presence so the tab bar hides while open.
+  useSheetLifecycle(open);
+  if (!open) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div
+      className={`fixed inset-0 flex items-end justify-center ${Z_CLASS.sheet}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Add"
+      data-testid="app-sheet"
+      data-sheet="true"
+    >
       <button
         type="button"
         aria-label="Close"
         onClick={onClose}
         className="absolute inset-0 bg-ink/30"
       />
-      <div className="relative mb-20 w-full max-w-md px-4">
+      <div className="relative mb-8 w-full max-w-md px-4">
         <div className="overflow-hidden rounded-card bg-surface-raised shadow-card">
           {ADD_ACTIONS.map((a) => (
             <button
@@ -123,6 +135,9 @@ function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [addOpen, setAddOpen] = useState(false);
+  // Hide tab bar + FAB while any sheet is open (counter handles nesting).
+  const sheetOpenCount = useSheetOpenCount();
+  const chromeHidden = sheetOpenCount > 0;
 
   return (
     <div
@@ -144,19 +159,26 @@ function AppShell({ children }: { children: ReactNode }) {
         Fixed (not sticky): sticky only pins after the flex column grows past
         the viewport, so the bar was invisible until the user scrolled to the
         end of content. Fixed keeps it layered over content at all times.
+        z-chrome (40) — sheets use z-sheet (50) and suppress this chrome via
+        sheet-presence rather than fighting z-index alone.
       */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto w-full min-w-0 max-w-md pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
-        <div className="pointer-events-auto">
-          <TabBar
-            tabs={TABS}
-            activeId={activeTabFor(pathname)}
-            onChange={(id) => navigate(id)}
-            onFabClick={() => setAddOpen(true)}
-            fabLabel="Add"
-          />
+      {!chromeHidden ? (
+        <div
+          className={`pointer-events-none fixed inset-x-0 bottom-0 ${Z_CLASS.chrome} mx-auto w-full min-w-0 max-w-md pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]`}
+          data-testid="app-chrome"
+        >
+          <div className="pointer-events-auto">
+            <TabBar
+              tabs={TABS}
+              activeId={activeTabFor(pathname)}
+              onChange={(id) => navigate(id)}
+              onFabClick={() => setAddOpen(true)}
+              fabLabel="Add"
+            />
+          </div>
         </div>
-      </div>
-      {addOpen ? <AddSheet onClose={() => setAddOpen(false)} /> : null}
+      ) : null}
+      <AddSheet open={addOpen} onClose={() => setAddOpen(false)} />
     </div>
   );
 }

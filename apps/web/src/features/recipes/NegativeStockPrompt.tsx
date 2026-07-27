@@ -1,3 +1,4 @@
+import { useSheetLifecycle, Z_CLASS } from '../../ui';
 import { cn } from '../../ui/cn';
 import {
   type CookLineEdit,
@@ -14,6 +15,7 @@ type NegativeStockPromptProps = {
 
 /**
  * SPEC: going negative prompts "still have some?" — never silent clamp.
+ * Keeps own markup; registers with sheet-presence for chrome suppression.
  */
 export function NegativeStockPrompt({
   lines,
@@ -22,6 +24,8 @@ export function NegativeStockPrompt({
   onProceed,
   busy = false,
 }: NegativeStockPromptProps) {
+  useSheetLifecycle(true);
+
   const candidates = candidateIndices
     .map((i) => lines.find((l) => l.index === i))
     .filter((l): l is CookLineEdit => l != null);
@@ -31,7 +35,12 @@ export function NegativeStockPrompt({
       role="alertdialog"
       aria-labelledby="negative-stock-title"
       aria-describedby="negative-stock-desc"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
+      className={cn(
+        'fixed inset-0 flex items-end justify-center bg-ink/40 p-4 sm:items-center',
+        Z_CLASS.sheet,
+      )}
+      data-testid="app-sheet"
+      data-sheet="true"
     >
       <div className="w-full max-w-md rounded-card bg-surface-raised p-5 shadow-card">
         <h2

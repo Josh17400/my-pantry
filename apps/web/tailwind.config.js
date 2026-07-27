@@ -55,6 +55,16 @@ export default {
       minWidth: {
         tap: '2.75rem',
       },
+      /**
+       * Stacking layers — keep in sync with ui/layers.ts Z_INDEX.
+       * chrome (40): tab bar + FAB. sheet (50): modals above chrome.
+       * toast (60): undo / transient above sheets. Do not invent freehand z-*.
+       */
+      zIndex: {
+        chrome: '40',
+        sheet: '50',
+        toast: '60',
+      },
       transitionDuration: {
         DEFAULT: '200ms',
       },

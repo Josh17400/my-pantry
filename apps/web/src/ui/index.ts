@@ -12,11 +12,24 @@ export { Fab } from './Fab';
 export { FreshnessBar } from './FreshnessBar';
 export type { ItemTileProps } from './ItemTile';
 export { ItemTile } from './ItemTile';
+export type { ZLayer } from './layers';
+export { Z_CLASS, Z_INDEX } from './layers';
 export { LeafIcon } from './LeafIcon';
 export { PlaceholderThumb } from './PlaceholderThumb';
 export { Rail } from './Rail';
 export type { SegmentOption } from './SegmentedControl';
 export { SegmentedControl } from './SegmentedControl';
+export type { SheetProps } from './Sheet';
+export { Sheet } from './Sheet';
+export {
+  acquireSheet,
+  getSheetOpenCount,
+  isAnySheetOpen,
+  SHEET_OPEN_BODY_ATTR,
+  useSheetLifecycle,
+  useSheetOpenCount,
+  useSheetPresence,
+} from './sheet-presence';
 export { StatusBadge } from './StatusBadge';
 export { StatusText } from './StatusText';
 export type { TabId, TabItem } from './TabBar';

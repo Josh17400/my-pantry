@@ -4,7 +4,9 @@
  * Companion to verify-interactivity.mjs — layout/shell only, not navigation.
  *
  *   node scripts/verify-chrome.mjs
- * Requires a prior `npm run build` (uses vite preview).
+ * Requires a prior `npm run build` (uses vite preview for static shell routes).
+ * Interactive sheet states run against a short-lived Vite DEV server so the
+ * IndexedDB driver loads fixtures (preview builds skip fixtures by design).
  */
 import { spawn } from 'node:child_process';
 import path from 'node:path';
@@ -14,7 +16,9 @@ import { chromium, devices } from 'playwright';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.resolve(here, '..');
 const PORT = 4322;
+const DEV_PORT = 4323;
 const base = `http://localhost:${PORT}`;
+const devBase = `http://127.0.0.1:${DEV_PORT}`;
 
 /** Simulated Dynamic Island / home-indicator insets (CSS px). */
 const SAFE_TOP = 47;
@@ -290,6 +294,466 @@ async function assertOneFab(page, route) {
 }
 
 /**
+ * While a sheet is open the tab bar and FAB must be gone (not merely under).
+ */
+async function assertTabBarHidden(page, label) {
+  const tab = page.locator('[data-testid="app-tab-bar"]');
+  const count = await tab.count();
+  if (count === 0) {
+    ok(`${label}: tab bar hidden while sheet open`);
+    return;
+  }
+  const visible = await tab.isVisible().catch(() => false);
+  if (!visible) {
+    ok(`${label}: tab bar not visible while sheet open`);
+  } else {
+    fail(`${label}: tab bar still visible while sheet open`);
+  }
+  const fabs = await countVisibleFabs(page);
+  if (fabs === 0) {
+    ok(`${label}: FAB hidden while sheet open`);
+  } else {
+    fail(`${label}: expected 0 FAB while sheet open, found ${fabs}`);
+  }
+}
+
+/**
+ * Hit-test every *actionable* interactive control inside an open sheet.
+ * Band is the full viewport below the simulated status bar — the tab bar is
+ * supposed to be gone, so sheet footer actions at the bottom must still be
+ * free targets (the original product bug).
+ *
+ * Skips: backdrop dimmers, and controls that are mostly clipped out of the
+ * sheet panel (scrolled list rows under a sticky header — not free targets
+ * until the user scrolls, same idea as the route content-band rule).
+ */
+async function assertNoObscuredInSheet(page, label) {
+  const result = await page.evaluate((safeTop) => {
+    const sheet =
+      document.querySelector('[data-sheet="true"]') ||
+      document.querySelector('[data-testid="app-sheet"]') ||
+      document.querySelector('[data-testid="substitution-picker"]') ||
+      document.querySelector('[role="dialog"][aria-modal="true"]') ||
+      document.querySelector('[role="alertdialog"]');
+
+    if (!sheet) {
+      return { missing: true, obscured: [] };
+    }
+
+    // Panel is usually the raised card/column, not the full-screen dimmer.
+    const panel =
+      sheet.querySelector('[data-testid="sheet-footer"]')?.parentElement ||
+      sheet.querySelector('.rounded-t-3xl, .rounded-card, [class*="rounded-t"]') ||
+      sheet;
+
+    const panelRect = panel.getBoundingClientRect();
+    const bandTop = Math.max(safeTop, panelRect.top);
+    // Footer actions are always tested; content whose centre sits in the
+    // footer band is not a free target at the current scroll (same idea as
+    // the route harness skipping the tab-bar band).
+    const footer = sheet.querySelector('[data-testid="sheet-footer"]');
+    const footerTop = footer
+      ? footer.getBoundingClientRect().top
+      : panelRect.bottom;
+    const stickyHeader = panel.querySelector('.sticky');
+    const stickyBottom = stickyHeader
+      ? stickyHeader.getBoundingClientRect().bottom
+      : bandTop;
+    const contentBandTop = Math.max(bandTop, stickyBottom);
+    const contentBandBottom = Math.min(
+      window.innerHeight - 2,
+      panelRect.bottom,
+      footer ? footerTop - 2 : panelRect.bottom,
+    );
+
+    const interactive = Array.from(
+      sheet.querySelectorAll(
+        'a[href], button:not([disabled]), [role="button"], input, select, textarea',
+      ),
+    );
+
+    const obscured = [];
+    let tested = 0;
+    for (const el of interactive) {
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') continue;
+      if (Number(style.opacity) === 0) continue;
+      if (style.pointerEvents === 'none') continue;
+
+      // Full-screen dimmer backdrop — not a primary action; its centre lands
+      // on the panel by design.
+      const aria = el.getAttribute('aria-label') || '';
+      if (
+        aria === 'Close' &&
+        (style.position === 'absolute' || style.position === 'fixed')
+      ) {
+        const rBack = el.getBoundingClientRect();
+        if (rBack.width > window.innerWidth * 0.8) continue;
+      }
+
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) continue;
+
+      const inFooter = footer && footer.contains(el);
+      const inSticky = stickyHeader && stickyHeader.contains(el);
+
+      // Visible intersection with the free content band (or footer/header chrome)
+      let clipTop;
+      let clipBottom;
+      if (inFooter) {
+        clipTop = footer.getBoundingClientRect().top;
+        clipBottom = Math.min(
+          window.innerHeight - 2,
+          footer.getBoundingClientRect().bottom,
+        );
+      } else if (inSticky) {
+        clipTop = Math.max(bandTop, stickyHeader.getBoundingClientRect().top);
+        clipBottom = stickyHeader.getBoundingClientRect().bottom;
+      } else {
+        clipTop = contentBandTop;
+        clipBottom = contentBandBottom;
+      }
+
+      const visTop = Math.max(r.top, clipTop);
+      const visBottom = Math.min(r.bottom, clipBottom);
+      const visLeft = Math.max(r.left, 0);
+      const visRight = Math.min(r.right, window.innerWidth);
+      const visH = visBottom - visTop;
+      const visW = visRight - visLeft;
+      if (visH < 8 || visW < 8) continue;
+      // Mostly clipped out of its free band — not a free target yet
+      if (visH * visW < r.width * r.height * 0.5) continue;
+
+      const cx = visLeft + visW / 2;
+      const cy = visTop + visH / 2;
+      tested += 1;
+
+      const topEl = document.elementFromPoint(cx, cy);
+      if (!topEl) {
+        obscured.push({
+          tag: el.tagName,
+          label: aria || el.textContent?.trim().slice(0, 40) || '',
+          reason: 'elementFromPoint returned null',
+        });
+        continue;
+      }
+      if (el === topEl || el.contains(topEl) || topEl.contains(el)) {
+        continue;
+      }
+
+      // Covering node outside the sheet (tab bar / chrome / page) is the bug class.
+      // In-sheet sticky siblings covering clipped peers already filtered above;
+      // still flag in-sheet covers of mostly-visible targets (true stacking bugs).
+      obscured.push({
+        tag: el.tagName,
+        label: aria || el.textContent?.trim().slice(0, 40) || '',
+        topTag: topEl.tagName,
+        topLabel:
+          topEl.getAttribute?.('aria-label') ||
+          topEl.textContent?.trim().slice(0, 30) ||
+          '',
+        outsideSheet: !sheet.contains(topEl),
+      });
+    }
+    return {
+      missing: false,
+      obscured,
+      interactiveCount: interactive.length,
+      tested,
+      bodyAttr: document.body.getAttribute('data-sheet-open'),
+    };
+  }, SAFE_TOP);
+
+  if (result.missing) {
+    fail(`${label}: sheet root not found for hit-test`);
+    return;
+  }
+  if (result.obscured.length === 0) {
+    ok(
+      `${label}: no obscured sheet controls (${result.tested}/${result.interactiveCount} hit-tested, data-sheet-open=${result.bodyAttr})`,
+    );
+  } else {
+    const sample = result.obscured
+      .slice(0, 4)
+      .map(
+        (o) =>
+          `${o.tag}"${o.label}" under ${o.topTag ?? '?'}("${o.topLabel ?? o.reason}")${o.outsideSheet ? ' [OUTSIDE SHEET]' : ''}`,
+      )
+      .join('; ');
+    fail(
+      `${label}: ${result.obscured.length} obscured sheet control(s) — e.g. ${sample}`,
+    );
+  }
+}
+
+async function openSheetAndAssert(page, label, openFn) {
+  await openFn();
+  await page.waitForTimeout(350);
+  const sheetVisible = await page
+    .locator(
+      '[data-sheet="true"], [data-testid="app-sheet"], [data-testid="substitution-picker"], [role="dialog"][aria-modal="true"]',
+    )
+    .first()
+    .isVisible()
+    .catch(() => false);
+  if (!sheetVisible) {
+    fail(`${label}: sheet did not open`);
+    return false;
+  }
+  await assertTabBarHidden(page, label);
+  await assertNoObscuredInSheet(page, label);
+  return true;
+}
+
+async function closeSheetIfOpen(page) {
+  // Prefer the X / Cancel in the sheet chrome — never the full-screen dimmer
+  // (its centre is under the panel, so Playwright cannot click it).
+  const candidates = [
+    '[data-testid="sub-picker-close"]',
+    '[data-sheet="true"] button[aria-label="Close sheet"]',
+    '[data-testid="sheet-footer"] button:has-text("Cancel")',
+    '[data-sheet="true"] button:has-text("Cancel")',
+  ];
+  for (const sel of candidates) {
+    const btn = page.locator(sel).first();
+    if ((await btn.count()) === 0) continue;
+    if (!(await btn.isVisible().catch(() => false))) continue;
+    await btn.click({ timeout: 5000 }).catch(() => null);
+    await page.waitForTimeout(250);
+    const still = await page
+      .locator('[data-sheet="true"]')
+      .first()
+      .isVisible()
+      .catch(() => false);
+    if (!still) return;
+  }
+  // Last resort: Escape (if a handler exists) or force-hide via body attr cleanup
+  await page.keyboard.press('Escape').catch(() => null);
+  await page.waitForTimeout(150);
+}
+
+/**
+ * Drive real sheet triggers and re-run hit-tests inside open states.
+ * Uses the DEV server so fixtures / catalog / locations are present.
+ */
+async function assertSheetInteractiveStates(browser, iPhone) {
+  const dev = spawn(
+    'npx',
+    ['vite', '--port', String(DEV_PORT), '--strictPort', '--host', '127.0.0.1'],
+    {
+      cwd: webRoot,
+      shell: true,
+      stdio: 'ignore',
+    },
+  );
+
+  try {
+    if (!(await waitForServer(devBase, 60000))) {
+      fail('sheet checks: vite dev server failed to start');
+      return;
+    }
+
+    const ctx = await browser.newContext({
+      ...iPhone,
+      viewport: iPhone.viewport ?? { width: 393, height: 852 },
+    });
+    const page = await ctx.newPage();
+
+    // ── pantry → Add item ────────────────────────────────────────────────
+    await page.goto(`${devBase}/pantry`, {
+      waitUntil: 'networkidle',
+      timeout: 30000,
+    });
+    await page.waitForTimeout(900);
+    await injectSafeAreaSimulation(page);
+
+    const headerAdd = page.locator('[data-testid="pantry-header-add"]');
+    if ((await headerAdd.count()) === 0) {
+      fail('pantry Add item: header Add missing (repo/fixtures not ready?)');
+    } else {
+      const opened = await openSheetAndAssert(
+        page,
+        'pantry Add item (search step)',
+        async () => {
+          await headerAdd.click();
+        },
+      );
+      if (opened) {
+        // Advance to details so the primary "Add to pantry" exists
+        const firstResult = page
+          .locator('[data-sheet="true"] ul button')
+          .first();
+        if ((await firstResult.count()) > 0) {
+          await firstResult.click();
+          await page.waitForTimeout(300);
+          await assertTabBarHidden(page, 'pantry Add item (details step)');
+          await assertNoObscuredInSheet(page, 'pantry Add item (details step)');
+          const primary = page
+            .locator('[data-testid="sheet-footer"] button')
+            .first();
+          if ((await primary.count()) > 0) {
+            const text = ((await primary.textContent()) || '').trim();
+            if (/add to pantry/i.test(text)) {
+              ok(`pantry Add item: primary action present ("${text}")`);
+            } else {
+              ok(
+                `pantry Add item: first footer action "${text}" (hit-tested in sweep)`,
+              );
+            }
+          } else {
+            fail('pantry Add item: sheet footer primary missing on details');
+          }
+        } else {
+          fail('pantry Add item: no catalog result to open details step');
+        }
+        await closeSheetIfOpen(page);
+      }
+    }
+
+    // ── pantry item → Adjust / Recount / Waste / Edit (+ Mark used up btn) ─
+    await page.goto(`${devBase}/pantry`, {
+      waitUntil: 'networkidle',
+      timeout: 25000,
+    });
+    await page.waitForTimeout(800);
+    await injectSafeAreaSimulation(page);
+
+    const row = page.locator('[data-testid="pantry-item-row"]').first();
+    if ((await row.count()) === 0) {
+      fail('pantry item sheets: no pantry rows (fixtures missing)');
+    } else {
+      await row.click();
+      await page.waitForTimeout(600);
+      await injectSafeAreaSimulation(page);
+
+      // Mark used up is not a sheet — still assert it is a free target on the page
+      await assertNoObscuredControls(page, 'pantry item (static, Mark used up band)');
+
+      const sheetTriggers = [
+        { name: 'Adjust', click: () => page.getByRole('button', { name: 'Adjust' }).click() },
+        { name: 'Recount', click: () => page.getByRole('button', { name: 'Recount' }).click() },
+        {
+          name: 'Waste',
+          click: () => page.getByRole('button', { name: /Waste/i }).click(),
+        },
+        {
+          name: 'Edit details',
+          click: () =>
+            page.getByRole('button', { name: 'Edit details' }).click(),
+        },
+      ];
+
+      for (const t of sheetTriggers) {
+        const btn = page.getByRole('button', {
+          name: t.name === 'Waste' ? /Waste/i : t.name,
+        });
+        if ((await btn.count()) === 0) {
+          fail(`pantry item ${t.name}: trigger missing`);
+          continue;
+        }
+        const opened = await openSheetAndAssert(
+          page,
+          `pantry item → ${t.name}`,
+          t.click,
+        );
+        if (opened) {
+          await closeSheetIfOpen(page);
+          await page.waitForTimeout(200);
+        }
+      }
+    }
+
+    // ── locations → add / edit ───────────────────────────────────────────
+    await page.goto(`${devBase}/locations`, {
+      waitUntil: 'networkidle',
+      timeout: 25000,
+    });
+    await page.waitForTimeout(700);
+    await injectSafeAreaSimulation(page);
+
+    const locAdd = page
+      .locator('header button:has-text("Add"), button:has-text("Add a location")')
+      .first();
+    if ((await locAdd.count()) === 0) {
+      fail('locations: Add trigger missing');
+    } else {
+      const opened = await openSheetAndAssert(
+        page,
+        'locations → New location',
+        async () => {
+          await locAdd.click();
+        },
+      );
+      if (opened) await closeSheetIfOpen(page);
+    }
+
+    const editBtn = page.locator('button:has-text("Edit")').first();
+    if ((await editBtn.count()) === 0) {
+      fail('locations → edit: no Edit button (no seeded locations?)');
+    } else {
+      const opened = await openSheetAndAssert(
+        page,
+        'locations → Edit location',
+        async () => {
+          await editBtn.click();
+        },
+      );
+      if (opened) await closeSheetIfOpen(page);
+    }
+
+    // ── cook preview → Substitute ────────────────────────────────────────
+    // Cook route is outside AppShell (no tab bar by design); still assert
+    // the picker hit-tests and body sheet-open attr.
+    const cookPath =
+      '/recipes/fixture-recipe-black-bean-tacos/cook?servings=4';
+    await page.goto(`${devBase}${cookPath}`, {
+      waitUntil: 'networkidle',
+      timeout: 30000,
+    });
+    await page.waitForTimeout(1000);
+
+    const subBtn = page.locator('[data-testid="line-substitute-btn"]').first();
+    if ((await subBtn.count()) === 0) {
+      fail('cook → Substitute: line substitute button missing');
+    } else {
+      await subBtn.click();
+      await page.waitForTimeout(400);
+      const picker = page.locator('[data-testid="substitution-picker"]');
+      if ((await picker.count()) === 0 || !(await picker.isVisible())) {
+        fail('cook → Substitute: picker did not open');
+      } else {
+        ok('cook → Substitute: picker opened');
+        // No shell tab bar on cook — assert absent, then full sheet sweep
+        await assertTabBarHidden(page, 'cook → Substitute');
+        await assertNoObscuredInSheet(page, 'cook → Substitute');
+        await closeSheetIfOpen(page);
+      }
+    }
+
+    // ── shell FAB add sheet (chrome suppress) ────────────────────────────
+    await page.goto(`${devBase}/pantry`, {
+      waitUntil: 'networkidle',
+      timeout: 20000,
+    });
+    await page.waitForTimeout(500);
+    await injectSafeAreaSimulation(page);
+    const fab = page.locator('[data-testid="app-tab-bar"] button[aria-label="Add"]');
+    if ((await fab.count()) > 0) {
+      await openSheetAndAssert(page, 'shell FAB Add sheet', async () => {
+        await fab.click();
+      });
+      await closeSheetIfOpen(page);
+    } else {
+      fail('shell FAB Add: FAB missing before open');
+    }
+
+    await ctx.close();
+  } finally {
+    dev.kill();
+  }
+}
+
+/**
  * Vertical page scroll when the gesture starts over a horizontal rail.
  * Uses CDP touch events so touch-action: pan-x is exercised.
  */
@@ -500,6 +964,9 @@ try {
   } else {
     fail('settings: Reset local data control missing');
   }
+
+  // 6. Interactive sheet states — open real triggers, hide chrome, hit-test
+  await assertSheetInteractiveStates(browser, iPhone);
 
   await browser.close();
 } finally {

@@ -1,0 +1,97 @@
+# BRIEF: Sheets must suppress the tab bar — and the checker must open them
+
+## Context
+
+**The Good Pantry.** Owner, adding an item on a real device:
+
+> *"The bottom menu screen is in the way and the big plus Add symbol is in the way of being
+> able to click Add to entry. So there might be some situations where we actually do need to
+> hide that little bottom area — but not in every situation, just some of them that require
+> clicking a button."*
+
+Reproduced and diagnosed:
+
+- `App.tsx` tab bar wrapper: **`z-40`**
+- `ui/Sheet.tsx` (shared sheet primitive, used by Add Item): **`z-40`**
+- `features/pantry/PantryItemScreen.tsx` inline sheets: **`z-40`** (two)
+- `SubstitutionPicker`, `NegativeStockPrompt`, `LocationsScreen`: `z-50` (these are fine)
+
+**Equal z-index means DOM order decides**, and the tab bar renders after the content — so it
+paints over any `z-40` sheet, covering its primary action. That is why the bug is inconsistent
+rather than universal.
+
+This is the **fourth** instance of one underlying defect: a control exists but the user cannot
+reach it. Previously: cook-confirm under the tab bar, a duplicate FAB, "Log cook" under the tab
+bar. Fix the pattern, not just this instance.
+
+## Scope
+
+`apps/web/src/ui/**`, `apps/web/src/App.tsx`, `apps/web/src/features/pantry/**`, and
+`apps/web/scripts/verify-chrome.mjs`.
+
+**Do NOT touch** `packages/core/**`, `supabase/**`, `native/**`,
+`apps/web/src/features/recipes/**`.
+
+## 1. One sheet mechanism, and it suppresses the tab bar
+
+The owner is right that the bar should hide — layering alone leaves it as noise beneath an
+open sheet and crowds the action button.
+
+- Make **`ui/Sheet.tsx` the single primitive** for modal sheets. Migrate `PantryItemScreen`'s
+  inline `z-40` sheets, and `LocationsScreen`'s, onto it. `SubstitutionPicker` and
+  `NegativeStockPrompt` may keep their own markup but must participate in the mechanism below.
+- While **any** sheet is open: the tab bar and FAB are **hidden** (not merely layered under),
+  and the sheet renders above everything.
+- Implement without prop-drilling through every screen — a small module-level store or a
+  `document.body` data attribute the shell reads is fine. It must handle **nested/stacked**
+  sheets correctly: the bar reappears only when the last one closes. Use a counter, not a
+  boolean.
+- Restore focus and scroll position on close; lock body scroll while open.
+
+Pick z-index values deliberately and **write them down as named constants or Tailwind tokens**
+with a comment, so the next component does not guess and land on 40 again.
+
+## 2. The checker missed this — that is the real failure
+
+`verify-chrome.mjs` hit-tests interactive elements, which is exactly the right idea, and it
+still missed this because **it only tests static routes**. The Add Item sheet does not exist
+until you tap Add, so nothing ever hit-tested its button.
+
+Extend it to **open interactive states and re-run the same assertions inside them**:
+
+- pantry → Add item → assert the sheet's primary action passes the hit test
+- pantry item → Adjust, Recount, Waste, Mark used up → same
+- locations → add/edit location → same
+- cook preview → Substitute → same
+- and assert the **tab bar is hidden** while each is open
+
+Drive them by clicking the real trigger, not by deep-linking — the bug lives in the
+interaction, not the route.
+
+**Generalise it:** after opening each sheet, hit-test *every* visible interactive element in
+it, the same sweep already done for routes. A one-off assertion for Add Item would leave the
+other sheets untested, which is how this class keeps returning.
+
+## Constraints
+
+TypeScript `strict`, no `any`. Mobile-first, 44px targets. No new deps.
+Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+node scripts/verify-chrome.mjs          # from apps/web — must cover the sheet states
+node scripts/verify-interactivity.mjs
+```
+
+279 core + 252 web must stay green.
+
+## Report
+
+`reports/fix-sheet-layering.md`: the z-index scheme and where the constants live, how nesting
+is counted, which components were migrated onto the shared primitive, the new sheet-state
+checks, and **any other obscured control the generalised sweep turned up** — that is the most
+valuable output of this task.
+
+Work continuously; do not stall waiting for input.
