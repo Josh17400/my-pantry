@@ -30,10 +30,13 @@ import {
   DEFAULT_HOUSEHOLD_ID,
   DEFAULT_LOCATION_IDS,
   DEFAULT_USER_ID,
+  LOCATIONS_TREE_VERSION,
   META_FIXTURES_VERSION,
   META_LOCATIONS_SEEDED,
+  META_LOCATIONS_TREE_VERSION,
   META_SEED_VERSION,
 } from '../constants';
+import { DEFAULT_LOCATIONS } from '../default-locations';
 import type { DomainRepository } from '../domain-repository';
 import {
   buildFixtureItems,
@@ -42,6 +45,7 @@ import {
   FIXTURES_VERSION,
 } from '../fixtures';
 import { newId } from '../id';
+import { applyLocationsTreeMigration } from '../locations-migration';
 import {
   type AggregateResult,
   batchValues,
@@ -884,72 +888,6 @@ export class DevDomainRepository {
 
 // ── Seed / fixtures for the plain store ─────────────────────────────────────
 
-const DEFAULT_LOCATIONS: {
-  id: string;
-  name: string;
-  icon: string;
-  tint: string;
-  parentId: string | null;
-  sortOrder: number;
-}[] = [
-  {
-    id: DEFAULT_LOCATION_IDS.fridge,
-    name: 'Fridge',
-    icon: 'fridge',
-    tint: '#6B8F9C',
-    parentId: null,
-    sortOrder: 0,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.pantry,
-    name: 'Pantry',
-    icon: 'pantry',
-    tint: '#C4A574',
-    parentId: null,
-    sortOrder: 1,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.aroundHouse,
-    name: 'Around the House',
-    icon: 'home',
-    tint: '#8B9A7D',
-    parentId: null,
-    sortOrder: 2,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.spices,
-    name: 'Spices',
-    icon: 'spice',
-    tint: '#B85C38',
-    parentId: DEFAULT_LOCATION_IDS.aroundHouse,
-    sortOrder: 3,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.teaCoffee,
-    name: 'Tea & Coffee',
-    icon: 'mug',
-    tint: '#6F4E37',
-    parentId: DEFAULT_LOCATION_IDS.aroundHouse,
-    sortOrder: 4,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.baking,
-    name: 'Baking',
-    icon: 'whisk',
-    tint: '#D4A5A5',
-    parentId: DEFAULT_LOCATION_IDS.aroundHouse,
-    sortOrder: 5,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.household,
-    name: 'Household',
-    icon: 'broom',
-    tint: '#7A8B8B',
-    parentId: DEFAULT_LOCATION_IDS.aroundHouse,
-    sortOrder: 6,
-  },
-];
-
 async function runDevSeed(
   store: DevStore,
   options: { householdId?: string; force?: boolean } = {},
@@ -981,6 +919,35 @@ async function runDevSeed(
       locationsSeeded = true;
     }
 
+    // Fold Around the House → Pantry, ensure Freezer (idempotent via meta).
+    const treeVersion = store.getMeta(META_LOCATIONS_TREE_VERSION);
+    if (treeVersion !== LOCATIONS_TREE_VERSION || options.force) {
+      const migrated = applyLocationsTreeMigration({
+        locations: s.locations,
+        pantryItems: s.pantryItems.map((p) => ({
+          householdId: p.householdId,
+          ingredientId: p.ingredientId,
+          formId: p.formId,
+          locationId: p.locationId,
+        })),
+        householdId,
+      });
+      s.locations = migrated.locations;
+      // Apply locationId remaps onto full pantry rows (migration returns refs only).
+      const locByKey = new Map(
+        migrated.pantryItems.map((p) => [
+          `${p.householdId}:${p.ingredientId}:${p.formId}`,
+          p.locationId,
+        ]),
+      );
+      for (const row of s.pantryItems) {
+        const key = `${row.householdId}:${row.ingredientId}:${row.formId}`;
+        const nextLoc = locByKey.get(key);
+        if (nextLoc !== undefined) row.locationId = nextLoc;
+      }
+      store.setMeta(META_LOCATIONS_TREE_VERSION, LOCATIONS_TREE_VERSION);
+    }
+
     if (previousSeedVersion === SEED_VERSION && !options.force) {
       result = {
         seedVersion: SEED_VERSION,
@@ -990,6 +957,7 @@ async function runDevSeed(
         edgesUpserted: 0,
         packagesUpserted: 0,
         locationsSeeded,
+        locationsTreeVersion: LOCATIONS_TREE_VERSION,
         skippedCatalog: true,
       };
       return;
@@ -1063,6 +1031,7 @@ async function runDevSeed(
       edgesUpserted: seedEdges.length,
       packagesUpserted: seedPackages.length,
       locationsSeeded,
+      locationsTreeVersion: LOCATIONS_TREE_VERSION,
       skippedCatalog: false,
     };
   });

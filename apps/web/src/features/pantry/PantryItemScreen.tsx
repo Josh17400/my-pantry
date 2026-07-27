@@ -3,7 +3,7 @@ import { formatQuantity } from '@larder/core';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import type { LocationRow, PantryItemView } from '../../db/types';
+import type { PantryItemView } from '../../db/types';
 import { getDomainRepository, hasActiveRepository } from '../../state';
 import { useLocations, usePantry } from '../../state';
 import { Card } from '../../ui/Card';
@@ -26,6 +26,7 @@ import {
 } from './components/Sheet';
 import { UndoToast } from './components/UndoToast';
 import { useUndoStack } from './hooks/useUndoStack';
+import { locationSelectOptions } from './lib/filter-group';
 import {
   formatItemQuantity,
   formatRelativeAge,
@@ -561,9 +562,9 @@ export function PantryItemScreen({
                   onChange={(e) => setEditLocationId(e.target.value)}
                 >
                   <option value="">Unassigned</option>
-                  {locations.map((loc: LocationRow) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.parentId ? `↳ ${loc.name}` : loc.name}
+                  {locationSelectOptions(locations).map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
                     </option>
                   ))}
                 </FieldSelect>

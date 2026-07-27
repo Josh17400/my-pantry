@@ -90,16 +90,22 @@ function HomeHeader({ greeting }: { greeting: string }) {
 function GlanceCardView({
   card,
   onClick,
+  className,
 }: {
   card: GlanceCard;
   onClick?: () => void;
+  /** Extra classes for grid span (e.g. Pantry full-width under 2-up). */
+  className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       data-testid={`glance-${card.id}`}
-      className="min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      className={cn(
+        'min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+        className,
+      )}
     >
       <Card
         tint={card.tint}
@@ -117,15 +123,7 @@ function GlanceCardView({
                 : `${card.count} item${card.count === 1 ? '' : 's'}`}
             </div>
           </div>
-          {card.kind === 'favorites' ? (
-            <span className="text-primary" aria-hidden>
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-                <path d="M12 21s-6.5-4.35-9.3-8.2C.8 10.2 1.2 6.8 4 5.2c2.1-1.2 4.4-.5 5.7 1.1L12 8.2l2.3-1.9c1.3-1.6 3.6-2.3 5.7-1.1 2.8 1.6 3.2 5 1.3 7.6C18.5 16.65 12 21 12 21z" />
-              </svg>
-            </span>
-          ) : (
-            <LeafIcon className="h-5 w-5 shrink-0 text-primary/40" />
-          )}
+          <LeafIcon className="h-5 w-5 shrink-0 text-primary/40" />
         </div>
         <div className="mt-2">
           <StatusBadge status={card.status} label={card.statusWord} showDot />
@@ -142,6 +140,11 @@ function AtAGlance({
   cards: GlanceCard[];
   onCardClick: (card: GlanceCard) => void;
 }) {
+  // Three roots (Fridge · Freezer · Pantry): 2-up top row + Pantry spanning
+  // full width so we never leave a ragged empty cell in a 2×2.
+  const usePantrySpan = cards.length === 3;
+  const pantryId = DEFAULT_LOCATION_IDS.pantry;
+
   return (
     <section data-testid="at-a-glance">
       <div className="mb-3 flex items-baseline justify-between gap-3 px-1">
@@ -149,17 +152,26 @@ function AtAGlance({
           At a Glance
         </h2>
         <span className="text-sm font-medium text-ink-muted">
-          {cards.filter((c) => c.kind === 'location').length} locations
+          {cards.length} location{cards.length === 1 ? '' : 's'}
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        {cards.map((card) => (
-          <GlanceCardView
-            key={card.id}
-            card={card}
-            onClick={() => onCardClick(card)}
-          />
-        ))}
+      <div
+        className="grid grid-cols-2 gap-3"
+        data-glance-layout={usePantrySpan ? 'pantry-span' : 'grid'}
+      >
+        {cards.map((card) => {
+          const spanPantry =
+            usePantrySpan &&
+            (card.id === pantryId || /pantry/i.test(card.name));
+          return (
+            <GlanceCardView
+              key={card.id}
+              card={card}
+              className={spanPantry ? 'col-span-2' : undefined}
+              onClick={() => onCardClick(card)}
+            />
+          );
+        })}
       </div>
     </section>
   );
@@ -387,39 +399,37 @@ function HomeEmptyState({ onAddFirst }: { onAddFirst: () => void }) {
         <h2 className="mb-3 px-1 font-display text-xl font-semibold text-ink">
           At a Glance
         </h2>
-        <div className="grid grid-cols-2 gap-3">
+        {/* Empty state: Fridge | Freezer on top, Pantry spanning — same as ready. */}
+        <div
+          className="grid grid-cols-2 gap-3"
+          data-glance-layout="pantry-span"
+        >
           {(
             [
               {
                 name: 'Fridge',
                 tint: 'sky' as const,
                 location: DEFAULT_LOCATION_IDS.fridge,
+                span: false,
+              },
+              {
+                name: 'Freezer',
+                tint: 'sky' as const,
+                location: DEFAULT_LOCATION_IDS.freezer,
+                span: false,
               },
               {
                 name: 'Pantry',
                 tint: 'tan' as const,
                 location: DEFAULT_LOCATION_IDS.pantry,
-              },
-              {
-                name: 'Around the House',
-                tint: 'cream' as const,
-                location: DEFAULT_LOCATION_IDS.aroundHouse,
-              },
-              {
-                name: 'Favorites',
-                tint: 'sage' as const,
-                location: 'favorites',
+                span: true,
               },
             ] as const
           ).map((loc) => (
             <Link
               key={loc.name}
-              to={
-                loc.location === 'favorites'
-                  ? '/pantry?filter=favorites'
-                  : `/pantry?location=${encodeURIComponent(loc.location)}`
-              }
-              className="min-w-0"
+              to={`/pantry?location=${encodeURIComponent(loc.location)}`}
+              className={loc.span ? 'col-span-2 min-w-0' : 'min-w-0'}
             >
               <Card tint={loc.tint} padding="sm" className="min-h-[5rem]">
                 <div className="text-sm font-semibold text-ink">{loc.name}</div>
@@ -466,10 +476,6 @@ export function HomeScreen() {
   };
 
   const onGlanceClick = (card: GlanceCard) => {
-    if (card.kind === 'favorites') {
-      void navigate('/pantry?filter=favorites');
-      return;
-    }
     openPantryLocation(card.id);
   };
 

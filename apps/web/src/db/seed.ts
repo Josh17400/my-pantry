@@ -3,6 +3,7 @@
  *
  * Ingredients / forms / edges / packages come from `@larder/core` seed.
  * Seed version is recorded in `app_meta`; changing SEED_VERSION re-upserts.
+ * Location tree shape is versioned separately (LOCATIONS_TREE_VERSION).
  */
 
 import { DEFAULT_LOW_THRESHOLD_PCT } from '@larder/core';
@@ -20,11 +21,13 @@ import {
 } from '../../../../packages/core/src/seed/index.ts';
 import {
   DEFAULT_HOUSEHOLD_ID,
-  DEFAULT_LOCATION_IDS,
+  LOCATIONS_TREE_VERSION,
   META_LOCATIONS_SEEDED,
   META_SEED_VERSION,
 } from './constants';
+import { DEFAULT_LOCATIONS } from './default-locations';
 import type { AppDatabase } from './domain-repository';
+import { migrateLocationsTree } from './locations-migration';
 import {
   appMeta,
   conversionEdges,
@@ -42,74 +45,9 @@ export type SeedResult = {
   edgesUpserted: number;
   packagesUpserted: number;
   locationsSeeded: boolean;
+  locationsTreeVersion: string;
   skippedCatalog: boolean;
 };
-
-const DEFAULT_LOCATIONS: {
-  id: string;
-  name: string;
-  icon: string;
-  tint: string;
-  parentId: string | null;
-  sortOrder: number;
-}[] = [
-  {
-    id: DEFAULT_LOCATION_IDS.fridge,
-    name: 'Fridge',
-    icon: 'fridge',
-    tint: '#6B8F9C',
-    parentId: null,
-    sortOrder: 0,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.pantry,
-    name: 'Pantry',
-    icon: 'pantry',
-    tint: '#C4A574',
-    parentId: null,
-    sortOrder: 1,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.aroundHouse,
-    name: 'Around the House',
-    icon: 'home',
-    tint: '#8B9A7D',
-    parentId: null,
-    sortOrder: 2,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.spices,
-    name: 'Spices',
-    icon: 'spice',
-    tint: '#B85C38',
-    parentId: DEFAULT_LOCATION_IDS.aroundHouse,
-    sortOrder: 3,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.teaCoffee,
-    name: 'Tea & Coffee',
-    icon: 'mug',
-    tint: '#6F4E37',
-    parentId: DEFAULT_LOCATION_IDS.aroundHouse,
-    sortOrder: 4,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.baking,
-    name: 'Baking',
-    icon: 'whisk',
-    tint: '#D4A5A5',
-    parentId: DEFAULT_LOCATION_IDS.aroundHouse,
-    sortOrder: 5,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.household,
-    name: 'Household',
-    icon: 'broom',
-    tint: '#7A8B8B',
-    parentId: DEFAULT_LOCATION_IDS.aroundHouse,
-    sortOrder: 6,
-  },
-];
 
 async function getMeta(db: AppDatabase, key: string): Promise<string | null> {
   const rows = await db
@@ -133,7 +71,7 @@ async function setMeta(db: AppDatabase, key: string, value: string): Promise<voi
 /**
  * Seed catalog + default locations. Safe on every app start.
  * When `SEED_VERSION` matches `app_meta.seed_version`, catalog upsert is skipped
- * (locations still ensure-exist once).
+ * (locations still ensure-exist once; tree migration still runs if needed).
  */
 export async function runSeed(
   db: AppDatabase,
@@ -163,6 +101,13 @@ export async function runSeed(
     locationsSeeded = true;
   }
 
+  // Reparent / add Freezer / drop Around the House when the tree version is stale.
+  // Fresh seeds insert the current shape; migration still stamps the version.
+  await migrateLocationsTree(db, {
+    householdId,
+    force: options.force,
+  });
+
   if (previousSeedVersion === SEED_VERSION && !options.force) {
     return {
       seedVersion: SEED_VERSION,
@@ -172,6 +117,7 @@ export async function runSeed(
       edgesUpserted: 0,
       packagesUpserted: 0,
       locationsSeeded,
+      locationsTreeVersion: LOCATIONS_TREE_VERSION,
       skippedCatalog: true,
     };
   }
@@ -289,6 +235,7 @@ export async function runSeed(
     edgesUpserted: seedEdges.length,
     packagesUpserted: seedPackages.length,
     locationsSeeded,
+    locationsTreeVersion: LOCATIONS_TREE_VERSION,
     skippedCatalog: false,
   };
 }

@@ -7,6 +7,7 @@ import {
   getCatalogIngredient,
   searchCatalog,
 } from '../lib/catalog';
+import { locationSelectOptions } from '../lib/filter-group';
 import { parseHumanQuantity } from '../lib/qty-input';
 import {
   FieldInput,
@@ -55,6 +56,10 @@ export function AddItemSheet({
   const [error, setError] = useState<string | null>(null);
 
   const results = useMemo(() => searchCatalog(query, 30), [query]);
+  const locationOptions = useMemo(
+    () => locationSelectOptions(locations),
+    [locations],
+  );
 
   const form: CatalogForm | undefined = picked?.forms.find((f) => f.id === formId);
 
@@ -212,13 +217,12 @@ export function AddItemSheet({
               id="add-loc"
               value={locationId}
               onChange={(e) => setLocationId(e.target.value)}
+              data-testid="add-item-location"
             >
               <option value="">Choose…</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.parentId
-                    ? `↳ ${loc.name}`
-                    : loc.name}
+              {locationOptions.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
                 </option>
               ))}
             </FieldSelect>

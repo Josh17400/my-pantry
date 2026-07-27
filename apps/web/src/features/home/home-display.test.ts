@@ -181,3 +181,29 @@ describe('cook-now with demo fixtures', () => {
     }
   });
 });
+
+describe('demo location tree', () => {
+  it('has Fridge, Freezer, Pantry roots and no Around the House / Favorites', () => {
+    const demo = loadDemoHomeData();
+    const roots = demo.locations
+      .filter((l) => l.parentId == null)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    expect(roots.map((r) => r.name)).toEqual(['Fridge', 'Freezer', 'Pantry']);
+    expect(demo.locations.some((l) => /around the house/i.test(l.name))).toBe(
+      false,
+    );
+    expect(demo.locations.some((l) => l.id === 'loc-around-house')).toBe(false);
+    expect(demo.locations.some((l) => l.id === 'loc-freezer')).toBe(true);
+
+    const pantryKids = demo.locations.filter((l) => l.parentId === 'loc-pantry');
+    expect(pantryKids.map((l) => l.name).sort()).toEqual(
+      ['Baking', 'Household', 'Spices', 'Tea & Coffee'].sort(),
+    );
+
+    // Freezer fixtures so the glance card is not empty
+    const freezerItems = demo.items.filter(
+      (i) => i.locationId === 'loc-freezer' && i.qtyBase > 0,
+    );
+    expect(freezerItems.length).toBeGreaterThanOrEqual(4);
+  });
+});

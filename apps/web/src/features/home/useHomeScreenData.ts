@@ -45,8 +45,8 @@ export type GlanceCard = {
   statusWord: string;
   status: StatusBand;
   tint: 'sage' | 'tan' | 'sky' | 'cream';
-  /** Decorative — favorites is virtual */
-  kind: 'location' | 'favorites';
+  /** All glance cards are real locations (Favorites removed). */
+  kind: 'location';
 };
 
 export type HighlightItem = {
@@ -84,6 +84,9 @@ const TINT_CYCLE: ('sage' | 'tan' | 'sky' | 'cream')[] = [
 function locationTint(loc: LocationRow, index: number): 'sage' | 'tan' | 'sky' | 'cream' {
   const t = loc.tint?.toLowerCase();
   if (t === 'sage' || t === 'tan' || t === 'sky' || t === 'cream') return t;
+  // Map seed hex / names onto soft washes (cold roots → sky, pantry → tan)
+  if (/fridge|freezer|refrigerator/i.test(loc.name)) return 'sky';
+  if (/pantry/i.test(loc.name)) return 'tan';
   return TINT_CYCLE[index % TINT_CYCLE.length]!;
 }
 
@@ -158,7 +161,7 @@ function buildGlance(
     .filter((l) => l.parentId == null)
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 
-  // Collapse children into Around the House for the 2×2 mockup cards
+  // Collapse children into parent counts (Pantry includes Spices / Baking / …)
   const childIdsByParent = new Map<string, string[]>();
   for (const loc of locations) {
     if (loc.parentId) {
@@ -199,29 +202,11 @@ function buildGlance(
     idx += 1;
   }
 
-  // Favorites — virtual card (staples with stock > 0)
-  const favorites = items.filter((i) => {
-    if (i.qtyBase <= 0) return false;
-    // Prefer items with recent verification as "loved"
-    return i.unverifiedCookCount === 0 && i.lastVerifiedAt != null;
-  });
-  const favCount = Math.min(favorites.length, items.filter((i) => i.qtyBase > 0).length);
-  cards.push({
-    id: 'favorites',
-    name: 'Favorites',
-    count: favCount,
-    statusWord: favCount > 0 ? 'Loved' : 'Empty',
-    status: favCount > 0 ? 'fresh' : 'low',
-    tint: 'cream',
-    kind: 'favorites',
-  });
-
-  // Keep mockup-shaped 4 cards: Fridge, Pantry, Around the House, Favorites
-  const preferredOrder = [
+  // Preferred order: Fridge · Freezer · Pantry (no Favorites / Around the House)
+  const preferredOrder: readonly string[] = [
     DEFAULT_LOCATION_IDS.fridge,
+    DEFAULT_LOCATION_IDS.freezer,
     DEFAULT_LOCATION_IDS.pantry,
-    DEFAULT_LOCATION_IDS.aroundHouse,
-    'favorites',
   ];
   cards.sort((a, b) => {
     const ai = preferredOrder.indexOf(a.id);
@@ -232,7 +217,7 @@ function buildGlance(
     return ai - bi;
   });
 
-  return cards.slice(0, 4);
+  return cards;
 }
 
 function pickHighlights(

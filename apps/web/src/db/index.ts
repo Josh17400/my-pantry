@@ -36,7 +36,10 @@ export {
   DEFAULT_HOUSEHOLD_ID,
   DEFAULT_LOCATION_IDS,
   DEFAULT_USER_ID,
+  LEGACY_AROUND_HOUSE_ID,
+  LOCATIONS_TREE_VERSION,
 } from './constants';
+export { DEFAULT_LOCATIONS } from './default-locations';
 export { DomainRepository } from './domain-repository';
 export {
   buildFixtureItems,
@@ -44,6 +47,10 @@ export {
   FIXTURES_VERSION,
   generateDevFixtures,
 } from './fixtures';
+export {
+  applyLocationsTreeMigration,
+  migrateLocationsTree,
+} from './locations-migration';
 export { runMigrations } from './migrate';
 export { runSeed, seedCatalogStats } from './seed';
 export type * from './types';

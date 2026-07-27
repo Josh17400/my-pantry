@@ -16,6 +16,7 @@ import { UndoToast } from './components/UndoToast';
 import { VirtualList } from './components/VirtualList';
 import { useUndoStack } from './hooks/useUndoStack';
 import {
+  expandLocationScope,
   filterPantryItems,
   type FlatRow,
   flattenGroups,
@@ -45,7 +46,6 @@ export type PantryScreenProps = {
 export function PantryScreen({ nowMs }: PantryScreenProps) {
   const [searchParams] = useSearchParams();
   const locationFilter = searchParams.get('location');
-  const favoritesOnly = searchParams.get('filter') === 'favorites';
 
   const {
     items,
@@ -81,20 +81,16 @@ export function PantryScreen({ nowMs }: PantryScreenProps) {
     void refresh();
   }, [refresh]);
 
-  // Location ids for a root + its children (Around the House includes spices etc.)
+  // Parent scope includes children (Pantry → Spices / Baking / …)
   const locationScopeIds = useMemo(() => {
     if (!locationFilter) return null;
-    const childIds = locations
-      .filter((l) => l.parentId === locationFilter)
-      .map((l) => l.id);
-    return new Set([locationFilter, ...childIds]);
+    return expandLocationScope(locationFilter, locations);
   }, [locationFilter, locations]);
 
   const locationTitle = useMemo(() => {
-    if (favoritesOnly) return 'Favorites';
     if (!locationFilter) return null;
     return locations.find((l) => l.id === locationFilter)?.name ?? null;
-  }, [favoritesOnly, locationFilter, locations]);
+  }, [locationFilter, locations]);
 
   const filtered = useMemo(() => {
     let pool = items;
@@ -103,16 +99,8 @@ export function PantryScreen({ nowMs }: PantryScreenProps) {
         (i) => i.locationId != null && locationScopeIds.has(i.locationId),
       );
     }
-    if (favoritesOnly) {
-      pool = pool.filter(
-        (i) =>
-          i.qtyBase > 0 &&
-          i.unverifiedCookCount === 0 &&
-          i.lastVerifiedAt != null,
-      );
-    }
     return filterPantryItems(pool, { query, filter, nowMs });
-  }, [items, query, filter, nowMs, locationScopeIds, favoritesOnly]);
+  }, [items, query, filter, nowMs, locationScopeIds]);
 
   const flatRows = useMemo(() => {
     const groups = groupByLocation(filtered, locations);

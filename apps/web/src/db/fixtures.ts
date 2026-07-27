@@ -21,7 +21,8 @@ import type { AppDatabase, DomainRepository } from './domain-repository';
 import { appMeta } from './schema';
 import type { RecipeWrite } from './types';
 
-export const FIXTURES_VERSION = '1.0.0' as const;
+/** Bump when fixture item set / locations change so existing DEV DBs re-seed. */
+export const FIXTURES_VERSION = '1.1.0' as const;
 
 type FixtureItem = {
   ingredientId: string;
@@ -52,6 +53,7 @@ function daysAgo(days: number): string {
  */
 export function buildFixtureItems(): FixtureItem[] {
   const fridge = DEFAULT_LOCATION_IDS.fridge;
+  const freezer = DEFAULT_LOCATION_IDS.freezer;
   const pantry = DEFAULT_LOCATION_IDS.pantry;
   const spices = DEFAULT_LOCATION_IDS.spices;
   const baking = DEFAULT_LOCATION_IDS.baking;
@@ -142,23 +144,6 @@ export function buildFixtureItems(): FixtureItem[] {
       dim: 'count',
     },
     {
-      ingredientId: 'chicken-breast',
-      formId: 'chicken-breast-bulk',
-      locationId: fridge,
-      qtyBase: 450,
-      parLevelBase: 900,
-      expiresAt: daysFromNow(1),
-      dim: 'mass',
-    },
-    {
-      ingredientId: 'ground-beef',
-      formId: 'ground-beef-bulk',
-      locationId: fridge,
-      qtyBase: 0,
-      parLevelBase: 454,
-      dim: 'mass',
-    }, // OUT
-    {
       ingredientId: 'bacon',
       formId: 'bacon-bulk',
       locationId: fridge,
@@ -183,6 +168,48 @@ export function buildFixtureItems(): FixtureItem[] {
       qtyBase: 200,
       parLevelBase: 400,
       expiresAt: daysFromNow(5),
+      dim: 'mass',
+    },
+    {
+      ingredientId: 'ground-beef',
+      formId: 'ground-beef-bulk',
+      locationId: fridge,
+      qtyBase: 0,
+      parLevelBase: 454,
+      dim: 'mass',
+    }, // OUT
+
+    // Freezer — believable frozen staples so the Freezer glance card is populated
+    {
+      ingredientId: 'frozen-peas',
+      formId: 'frozen-peas-bulk',
+      locationId: freezer,
+      qtyBase: 340,
+      parLevelBase: 454,
+      dim: 'mass',
+    },
+    {
+      ingredientId: 'chicken-breast',
+      formId: 'chicken-breast-bulk',
+      locationId: freezer,
+      qtyBase: 900,
+      parLevelBase: 900,
+      dim: 'mass',
+    },
+    {
+      ingredientId: 'frozen-berries',
+      formId: 'frozen-berries-bulk',
+      locationId: freezer,
+      qtyBase: 340,
+      parLevelBase: 454,
+      dim: 'mass',
+    },
+    {
+      ingredientId: 'ice-cream',
+      formId: 'ice-cream-bulk',
+      locationId: freezer,
+      qtyBase: 400,
+      parLevelBase: 800,
       dim: 'mass',
     },
 
@@ -305,7 +332,7 @@ export function buildFixtureItems(): FixtureItem[] {
       dim: 'mass',
     },
 
-    // Baking
+    // Baking (Pantry child)
     {
       ingredientId: 'sugar-brown',
       formId: 'sugar-brown-bulk',
@@ -331,7 +358,7 @@ export function buildFixtureItems(): FixtureItem[] {
       dim: 'mass',
     },
 
-    // Spices
+    // Spices (Pantry child)
     {
       ingredientId: 'salt-kosher',
       formId: 'salt-kosher-bulk',
@@ -382,7 +409,7 @@ export function buildFixtureItems(): FixtureItem[] {
       dim: 'mass',
     },
 
-    // Tea & coffee
+    // Tea & coffee (Pantry child)
     {
       ingredientId: 'coffee-grounds',
       formId: 'coffee-grounds-bulk',
@@ -400,7 +427,7 @@ export function buildFixtureItems(): FixtureItem[] {
       dim: 'count',
     },
 
-    // Around-the-house / household shelf (snack shelf demo)
+    // Household (Pantry child — former Around the House shelf)
     {
       ingredientId: 'granola-bar',
       formId: 'granola-bar-bulk',

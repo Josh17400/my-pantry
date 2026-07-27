@@ -1,0 +1,98 @@
+# BRIEF: Restructure locations — Freezer in, Around the House folded into Pantry
+
+## Context
+
+**The Good Pantry.** Owner request, from walking the app:
+
+> *"Replace Favorites with freezer items, and then Around the House stuff should just be
+> pantry stuff — and then let the drop-down go into the pantry stuff."*
+
+The current tree is Fridge / Pantry / **Around the House** (which parents Spices, Tea & Coffee,
+Baking, Household), plus a **Favorites** card on the home screen.
+
+## Target
+
+```
+Fridge    (root)
+Freezer   (root)   <- new; replaces the Favorites card
+Pantry    (root)
+  ├── Spices          <- reparented from Around the House
+  ├── Tea & Coffee    <- reparented
+  ├── Baking          <- reparented
+  └── Household       <- reparented
+```
+
+**"Around the House" is removed entirely.** Its children become children of Pantry. The
+location dropdown drills into Pantry's children.
+
+## Scope
+
+`apps/web/src/db/**` (seed, constants, migrations, dev driver, fixtures),
+`apps/web/src/features/home/**`, `apps/web/src/features/pantry/**`.
+
+**Do NOT touch** `packages/core/**` (279 tests, read-only), `supabase/**`, `native/**`,
+`apps/web/src/features/recipes/**`.
+
+## What to do
+
+### 1. Seed and constants
+- Add `freezer: 'loc-freezer'` to `DEFAULT_LOCATION_IDS`; pick a tint that reads as cold
+  against the warm palette without breaking it (see `DESIGN.md` — everything is warm-shifted,
+  so a cold tint must be chosen carefully, not grabbed from a generic blue).
+- Remove `aroundHouse`. Reparent Spices / Tea & Coffee / Baking / Household to `loc-pantry`.
+- Sort order: Fridge, Freezer, Pantry, then Pantry's children.
+
+### 2. Migration — existing installs matter here
+The owner's device already has rows referencing `loc-around-house`. A seed change alone leaves
+them orphaned, and items would vanish from every view.
+
+Write a migration that **reparents any location whose parent was `loc-around-house` to
+`loc-pantry`, and moves any pantry item assigned directly to `loc-around-house` into
+`loc-pantry`**, then removes the old location. Bump the seed version so it runs once.
+
+Verify with a test that starts from the OLD shape and ends with no orphans and no lost items.
+
+### 3. Home — At a Glance
+- Cards become **Fridge · Freezer · Pantry**. Favorites is gone.
+- Three cards in what was a 2×2 grid leaves a hole — handle it deliberately (a 3-up row, or
+  2×2 with Pantry spanning). Do not leave a ragged gap.
+- Each card still navigates to its filtered pantry view.
+- The location dropdown lists Fridge, Freezer, Pantry **and Pantry's children**, indented or
+  grouped so the hierarchy is legible. Selecting a child filters to it.
+
+### 4. Pantry screen
+Grouping follows the new tree. A parent's view should include its children's items (opening
+Pantry shows Spices/Baking/etc. items too, grouped) — otherwise items become hard to find and
+the sub-locations feel like separate silos.
+
+### 5. Demo fixtures
+Add believable freezer items (frozen peas, chicken breasts, berries, ice cream) so the Freezer
+card is not empty when walking the app. Move any "around the house" fixture items to Pantry or
+its children.
+
+## Constraints
+
+TypeScript `strict`, no `any`. Mobile-first. No new deps. Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+node scripts/verify-interactivity.mjs   # from apps/web
+node scripts/verify-chrome.mjs
+```
+
+279 core + 244 web must stay green. Update any assertion that names Around the House or
+Favorites — and say in the report which ones you changed and why, so it is clear you did not
+just delete failing checks.
+
+Add tests for: the migration from the old shape, that the dropdown lists Pantry's children,
+and that a parent view includes child items.
+
+## Report
+
+`reports/fix-locations-ia.md`: the new tree, the migration and its test, how the three-card
+layout is handled, the freezer tint choice against the warm palette, which existing assertions
+changed, deviations, and open questions.
+
+Work continuously; do not stall waiting for input.

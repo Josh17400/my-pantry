@@ -22,6 +22,17 @@ export type FlatRow =
   | { kind: 'header'; key: string; title: string; count: number }
   | { kind: 'item'; key: string; item: PantryListItem };
 
+export type LocationSelectOption = {
+  id: string;
+  name: string;
+  /** 0 = root, 1 = child — for indentation / grouping in dropdowns */
+  depth: number;
+  /** Display label with hierarchy (e.g. "  Spices" under Pantry) */
+  label: string;
+  parentId: string | null;
+  sortOrder: number;
+};
+
 export function matchesSearch(item: PantryListItem, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (q === '') return true;
@@ -80,6 +91,75 @@ export function filterPantryItems(
   return items.filter(
     (item) => matchesSearch(item, query) && matchesFilter(item, filter, nowMs),
   );
+}
+
+/**
+ * Hierarchical options for location dropdowns: roots first, then children
+ * indented under each parent so Pantry → Spices / Baking / etc. is legible.
+ */
+export function locationSelectOptions(
+  locations: readonly LocationRow[],
+): LocationSelectOption[] {
+  const roots = locations
+    .filter((l) => l.parentId == null)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+
+  const childrenOf = (parentId: string) =>
+    locations
+      .filter((l) => l.parentId === parentId)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+
+  const options: LocationSelectOption[] = [];
+  for (const root of roots) {
+    options.push({
+      id: root.id,
+      name: root.name,
+      depth: 0,
+      label: root.name,
+      parentId: null,
+      sortOrder: root.sortOrder,
+    });
+    for (const child of childrenOf(root.id)) {
+      options.push({
+        id: child.id,
+        name: child.name,
+        depth: 1,
+        label: `↳ ${child.name}`,
+        parentId: child.parentId,
+        sortOrder: child.sortOrder,
+      });
+    }
+  }
+
+  // Orphans (parent missing from list) — append so nothing is silently dropped
+  const listed = new Set(options.map((o) => o.id));
+  for (const loc of locations) {
+    if (listed.has(loc.id)) continue;
+    options.push({
+      id: loc.id,
+      name: loc.name,
+      depth: loc.parentId ? 1 : 0,
+      label: loc.parentId ? `↳ ${loc.name}` : loc.name,
+      parentId: loc.parentId,
+      sortOrder: loc.sortOrder,
+    });
+  }
+
+  return options;
+}
+
+/**
+ * Scope for a location filter: the location itself plus all direct children.
+ * Opening Pantry therefore includes Spices / Baking / etc. items.
+ */
+export function expandLocationScope(
+  locationId: string,
+  locations: readonly LocationRow[],
+): Set<string> {
+  const childIds = locations
+    .filter((l) => l.parentId === locationId)
+    .map((l) => l.id);
+  return new Set([locationId, ...childIds]);
 }
 
 /**

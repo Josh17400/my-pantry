@@ -286,8 +286,8 @@ export function LocationsScreen() {
 
       <div className="space-y-2 px-4">
         <p className="mb-3 text-sm text-ink-muted">
-          Your places — Fridge, Garage Freezer, Office Drawer. Nest one level
-          under a root (Spices under Around the House).
+          Your places — Fridge, Freezer, Pantry. Nest one level under a root
+          (Spices, Baking, and Household live under Pantry).
         </p>
 
         {loading && locations.length === 0 ? (

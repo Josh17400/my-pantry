@@ -15,6 +15,7 @@ import {
   seedIngredients,
 } from '../../../../../packages/core/src/seed/index.ts';
 import { DEFAULT_HOUSEHOLD_ID, DEFAULT_LOCATION_IDS } from '../../db/constants';
+import { DEFAULT_LOCATIONS } from '../../db/default-locations';
 import { buildFixtureItems } from '../../db/fixtures';
 import type {
   LocationRow,
@@ -28,71 +29,26 @@ function titleCaseIngredient(id: string): string {
   return nameById.get(id) ?? id.replace(/-/g, ' ');
 }
 
-const DEMO_LOCATIONS: LocationRow[] = [
-  {
-    id: DEFAULT_LOCATION_IDS.fridge,
-    householdId: DEFAULT_HOUSEHOLD_ID,
-    name: 'Fridge',
-    icon: 'fridge',
-    tint: 'sky',
-    parentId: null,
-    sortOrder: 0,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.pantry,
-    householdId: DEFAULT_HOUSEHOLD_ID,
-    name: 'Pantry',
-    icon: 'pantry',
-    tint: 'tan',
-    parentId: null,
-    sortOrder: 1,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.aroundHouse,
-    householdId: DEFAULT_HOUSEHOLD_ID,
-    name: 'Around the House',
-    icon: 'house',
-    tint: 'cream',
-    parentId: null,
-    sortOrder: 2,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.spices,
-    householdId: DEFAULT_HOUSEHOLD_ID,
-    name: 'Spices',
-    icon: 'spice',
-    tint: 'sage',
-    parentId: DEFAULT_LOCATION_IDS.aroundHouse,
-    sortOrder: 3,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.teaCoffee,
-    householdId: DEFAULT_HOUSEHOLD_ID,
-    name: 'Tea & Coffee',
-    icon: 'tea',
-    tint: 'cream',
-    parentId: DEFAULT_LOCATION_IDS.aroundHouse,
-    sortOrder: 4,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.baking,
-    householdId: DEFAULT_HOUSEHOLD_ID,
-    name: 'Baking',
-    icon: 'baking',
-    tint: 'tan',
-    parentId: DEFAULT_LOCATION_IDS.aroundHouse,
-    sortOrder: 5,
-  },
-  {
-    id: DEFAULT_LOCATION_IDS.household,
-    householdId: DEFAULT_HOUSEHOLD_ID,
-    name: 'Household',
-    icon: 'household',
-    tint: 'sky',
-    parentId: DEFAULT_LOCATION_IDS.aroundHouse,
-    sortOrder: 6,
-  },
-];
+/** Card tints for demo locations (soft washes, not seed hex). */
+const DEMO_TINT_BY_ID: Record<string, string> = {
+  [DEFAULT_LOCATION_IDS.fridge]: 'sky',
+  [DEFAULT_LOCATION_IDS.freezer]: 'sky',
+  [DEFAULT_LOCATION_IDS.pantry]: 'tan',
+  [DEFAULT_LOCATION_IDS.spices]: 'sage',
+  [DEFAULT_LOCATION_IDS.teaCoffee]: 'cream',
+  [DEFAULT_LOCATION_IDS.baking]: 'tan',
+  [DEFAULT_LOCATION_IDS.household]: 'cream',
+};
+
+const DEMO_LOCATIONS: LocationRow[] = DEFAULT_LOCATIONS.map((loc) => ({
+  id: loc.id,
+  householdId: DEFAULT_HOUSEHOLD_ID,
+  name: loc.name,
+  icon: loc.icon,
+  tint: DEMO_TINT_BY_ID[loc.id] ?? loc.tint,
+  parentId: loc.parentId,
+  sortOrder: loc.sortOrder,
+}));
 
 const LOCATION_NAME: Record<string, string> = Object.fromEntries(
   DEMO_LOCATIONS.map((l) => [l.id, l.name]),

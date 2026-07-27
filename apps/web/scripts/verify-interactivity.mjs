@@ -541,19 +541,14 @@ try {
       'At a Glance Fridge',
     );
     await clickAndExpect(
+      '[data-testid="glance-loc-freezer"]',
+      (p) => p.startsWith('/pantry') && p.includes('location='),
+      'At a Glance Freezer',
+    );
+    await clickAndExpect(
       '[data-testid="glance-loc-pantry"]',
       (p) => p.startsWith('/pantry') && p.includes('location='),
       'At a Glance Pantry',
-    );
-    await clickAndExpect(
-      '[data-testid="glance-loc-around-house"]',
-      (p) => p.startsWith('/pantry') && p.includes('location='),
-      'At a Glance Around the House',
-    );
-    await clickAndExpect(
-      '[data-testid="glance-favorites"]',
-      (p) => p.startsWith('/pantry') && p.includes('filter=favorites'),
-      'At a Glance Favorites',
     );
 
     // Cook-now CTA (may be absent if zero cookable — then skip with note)

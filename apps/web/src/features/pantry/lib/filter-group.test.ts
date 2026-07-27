@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import type { PantryItemView } from '../../../db/types';
 import type { LocationRow } from '../../../db/types';
 import {
+  expandLocationScope,
   filterPantryItems,
   flattenGroups,
   groupByLocation,
+  locationSelectOptions,
   matchesFilter,
   matchesSearch,
 } from './filter-group';
@@ -47,13 +49,40 @@ const locations: LocationRow[] = [
     sortOrder: 0,
   },
   {
+    id: 'loc-freezer',
+    householdId: 'h',
+    name: 'Freezer',
+    icon: 'snowflake',
+    tint: '#5E7A86',
+    parentId: null,
+    sortOrder: 1,
+  },
+  {
     id: 'loc-pantry',
     householdId: 'h',
     name: 'Pantry',
     icon: 'pantry',
     tint: '#C4A574',
     parentId: null,
-    sortOrder: 1,
+    sortOrder: 2,
+  },
+  {
+    id: 'loc-spices',
+    householdId: 'h',
+    name: 'Spices',
+    icon: 'spice',
+    tint: '#B85C38',
+    parentId: 'loc-pantry',
+    sortOrder: 3,
+  },
+  {
+    id: 'loc-baking',
+    householdId: 'h',
+    name: 'Baking',
+    icon: 'whisk',
+    tint: '#D4A5A5',
+    parentId: 'loc-pantry',
+    sortOrder: 5,
   },
 ];
 
@@ -135,5 +164,72 @@ describe('groupByLocation + flatten', () => {
     expect(flat[0]).toMatchObject({ kind: 'header', title: 'Fridge' });
     expect(flat.some((r) => r.kind === 'item')).toBe(true);
     expect(flat.filter((r) => r.kind === 'item')).toHaveLength(2);
+  });
+});
+
+describe('locationSelectOptions', () => {
+  it('lists Fridge, Freezer, Pantry and indents Pantry children', () => {
+    const opts = locationSelectOptions(locations);
+    expect(opts.map((o) => o.name)).toEqual([
+      'Fridge',
+      'Freezer',
+      'Pantry',
+      'Spices',
+      'Baking',
+    ]);
+    expect(opts.find((o) => o.id === 'loc-spices')?.depth).toBe(1);
+    expect(opts.find((o) => o.id === 'loc-spices')?.label).toBe('↳ Spices');
+    expect(opts.find((o) => o.id === 'loc-pantry')?.depth).toBe(0);
+    // Children appear immediately after their parent, not as a flat root list
+    const pantryIdx = opts.findIndex((o) => o.id === 'loc-pantry');
+    const spicesIdx = opts.findIndex((o) => o.id === 'loc-spices');
+    const bakingIdx = opts.findIndex((o) => o.id === 'loc-baking');
+    expect(spicesIdx).toBe(pantryIdx + 1);
+    expect(bakingIdx).toBe(pantryIdx + 2);
+  });
+});
+
+describe('expandLocationScope (parent includes children)', () => {
+  it('includes parent and direct children so Pantry is not a silo', () => {
+    const scope = expandLocationScope('loc-pantry', locations);
+    expect(scope.has('loc-pantry')).toBe(true);
+    expect(scope.has('loc-spices')).toBe(true);
+    expect(scope.has('loc-baking')).toBe(true);
+    expect(scope.has('loc-fridge')).toBe(false);
+    expect(scope.has('loc-freezer')).toBe(false);
+  });
+
+  it('parent filter pool keeps child-located items', () => {
+    const spiceSalt = item({
+      ingredientId: 'salt',
+      ingredientName: 'Salt',
+      locationId: 'loc-spices',
+      locationName: 'Spices',
+    });
+    const pantryOnion = item({
+      ingredientId: 'onion',
+      ingredientName: 'Onion',
+      locationId: 'loc-pantry',
+      locationName: 'Pantry',
+    });
+    const fridgeMilk = item({
+      ingredientId: 'milk',
+      ingredientName: 'Milk',
+      locationId: 'loc-fridge',
+      locationName: 'Fridge',
+      formId: 'milk-liquid',
+    });
+    const scope = expandLocationScope('loc-pantry', locations);
+    const pool = [spiceSalt, pantryOnion, fridgeMilk].filter(
+      (i) => i.locationId != null && scope.has(i.locationId),
+    );
+    expect(pool.map((i) => i.ingredientId).sort()).toEqual(['onion', 'salt']);
+
+    // Grouped view still shows child location headers under a parent filter
+    const groups = groupByLocation(pool, locations);
+    expect(groups.map((g) => g.locationName).sort()).toEqual([
+      'Pantry',
+      'Spices',
+    ]);
   });
 });
