@@ -375,8 +375,16 @@ export function rescaleQuantityForUnitChange(
  * Pick the default unit for the wheel so it matches what the user sees on the row.
  * Uses formatQuantity's preferred unit when it is in the picker set; otherwise
  * scores candidates for readability.
+ *
+ * Count at zero (or empty stock) always defaults to `each` — never `dozen`.
+ * That choice is independent of the formatter so a future format tweak cannot
+ * re-break the Add-item wheel.
  */
 export function pickDefaultUnit(qtyBase: number, dim: Dimension): string {
+  if (dim === 'count' && !(Math.abs(qtyBase) > 0)) {
+    return 'each';
+  }
+
   const units = unitsForDimension(dim);
   const formatted = formatQuantity(qtyBase, dim, {
     locale: 'us',
@@ -416,7 +424,21 @@ function readabilityScore(displayValue: number): number {
 }
 
 /**
- * Seed quantity wheel: Recount from current stock; Adjust / Waste / Add from zero.
+ * First strictly positive step for a unit (Add defaults; 0 stays for Adjust/Waste).
+ */
+export function firstPositiveStep(unit: string): number {
+  const steps = quantityStepsForUnit(unit);
+  for (const s of steps) {
+    if (s > 0) return s;
+  }
+  return 1;
+}
+
+/**
+ * Seed quantity wheel:
+ * - Recount: from current stock when present
+ * - Add: first non-zero step of the default unit (submittable out of the box)
+ * - Adjust / Waste: zero (signed delta default = "no change")
  */
 export function seedPickerSelection(
   mode: PickerMode,
@@ -434,6 +456,14 @@ export function seedPickerSelection(
     const raw = r.ok ? r.value : 0;
     const qty = nearestStep(raw, quantityStepsForUnit(unit));
     return { qty, unit, direction: 'add' };
+  }
+
+  if (mode === 'add') {
+    return {
+      qty: firstPositiveStep(unit),
+      unit,
+      direction: 'add',
+    };
   }
 
   return { qty: 0, unit, direction: mode === 'waste' ? 'remove' : 'add' };

@@ -10,8 +10,10 @@ import {
   type Dimension,
   foldLedger,
   type PantryTxn,
+  seedForms,
+  seedIngredients,
 } from '@larder/core';
-import { and, asc, eq, like, or, sql } from 'drizzle-orm';
+import { and, asc, eq, or, sql } from 'drizzle-orm';
 import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 
 import {
@@ -19,6 +21,10 @@ import {
   DEFAULT_LOCATION_IDS,
 } from './constants';
 import { newId } from './id';
+import {
+  resolveIngredientTitle,
+  seedIngredientName,
+} from './ingredient-display';
 import { parseJsonArray, stringifyJsonArray } from './json';
 import {
   maybeRepairProjectionsOnStartup,
@@ -236,16 +242,31 @@ export class DomainRepository {
 
   // ── Pantry projection ───────────────────────────────────────────────────
 
+  /**
+   * Joined pantry projection select.
+   *
+   * SQL aliases on joined columns are required so object-keyed drivers
+   * (Capacitor SQLite) cannot collapse `ingredients.name` and `locations.name`
+   * into a single `name` key. The native proxy also injects positional
+   * `__gp_N` aliases as a structural backstop — keep these for clarity and
+   * for any path that skips the rewrite.
+   */
+  private pantryItemViewSelect() {
+    return {
+      item: pantryItems,
+      ingredientName: sql<string | null>`${ingredients.name}`.as(
+        'ingredient_name',
+      ),
+      formName: sql<string | null>`${ingredientForms.form}`.as('form_name'),
+      locationName: sql<string | null>`${locations.name}`.as('location_name'),
+    };
+  }
+
   async listPantryItems(
     householdId: string = DEFAULT_HOUSEHOLD_ID,
   ): Promise<PantryItemView[]> {
     const rows = await this.db
-      .select({
-        item: pantryItems,
-        ingredientName: ingredients.name,
-        formName: ingredientForms.form,
-        locationName: locations.name,
-      })
+      .select(this.pantryItemViewSelect())
       .from(pantryItems)
       .leftJoin(ingredients, eq(pantryItems.ingredientId, ingredients.id))
       .leftJoin(ingredientForms, eq(pantryItems.formId, ingredientForms.id))
@@ -253,12 +274,7 @@ export class DomainRepository {
       .where(eq(pantryItems.householdId, householdId))
       .orderBy(asc(ingredients.name));
 
-    return rows.map((r) => ({
-      ...mapPantryItem(r.item),
-      ingredientName: r.ingredientName ?? r.item.ingredientId,
-      formName: r.formName ?? null,
-      locationName: r.locationName ?? null,
-    }));
+    return rows.map((r) => this.toPantryItemView(r));
   }
 
   async listPantryByLocation(
@@ -275,12 +291,7 @@ export class DomainRepository {
     householdId: string = DEFAULT_HOUSEHOLD_ID,
   ): Promise<PantryItemView | null> {
     const rows = await this.db
-      .select({
-        item: pantryItems,
-        ingredientName: ingredients.name,
-        formName: ingredientForms.form,
-        locationName: locations.name,
-      })
+      .select(this.pantryItemViewSelect())
       .from(pantryItems)
       .leftJoin(ingredients, eq(pantryItems.ingredientId, ingredients.id))
       .leftJoin(ingredientForms, eq(pantryItems.formId, ingredientForms.id))
@@ -296,52 +307,113 @@ export class DomainRepository {
 
     const r = rows[0];
     if (!r) return null;
-    return {
-      ...mapPantryItem(r.item),
-      ingredientName: r.ingredientName ?? r.item.ingredientId,
-      formName: r.formName ?? null,
-      locationName: r.locationName ?? null,
-    };
+    return this.toPantryItemView(r);
   }
 
   async searchPantryByName(
     query: string,
     householdId: string = DEFAULT_HOUSEHOLD_ID,
   ): Promise<PantryItemView[]> {
-    const q = `%${query.trim()}%`;
     if (query.trim() === '') {
       return this.listPantryItems(householdId);
     }
-    const rows = await this.db
-      .select({
-        item: pantryItems,
-        ingredientName: ingredients.name,
-        formName: ingredientForms.form,
-        locationName: locations.name,
-      })
-      .from(pantryItems)
-      .innerJoin(ingredients, eq(pantryItems.ingredientId, ingredients.id))
-      .leftJoin(ingredientForms, eq(pantryItems.formId, ingredientForms.id))
-      .leftJoin(locations, eq(pantryItems.locationId, locations.id))
-      .where(
-        and(
-          eq(pantryItems.householdId, householdId),
-          or(like(ingredients.name, q), like(ingredientForms.form, q)),
-        ),
-      )
-      .orderBy(asc(ingredients.name));
+    // Load via list (join + seed fallback) so rows whose catalogue join
+    // misses still surface when the resolved name matches the query.
+    const all = await this.listPantryItems(householdId);
+    const needle = query.trim().toLowerCase();
+    return all.filter(
+      (i) =>
+        i.ingredientName.toLowerCase().includes(needle) ||
+        (i.formName?.toLowerCase().includes(needle) ?? false),
+    );
+  }
 
-    return rows.map((r) => ({
+  private toPantryItemView(r: {
+    item: typeof pantryItems.$inferSelect;
+    ingredientName: string | null;
+    formName: string | null;
+    locationName: string | null;
+  }): PantryItemView {
+    const locationName = r.locationName ?? null;
+    const ingredientName =
+      resolveIngredientTitle({
+        ingredientId: r.item.ingredientId,
+        ingredientName: r.ingredientName,
+        locationName,
+      }) ?? r.item.ingredientId;
+    return {
       ...mapPantryItem(r.item),
-      ingredientName: r.ingredientName ?? r.item.ingredientId,
+      ingredientName,
       formName: r.formName ?? null,
-      locationName: r.locationName ?? null,
-    }));
+      locationName,
+    };
+  }
+
+  /**
+   * Write the seed (or display-name) catalogue row when missing so pantry
+   * joins resolve after manual add on a stale local ingredients table.
+   */
+  private async ensureCatalogRows(
+    ingredientId: string,
+    formId: string,
+    displayName?: string | null,
+  ): Promise<void> {
+    const seedIng = seedIngredients.find((i) => i.id === ingredientId);
+    const name =
+      (displayName && displayName.trim()) ||
+      seedIng?.name ||
+      seedIngredientName(ingredientId) ||
+      ingredientId;
+
+    const existing = await this.db
+      .select({ id: ingredients.id, name: ingredients.name })
+      .from(ingredients)
+      .where(eq(ingredients.id, ingredientId))
+      .limit(1);
+
+    if (existing.length === 0) {
+      await this.db.insert(ingredients).values({
+        id: ingredientId,
+        name,
+        category: seedIng?.category ?? 'other',
+        allergens: JSON.stringify([...(seedIng?.allergens ?? [])]),
+        isStaple: seedIng?.isStaple ?? false,
+        defaultFormId: seedIng?.defaultFormId ?? formId,
+      });
+    } else if (
+      (!existing[0]!.name || existing[0]!.name === ingredientId) &&
+      name !== ingredientId
+    ) {
+      await this.db
+        .update(ingredients)
+        .set({ name })
+        .where(eq(ingredients.id, ingredientId));
+    }
+
+    const formRows = await this.db
+      .select({ id: ingredientForms.id })
+      .from(ingredientForms)
+      .where(eq(ingredientForms.id, formId))
+      .limit(1);
+    if (formRows.length === 0) {
+      const seedForm = seedForms.find((f) => f.id === formId);
+      await this.db.insert(ingredientForms).values({
+        id: formId,
+        ingredientId,
+        form: seedForm?.form ?? 'each',
+        dim: seedForm?.dim ?? 'count',
+        densityGPerMl: seedForm?.densityGPerMl ?? null,
+        gramsPerCount: seedForm?.gramsPerCount ?? null,
+        uncertaintyPct: seedForm?.uncertaintyPct ?? 0,
+      });
+    }
   }
 
   /**
    * Direct projection upsert (metadata / placement). Quantity still should
    * come from the ledger for stock truth; this is for location, par, expiry.
+   * When `ingredientName` is provided, also ensures the local catalogue row
+   * exists so list joins resolve (manual-add path).
    */
   async upsertPantryItem(input: PantryItemUpsert): Promise<PantryItemRow> {
     const now = new Date().toISOString();
@@ -349,6 +421,12 @@ export class DomainRepository {
       input.ingredientId,
       input.formId,
       input.householdId,
+    );
+
+    await this.ensureCatalogRows(
+      input.ingredientId,
+      input.formId,
+      input.ingredientName,
     );
 
     const row = {

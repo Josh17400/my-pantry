@@ -13,52 +13,57 @@ describe('resolvePantryItemDisplayName', () => {
     ).toBe('Whole milk');
   });
 
-  it('never shows a location name as the title', () => {
-    expect(
-      resolvePantryItemDisplayName({
-        ingredientName: 'Fridge',
-        ingredientId: 'milk',
-        locationName: 'Fridge',
-      }),
-    ).toBe('Unknown item');
+  it('falls back to the seed catalog when the join returns a location name', () => {
+    // Domain join mishap / stale row: name equals location.
+    // Seed still knows milk → usable title.
+    const title = resolvePantryItemDisplayName({
+      ingredientName: 'Fridge',
+      ingredientId: 'milk',
+      locationName: 'Fridge',
+    });
+    expect(title).not.toBe('Unknown item');
+    expect(title).not.toBe('Fridge');
+    expect(title.toLowerCase()).toContain('milk');
   });
 
-  it('never shows a raw ingredient id as the title', () => {
-    expect(
-      resolvePantryItemDisplayName({
-        ingredientName: 'all-purpose-flour',
-        ingredientId: 'all-purpose-flour',
-        locationName: 'Pantry',
-      }),
-    ).toBe('Unknown item');
-  });
-
-  it('rejects when the domain fell back to ingredientId', () => {
+  it('falls back to the seed catalog when the domain fell back to the raw id', () => {
+    // ingredient missing from local ingredients table → join used ingredientId
     expect(
       resolvePantryItemDisplayName({
         ingredientName: 'spinach',
         ingredientId: 'spinach',
         locationName: null,
       }),
-    ).toBe('Unknown item');
+    ).toBe('Spinach (fresh)');
   });
 
-  it('rejects uuid-shaped titles', () => {
+  it('falls back to seed when name is empty but id is a known seed ingredient', () => {
     expect(
       resolvePantryItemDisplayName({
-        ingredientName: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-        ingredientId: 'milk',
-        locationName: null,
+        ingredientName: '  ',
+        ingredientId: 'cucumber',
+        locationName: 'Fridge',
+      }),
+    ).toBe('Cucumber');
+  });
+
+  it('still returns Unknown item when every source fails', () => {
+    expect(
+      resolvePantryItemDisplayName({
+        ingredientName: 'not-a-real-ingredient-zzz',
+        ingredientId: 'not-a-real-ingredient-zzz',
+        locationName: 'Pantry',
       }),
     ).toBe('Unknown item');
   });
 
-  it('uses Unknown item when name is empty', () => {
+  it('rejects uuid-shaped titles that are not seed ids', () => {
+    const uuid = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
     expect(
       resolvePantryItemDisplayName({
-        ingredientName: '  ',
-        ingredientId: 'milk',
-        locationName: 'Fridge',
+        ingredientName: uuid,
+        ingredientId: uuid,
+        locationName: null,
       }),
     ).toBe('Unknown item');
   });

@@ -149,6 +149,28 @@ describe('seedPickerSelection', () => {
     expect(s.unit).toBe('lb');
     expect(s.qty).toBeCloseTo(2, 0);
   });
+
+  it("Add mode seeds a submittable quantity in 'each' for count", () => {
+    const s = seedPickerSelection('add', 'count', 0);
+    expect(s.unit).toBe('each');
+    expect(s.qty).toBeGreaterThan(0);
+    expect(s.qty).toBe(1);
+    const outcome = resolvePickerOutcome(s, 'add', 0);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.outcome.qtyBase).toBe(1);
+  });
+
+  it('Waste still seeds at zero', () => {
+    const s = seedPickerSelection('waste', 'count', 6);
+    expect(s.qty).toBe(0);
+  });
+});
+
+describe('pickDefaultUnit — count zero', () => {
+  it("pickDefaultUnit(0, 'count') === 'each'", () => {
+    expect(pickDefaultUnit(0, 'count')).toBe('each');
+  });
 });
 
 describe('resolvePickerOutcome + ledger distinction', () => {

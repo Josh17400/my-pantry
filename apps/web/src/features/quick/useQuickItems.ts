@@ -1,5 +1,8 @@
 /**
  * Quick-consume controller — one-tap tiles, optional qty stepper, undo.
+ *
+ * Tiles are derived from real pantry stock (live) or an explicit demo catalog
+ * when no repository is wired. Consume / undo txn paths are unchanged.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -9,6 +12,7 @@ import {
   DEFAULT_HOUSEHOLD_ID,
   DEFAULT_USER_ID,
 } from '../../db/constants';
+import type { PantryItemView } from '../../db/types';
 import {
   getDomainRepository,
   hasActiveRepository,
@@ -16,12 +20,17 @@ import {
 } from '../../state';
 import { newClientId } from '../grocery/new-id';
 import {
+  buildItems,
+  clampConsumeQty,
+  maxMultiplierForStock,
+} from './derive-items';
+import {
   defaultQuickPrefs,
+  demoQuickPrefs,
   loadQuickPrefs,
   saveQuickPrefs,
-  SUGGESTED_CATALOG,
 } from './prefs';
-import type { QuickConsumeEvent, QuickItem, QuickPrefs } from './types';
+import type { QuickConsumeEvent, QuickItem, QuickPantryLine, QuickPrefs } from './types';
 
 export type QuickScreenState = {
   loading: boolean;
@@ -40,38 +49,20 @@ export type QuickScreenState = {
   refresh: () => void;
   clearError: () => void;
   clearLast: () => void;
+  /** Max multiplier for an item given current stock (live); demo uses 12. */
+  maxMultiplier: (item: QuickItem) => number;
 };
 
-function buildItems(prefs: QuickPrefs): QuickItem[] {
-  const pinnedIds = new Set(prefs.pins.map((p) => p.ingredientId));
-  const pinned: QuickItem[] = prefs.pins.map((p) => ({
-    id: `pin-${p.ingredientId}-${p.formId}`,
-    ingredientId: p.ingredientId,
-    formId: p.formId,
-    name: p.name,
-    defaultQtyBase: p.defaultQtyBase,
-    dim: p.dim,
-    origin: 'pinned' as const,
-    frequency: prefs.frequency[p.ingredientId] ?? 0,
+function toPantryLines(items: PantryItemView[]): QuickPantryLine[] {
+  return items.map((row) => ({
+    ingredientId: row.ingredientId,
+    formId: row.formId,
+    ingredientName: row.ingredientName,
+    formName: row.formName,
+    qtyBase: row.qtyBase,
+    dim: row.dim,
+    updatedAt: row.updatedAt,
   }));
-
-  const suggested: QuickItem[] = SUGGESTED_CATALOG.filter(
-    (s) => !pinnedIds.has(s.ingredientId),
-  )
-    .map((s) => ({
-      id: `sug-${s.ingredientId}-${s.formId}`,
-      ingredientId: s.ingredientId,
-      formId: s.formId,
-      name: s.name,
-      defaultQtyBase: s.defaultQtyBase,
-      dim: s.dim,
-      origin: 'suggested' as const,
-      frequency: prefs.frequency[s.ingredientId] ?? 0,
-    }))
-    .sort((a, b) => b.frequency - a.frequency)
-    .slice(0, 4);
-
-  return [...pinned, ...suggested];
 }
 
 export function useQuickItems(): QuickScreenState {
@@ -87,16 +78,40 @@ export function useQuickItems(): QuickScreenState {
   const [undoBusy, setUndoBusy] = useState(false);
   const [mode, setMode] = useState<'live' | 'demo'>('demo');
 
+  const pantryItems = usePantryStore((s) => s.items);
+
   const refresh = useCallback(() => {
     setLoading(true);
     try {
+      const live = hasActiveRepository();
+      setMode(live ? 'live' : 'demo');
+      if (live) {
+        setPrefs(loadQuickPrefs());
+        void usePantryStore
+          .getState()
+          .load()
+          .then(() => {
+            setError(null);
+            setLoading(false);
+          })
+          .catch((err: unknown) => {
+            setError(err instanceof Error ? err.message : String(err));
+            setLoading(false);
+          });
+        return;
+      }
+      // Demo: load any saved prefs, but if empty fall back to demo fixtures
+      // so design review still has tiles. Never invent pins in live mode.
       const loaded = loadQuickPrefs();
-      setPrefs(loaded);
-      setMode(hasActiveRepository() ? 'live' : 'demo');
+      setPrefs(
+        loaded.pins.length > 0 || Object.keys(loaded.frequency).length > 0
+          ? loaded
+          : demoQuickPrefs(),
+      );
       setError(null);
+      setLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
       setLoading(false);
     }
   }, []);
@@ -105,17 +120,58 @@ export function useQuickItems(): QuickScreenState {
     refresh();
   }, [refresh]);
 
-  const items = useMemo(() => buildItems(prefs), [prefs]);
+  const pantryLines = useMemo(
+    () => toPantryLines(pantryItems),
+    [pantryItems],
+  );
 
-  const setMultiplier = useCallback((itemId: string, mult: number) => {
-    const clamped = Math.max(1, Math.min(12, Math.round(mult)));
-    setQtyMultiplier((prev) => ({ ...prev, [itemId]: clamped }));
-  }, []);
+  const items = useMemo(
+    () => buildItems(mode, prefs, pantryLines),
+    [mode, prefs, pantryLines],
+  );
+
+  const maxMultiplier = useCallback(
+    (item: QuickItem) => {
+      if (mode === 'demo') return 12;
+      if (!item.consumable) return 0;
+      return Math.min(
+        12,
+        maxMultiplierForStock(item.defaultQtyBase, item.stockQtyBase),
+      );
+    },
+    [mode],
+  );
+
+  const setMultiplier = useCallback(
+    (itemId: string, mult: number) => {
+      const item = items.find((i) => i.id === itemId);
+      const cap = item ? maxMultiplier(item) : 12;
+      const upper = Math.max(1, cap);
+      const clamped = Math.max(1, Math.min(upper, Math.round(mult)));
+      setQtyMultiplier((prev) => ({ ...prev, [itemId]: clamped }));
+    },
+    [items, maxMultiplier],
+  );
 
   const consume = useCallback(
     async (item: QuickItem) => {
+      if (!item.consumable) {
+        setError(`${item.name} is out of stock`);
+        return;
+      }
+
       const mult = qtyMultiplier[item.id] ?? 1;
-      const qtyBase = item.defaultQtyBase * mult;
+      const planned = item.defaultQtyBase * mult;
+      const qtyBase =
+        mode === 'demo'
+          ? planned
+          : clampConsumeQty(planned, item.stockQtyBase);
+
+      if (!(qtyBase > 0)) {
+        setError(`Not enough ${item.name} on hand`);
+        return;
+      }
+
       const clientTxnId = newClientId('quick');
       const occurredAt = new Date().toISOString();
       const householdId =
@@ -134,7 +190,9 @@ export function useQuickItems(): QuickScreenState {
             20,
           ),
         };
-        saveQuickPrefs(next);
+        if (hasActiveRepository()) {
+          saveQuickPrefs(next);
+        }
         return next;
       });
 
@@ -203,7 +261,7 @@ export function useQuickItems(): QuickScreenState {
         });
       }
     },
-    [qtyMultiplier],
+    [qtyMultiplier, mode],
   );
 
   const undoLast = useCallback(async () => {
@@ -245,7 +303,9 @@ export function useQuickItems(): QuickScreenState {
             ),
           },
         };
-        saveQuickPrefs(next);
+        if (hasActiveRepository()) {
+          saveQuickPrefs(next);
+        }
         return next;
       });
       setLastConsume(null);
@@ -274,7 +334,9 @@ export function useQuickItems(): QuickScreenState {
           },
         ],
       };
-      saveQuickPrefs(next);
+      if (hasActiveRepository()) {
+        saveQuickPrefs(next);
+      }
       return next;
     });
   }, []);
@@ -285,7 +347,9 @@ export function useQuickItems(): QuickScreenState {
         ...prev,
         pins: prev.pins.filter((p) => p.ingredientId !== item.ingredientId),
       };
-      saveQuickPrefs(next);
+      if (hasActiveRepository()) {
+        saveQuickPrefs(next);
+      }
       return next;
     });
   }, []);
@@ -306,5 +370,6 @@ export function useQuickItems(): QuickScreenState {
     refresh,
     clearError: () => setError(null),
     clearLast: () => setLastConsume(null),
+    maxMultiplier,
   };
 }

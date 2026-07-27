@@ -5,6 +5,8 @@ import { useQuickItems } from './useQuickItems';
 /**
  * Quick-consume screen — one tap from home for non-recipe eating.
  * Undo is mandatory; mis-taps are the common case.
+ *
+ * Tiles come from pantry stock (live) or a labelled demo catalog.
  */
 export function QuickScreen() {
   const q = useQuickItems();
@@ -35,6 +37,7 @@ export function QuickScreen() {
 
   const pinned = q.items.filter((i) => i.origin === 'pinned');
   const suggested = q.items.filter((i) => i.origin === 'suggested');
+  const emptyAll = q.items.length === 0;
   const emptyPins = pinned.length === 0;
 
   return (
@@ -80,56 +83,72 @@ export function QuickScreen() {
       </header>
 
       <div className="flex flex-col gap-6 px-4 py-4">
-        <section aria-label="Pinned quick items">
-          <h2 className="mb-2 font-display text-lg font-semibold text-ink">
-            Pinned
-          </h2>
-          {emptyPins ? (
-            <Card className="py-8 text-center">
-              <p className="font-display text-lg text-ink">No pinned items</p>
-              <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
-                Pin snacks you grab often — yogurt, an apple, eggs — so logging
-                them is one tap from home.
-              </p>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {pinned.map((item) => (
-                <QuickTile
-                  key={item.id}
-                  item={item}
-                  multiplier={q.qtyMultiplier[item.id] ?? 1}
-                  onConsume={() => void q.consume(item)}
-                  onStep={(n) => q.setMultiplier(item.id, n)}
-                  onTogglePin={() => q.unpin(item)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {suggested.length > 0 ? (
-          <section aria-label="Suggested by frequency">
-            <h2 className="mb-2 font-display text-lg font-semibold text-ink">
-              Suggested
-            </h2>
-            <p className="mb-2 text-xs text-ink-muted">
-              Based on how often you log them.
+        {emptyAll ? (
+          <Card className="flex flex-col items-center gap-3 py-10 text-center">
+            <p className="font-display text-xl text-ink">Nothing to quick-eat</p>
+            <p className="max-w-xs text-sm text-ink-muted">
+              Quick eat shows things you have on hand — add items to your pantry
+              first.
             </p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {suggested.map((item) => (
-                <QuickTile
-                  key={item.id}
-                  item={item}
-                  multiplier={q.qtyMultiplier[item.id] ?? 1}
-                  onConsume={() => void q.consume(item)}
-                  onStep={(n) => q.setMultiplier(item.id, n)}
-                  onTogglePin={() => q.pin(item)}
-                />
-              ))}
-            </div>
-          </section>
-        ) : null}
+          </Card>
+        ) : (
+          <>
+            <section aria-label="Pinned quick items">
+              <h2 className="mb-2 font-display text-lg font-semibold text-ink">
+                Pinned
+              </h2>
+              {emptyPins ? (
+                <Card className="py-8 text-center">
+                  <p className="font-display text-lg text-ink">No pinned items</p>
+                  <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
+                    Pin snacks you grab often so logging them is one tap from
+                    home. Only items currently in your pantry can be pinned.
+                  </p>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {pinned.map((item) => (
+                    <QuickTile
+                      key={item.id}
+                      item={item}
+                      multiplier={q.qtyMultiplier[item.id] ?? 1}
+                      maxMultiplier={q.maxMultiplier(item)}
+                      onConsume={() => void q.consume(item)}
+                      onStep={(n) => q.setMultiplier(item.id, n)}
+                      onTogglePin={() => q.unpin(item)}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {suggested.length > 0 ? (
+              <section aria-label="Suggested by frequency">
+                <h2 className="mb-2 font-display text-lg font-semibold text-ink">
+                  Suggested
+                </h2>
+                <p className="mb-2 text-xs text-ink-muted">
+                  {q.mode === 'demo'
+                    ? 'Demo suggestions — not your pantry.'
+                    : 'From your pantry, ordered by how often you log them.'}
+                </p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {suggested.map((item) => (
+                    <QuickTile
+                      key={item.id}
+                      item={item}
+                      multiplier={q.qtyMultiplier[item.id] ?? 1}
+                      maxMultiplier={q.maxMultiplier(item)}
+                      onConsume={() => void q.consume(item)}
+                      onStep={(n) => q.setMultiplier(item.id, n)}
+                      onTogglePin={() => q.pin(item)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </>
+        )}
 
         {/* Interaction cost callout for report / design honesty */}
         <p className={cn('text-center text-[11px] text-ink-muted')}>

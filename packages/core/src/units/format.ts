@@ -166,6 +166,15 @@ export function formatQuantity(
     }
   }
 
+  // Zero of a countable thing is "0 each", never "0 dozen". At zero every
+  // unit scores equally (readability is undefined), so list order alone
+  // would pick dozen first — that is wrong for an empty amount.
+  if (dim === 'count' && Math.abs(baseQty) < 1e-12) {
+    const decimals = decimalsForUncertainty(0, uncertaintyPct, maxDecimals);
+    const num = formatNumber(0, decimals);
+    return `${num} ${unitLabel('each', 0)}`;
+  }
+
   const candidates =
     locale === 'metric' ? METRIC_CANDIDATES[dim] : US_CANDIDATES[dim];
 

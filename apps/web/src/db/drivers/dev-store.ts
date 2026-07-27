@@ -79,6 +79,11 @@ export type PantryItemRec = {
   lastAbsoluteCursor: string | null;
   isNegative: boolean;
   conflict: boolean;
+  /**
+   * Optional denormalized title written at add/upsert time. Used when the
+   * local ingredients catalogue join misses (legacy / pre-seed devices).
+   */
+  ingredientName?: string | null;
 };
 
 export type TxnRec = {

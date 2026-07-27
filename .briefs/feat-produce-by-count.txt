@@ -1,0 +1,88 @@
+# BRIEF: Large produce should be counted, not weighed
+
+## Context
+
+**The Good Pantry.** Owner, from real use:
+
+> *"Bigger fruits and vegetables need to be quantised per fruit/vegetable, not lbs or grams.
+> That would really only apply to like blueberries or grapes — smaller fruits."*
+
+Correct. "1.984 lb of apples" is not how anyone thinks about their kitchen. "4 apples" is. But
+berries genuinely are a weight, so this is a per-ingredient judgement, not a blanket rule.
+
+Read `SPEC.md` (the units section — **form** is a first-class axis) and
+`packages/core/src/seed/`.
+
+## Scope
+
+`packages/core/src/seed/**` and its tests. You may add conversion edges and adjust
+`defaultFormId` / `dim` on produce.
+
+**Do NOT touch** `packages/core/src/units/**`, `src/pantry/**`, `src/recipes/**` (280 tests —
+the conversion machinery is correct and already supports this), `apps/web/**`, `supabase/**`,
+or `native/**`.
+
+## 1. Classify produce by how people actually handle it
+
+**Count** — things you pick up individually: apples, oranges, bananas, lemons, limes, avocados,
+peppers, onions, potatoes, sweet potatoes, cucumbers, zucchini, eggplant, tomatoes (standard,
+not cherry), peaches, pears, mangoes, and heads of lettuce / cabbage / broccoli / cauliflower.
+
+**Weight or volume** — things you scoop or pour: blueberries, raspberries, blackberries,
+strawberries, grapes, cherry tomatoes, peas, green beans, corn kernels, salad greens, spinach.
+
+**Bunch** — where a bunch is the natural unit: herbs, bananas (arguably), celery, kale, chard.
+Keep `bunch` as a form with a **high `uncertaintyPct`** — bunch size varies 2–4× by store and
+season, which `SPEC.md` already calls out.
+
+Ambiguous cases exist (carrots, garlic, mushrooms). **Use judgement and list every call you
+made in the report**, with the ones you were unsure about marked. A documented judgement is
+useful; a silent one is not.
+
+## 2. Counting must not break the weight relationship — this is the important part
+
+Potatoes are bought as a 5 lb bag and cooked as "two potatoes". Both must work:
+
+- every count-default produce item needs an accurate **`gramsPerCount`** so
+  `5 lb → ~13 potatoes` and `2 potatoes → ~340 g` both resolve
+- **cite the source** for each weight (USDA FoodData Central medium sizes preferred). Do not
+  invent plausible-looking numbers — a wrong gramsPerCount silently corrupts inventory in both
+  directions
+- give genuinely variable items an honest `uncertaintyPct` rather than false precision
+- keep a mass form available on these ingredients so a receipt line in pounds still resolves
+
+## 3. Existing installs
+
+Changing `defaultFormId` on a seeded ingredient can strand pantry rows that reference the old
+form. Bump the seed version and make sure an upgrading device keeps its items — the locations
+migration (`migrateLocationsTree`) is the pattern to follow.
+
+**If a migration is needed, say so clearly in the report** — the app-side migration is a
+separate track and needs to know.
+
+## Constraints
+
+TypeScript `strict`, no `any`. No new dependencies. Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+```
+
+285 core + 313 web must stay green, and the existing seed validator must still pass (no
+dangling form ids, densities in a sane band, every ingredient has a usable form).
+
+Tests to add:
+- apples/onions/potatoes default to a **count** form; berries and grapes default to **mass**
+- round-trip: `5 lb potatoes → count → grams` returns to ~5 lb within tolerance
+- a recipe line of "2 potatoes" resolves against a pantry holding potatoes bought by weight
+- bunch-based items carry a high uncertainty rather than a precise fiction
+
+## Report
+
+`reports/feat-produce-by-count.md`: the full classification table (count / weight / bunch),
+**every gramsPerCount with its source**, the calls you were unsure about, whether a migration
+is required, and any ingredient where the right answer genuinely depends on the recipe.
+
+Work continuously; do not stall waiting for input.

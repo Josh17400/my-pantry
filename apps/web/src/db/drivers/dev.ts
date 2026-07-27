@@ -45,6 +45,10 @@ import {
   FIXTURES_VERSION,
 } from '../fixtures';
 import { newId } from '../id';
+import {
+  resolveIngredientTitle,
+  seedIngredientName,
+} from '../ingredient-display';
 import { applyLocationsTreeMigration } from '../locations-migration';
 import {
   maybeRepairProjectionsWithMeta,
@@ -300,12 +304,69 @@ export class DevDomainRepository {
     const loc = item.locationId
       ? this.s.locations.find((l) => l.id === item.locationId)
       : undefined;
+    const locationName = loc?.name ?? null;
+    // Join → denormalized write-time name → seed catalog → raw id.
+    const ingredientName =
+      resolveIngredientTitle({
+        ingredientId: item.ingredientId,
+        ingredientName: ing?.name ?? item.ingredientName ?? null,
+        locationName,
+      }) ?? item.ingredientId;
     return {
       ...mapPantryItem(item),
-      ingredientName: ing?.name ?? item.ingredientId,
+      ingredientName,
       formName: form?.form ?? null,
-      locationName: loc?.name ?? null,
+      locationName,
     };
+  }
+
+  /**
+   * Ensure the local ingredients/forms tables carry the seed row this pantry
+   * item depends on. Manual-add searches the in-memory seed catalog; display
+   * joins the local table — without this write, a pre-1.1.0 device can store
+   * a row whose name never resolves.
+   */
+  private ensureCatalogRows(
+    ingredientId: string,
+    formId: string,
+    displayName?: string | null,
+  ): void {
+    const seedIng = seedIngredients.find((i) => i.id === ingredientId);
+    const name =
+      (displayName && displayName.trim()) ||
+      seedIng?.name ||
+      seedIngredientName(ingredientId) ||
+      ingredientId;
+
+    const existingIng = this.s.ingredients.find((i) => i.id === ingredientId);
+    if (!existingIng) {
+      this.s.ingredients.push({
+        id: ingredientId,
+        name,
+        category: seedIng?.category ?? 'other',
+        allergens: JSON.stringify([...(seedIng?.allergens ?? [])]),
+        isStaple: seedIng?.isStaple ?? false,
+        defaultFormId: seedIng?.defaultFormId ?? formId,
+      });
+    } else if (
+      (!existingIng.name || existingIng.name === ingredientId) &&
+      name !== ingredientId
+    ) {
+      existingIng.name = name;
+    }
+
+    if (!this.s.forms.some((f) => f.id === formId)) {
+      const seedForm = seedForms.find((f) => f.id === formId);
+      this.s.forms.push({
+        id: formId,
+        ingredientId,
+        form: seedForm?.form ?? 'each',
+        dim: seedForm?.dim ?? 'count',
+        densityGPerMl: seedForm?.densityGPerMl ?? null,
+        gramsPerCount: seedForm?.gramsPerCount ?? null,
+        uncertaintyPct: seedForm?.uncertaintyPct ?? 0,
+      });
+    }
   }
 
   async listPantryItems(
@@ -363,6 +424,28 @@ export class DevDomainRepository {
       input.formId,
       input.householdId,
     );
+    const existingRec = this.s.pantryItems.find(
+      (p) =>
+        p.householdId === input.householdId &&
+        p.ingredientId === input.ingredientId &&
+        p.formId === input.formId,
+    );
+
+    // Persist the human name on the row and ensure the catalogue join target
+    // exists — manual-add previously dropped the name after the toast.
+    if (input.ingredientName || input.ingredientId) {
+      this.ensureCatalogRows(
+        input.ingredientId,
+        input.formId,
+        input.ingredientName,
+      );
+    }
+
+    const cachedName =
+      (input.ingredientName && input.ingredientName.trim()) ||
+      existingRec?.ingredientName ||
+      seedIngredientName(input.ingredientId) ||
+      null;
 
     const row: PantryItemRec = {
       householdId: input.householdId,
@@ -399,6 +482,7 @@ export class DevDomainRepository {
       lastAbsoluteCursor: existing?.lastAbsoluteCursor ?? null,
       isNegative: input.qtyBase < 0,
       conflict: existing?.conflict ?? false,
+      ingredientName: cachedName,
     };
 
     const idx = this.s.pantryItems.findIndex(
@@ -489,6 +573,12 @@ export class DevDomainRepository {
     const dim: Dimension = form ? asDim(form.dim) : 'mass';
 
     const existing = await this.getPantryItem(ingredientId, formId, householdId);
+    const existingRec = this.s.pantryItems.find(
+      (p) =>
+        p.householdId === householdId &&
+        p.ingredientId === ingredientId &&
+        p.formId === formId,
+    );
     const now = new Date().toISOString();
 
     const row: PantryItemRec = {
@@ -509,6 +599,11 @@ export class DevDomainRepository {
       lastAbsoluteCursor: fold.lastAbsoluteCursor,
       isNegative: fold.isNegative,
       conflict: fold.conflict,
+      // Preserve denormalized title across ledger folds.
+      ingredientName:
+        existingRec?.ingredientName ??
+        seedIngredientName(ingredientId) ??
+        null,
     };
 
     const idx = this.s.pantryItems.findIndex(

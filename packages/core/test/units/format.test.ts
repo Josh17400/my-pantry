@@ -35,6 +35,20 @@ describe('formatQuantity — US retail defaults', () => {
     const s = formatQuantity(24, 'count');
     expect(s).toMatch(/2\s*dozen/);
   });
+
+  it('count at zero is "0 each", never "0 dozen"', () => {
+    expect(formatQuantity(0, 'count')).toBe('0 each');
+    expect(formatQuantity(0, 'count', { locale: 'us', uncertaintyPct: 0 })).toBe(
+      '0 each',
+    );
+    expect(formatQuantity(0, 'count', { locale: 'metric' })).toBe('0 each');
+  });
+
+  it('mass/volume at zero pick a deliberate US retail unit (not accidental)', () => {
+    // lb / cup win list order at equal zero scores — intentional retail defaults.
+    expect(formatQuantity(0, 'mass', { locale: 'us' })).toMatch(/0\s*lb/);
+    expect(formatQuantity(0, 'volume', { locale: 'us' })).toMatch(/0\s*cups?/);
+  });
 });
 
 describe('formatQuantity — never more precision than uncertainty justifies', () => {

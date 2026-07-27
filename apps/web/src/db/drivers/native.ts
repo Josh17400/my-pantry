@@ -27,14 +27,34 @@ import {
   type PantryRepository,
   type VerifyResult,
 } from '../repository';
-import { type AppSchema,healthProbe, schema } from '../schema';
+import { type AppSchema, healthProbe, schema } from '../schema';
 import { runSeed, type SeedResult } from '../seed';
+import {
+  normalizeProxyRows,
+  prepareProxySelect,
+} from './native-proxy-rows';
 
 const DB_NAME = 'good-pantry';
 const DB_VERSION = 1;
 const BATCH_SIZE = 1000;
 
 type DrizzleDb = SqliteRemoteDatabase<AppSchema>;
+
+/**
+ * Minimal surface of Capacitor SQLiteDBConnection used by the proxy.
+ * Exported so tests can inject a fake that returns object-keyed rows.
+ */
+export type ProxySqliteConnection = {
+  run(
+    statement: string,
+    values?: unknown[],
+    transaction?: boolean,
+  ): Promise<unknown>;
+  query(
+    statement: string,
+    values?: unknown[],
+  ): Promise<{ values?: unknown[] }>;
+};
 
 let sharedConnection: SQLiteConnection | null = null;
 
@@ -49,8 +69,12 @@ function getSqliteConnection(): SQLiteConnection {
  * Map Drizzle sqlite-proxy calls onto a Capacitor SQLiteDBConnection.
  * Proxy contract: return { rows } as array-of-arrays for SELECT-style methods;
  * empty rows for run.
+ *
+ * Before querying, SELECT lists are rewritten with unique positional aliases so
+ * Capacitor row objects cannot collapse duplicate bare column names (the
+ * "Fridge" pantry bug). See `native-proxy-rows.ts`.
  */
-function createProxyDb(conn: SQLiteDBConnection): DrizzleDb {
+export function createProxyDb(conn: ProxySqliteConnection): DrizzleDb {
   return drizzle(
     async (sqlText, params, method) => {
       const values = params as unknown[];
@@ -60,19 +84,11 @@ function createProxyDb(conn: SQLiteDBConnection): DrizzleDb {
         return { rows: [] };
       }
 
-      // 'all' | 'values' — Drizzle expects rows as unknown[][]
-      const result = await conn.query(sqlText, values);
+      // 'all' | 'values' | 'get' — Drizzle expects positional value arrays.
+      const prepared = prepareProxySelect(sqlText);
+      const result = await conn.query(prepared.sql, values);
       const raw = result.values ?? [];
-      const rows: unknown[][] = raw.map((row) => {
-        if (Array.isArray(row)) {
-          return row as unknown[];
-        }
-        // Capacitor sometimes returns row objects; normalize to ordered values.
-        if (row !== null && typeof row === 'object') {
-          return Object.values(row as Record<string, unknown>);
-        }
-        return [row];
-      });
+      const rows = normalizeProxyRows(sqlText, raw, prepared.columnCount);
       return { rows };
     },
     { schema },

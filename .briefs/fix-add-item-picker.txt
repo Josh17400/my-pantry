@@ -1,0 +1,149 @@
+# BRIEF: Adding an item by hand is broken three ways
+
+## Context
+
+**The Good Pantry** — `C:\Users\joshu\Documents\Larder`. Owner report, real device:
+
+> *"I added a cucumber to my fridge and then I went to pantry and instead of saying cucumber
+> it just says French... When I go to pantry and I click fridge which should say cucumber, I
+> click fridge and it just says one each but it doesn't say what it is, and then it says
+> purchased 11 minutes ago one each."*
+
+I have already reproduced and root-caused two of the three faults. **Do not re-litigate the
+diagnosis — it is confirmed by a Playwright repro.** Fix what is described, then chase the
+third.
+
+Repro script: `apps/web/scripts/repro-add-cucumber.mjs` (`node apps/web/scripts/repro-add-cucumber.mjs`
+from the repo root). It boots vite, opens Add item, searches, picks, dials, submits, and dumps
+both the rendered rows and the IndexedDB records. Use it; extend it; keep it working.
+
+## Fault 1 — the Add quantity wheel seeds at zero, so "Add to pantry" refuses
+
+`apps/web/src/features/pantry/lib/picker-wheels.ts`, `seedPickerSelection()` returns
+`{ qty: 0, ... }` for `mode: 'add'`. `AddItemSheet.submit()` then fails the
+`qtyOutcome.qtyBase <= 0` guard and renders *"Quantity must be greater than zero"* in a
+small `role="alert"` under the fold.
+
+Confirmed output from the repro:
+
+```
+!! submit error: ["Quantity must be greater than zero"]
+matching stored rows: []
+```
+
+So the default state of the Add sheet is one that cannot be submitted. That is the bug: a
+first-time user taps Add to pantry, nothing visibly happens, and no item is created.
+
+**Fix:** `mode: 'add'` must seed to a sensible non-zero quantity — the first non-zero step of
+the seeded unit (`quantityStepsForUnit`), so `each → 1`, and mass/volume land on their first
+real step rather than 0. Leave `adjust` and `waste` seeding at 0 (a signed delta defaulting to
+"no change" is correct); `recount` already seeds from current stock.
+
+If a zero quantity remains reachable, the submit error must be visible where the user is
+looking — but the primary fix is that the default is valid.
+
+## Fault 2 — the count dimension defaults to "dozen", so one cucumber becomes twelve
+
+This one silently corrupts inventory and is the more serious of the two.
+
+```
+formatQuantity(0, 'count', { locale: 'us', uncertaintyPct: 0 })  ===  "0 dozen"
+pickDefaultUnit(0, 'count')                                       ===  "dozen"
+seedPickerSelection('add', 'count', 0)  === { qty: 0, unit: "dozen", direction: "add" }
+```
+
+Repro, end to end: pick Cucumber → dial the quantity wheel to **1** → the preview reads
+**"Adding 1 dozen of Cucumber"** → the stored row is `qtyBase: 12`.
+
+Two layers, and **both** are wrong:
+
+1. `formatQuantity(0, 'count')` in `packages/core` returning `"0 dozen"`. Zero of a countable
+   thing is "0 each". Nothing is ever naturally expressed as "0 dozen". Find why the formatter
+   selects the larger unit at zero and fix it there. Check the same class of error at zero for
+   mass and volume while you are in it — and note that `pickDefaultUnit(0, 'mass') === 'lb'`
+   and `pickDefaultUnit(0, 'volume') === 'cup'`, which are defensible for a US locale but
+   should be a deliberate choice, not an accident of the same code path.
+2. `pickDefaultUnit` in `picker-wheels.ts` inheriting it. Its fallback scoring loop gives
+   `readabilityScore(0) === 1000` for every unit, so the tie is decided by whatever
+   `formatQuantity` said. Make the zero case explicit rather than emergent: for `count`,
+   default to `each`, always.
+
+`each` must be the count default in the picker regardless of what the formatter returns. Fix
+the formatter *and* make the picker not depend on it.
+
+## Fault 3 — a pantry row that renders with no name ("one each", no title)
+
+**I could not reproduce this on a fresh catalogue** — on seed `1.1.0` the cucumber row renders
+correctly as "Cucumber". Reported honestly so you do not waste time assuming it is proven:
+
+```
+catalogue: 374 ingredients, seed_version=1.1.0
+  cucumber row: {"id":"cucumber","name":"Cucumber",...,"defaultFormId":"cucumber-each"}
+```
+
+The display path is `resolvePantryItemDisplayName()` in
+`apps/web/src/features/pantry/components/PantryItemRow.tsx`. It deliberately returns the
+string **`"Unknown item"`** when the catalogue join misses (name absent, name equal to the
+ingredient id, name equal to the location name, or a raw slug/uuid). The owner describing a row
+that "doesn't say what it is" is consistent with `"Unknown item"` being rendered.
+
+The join happens in two places and both fall back to the raw id:
+- `apps/web/src/db/drivers/dev.ts:305` — `ingredientName: ing?.name ?? item.ingredientId`
+- `apps/web/src/db/domain-repository.ts:258,301,336` — `r.ingredientName ?? r.item.ingredientId`
+
+**Your job:** reproduce it against *legacy device state*, not a fresh seed. The owner's install
+predates `SEED_VERSION 1.1.0`. Construct a snapshot the way a real upgrading device would look
+— pantry rows referencing ingredient ids that are absent from, or stale in, the local
+`ingredients` table — and find the path where a freshly added item lands with an unresolvable
+name. Then fix the cause.
+
+Specifically worth checking:
+- does the manual-add path write the `ingredients` catalogue row it depends on, or does it
+  assume seeding already did?
+- `AddItemSheet` passes `ingredientName: picked.name` to `onConfirm` — **is that name actually
+  persisted anywhere**, or is it dropped, leaving display wholly dependent on the join? The
+  IndexedDB records carry no `ingredientName` field at all. If the name is dropped, persisting
+  it on the pantry row is the robust fix: the row then renders correctly even when the
+  catalogue is stale.
+- does a `SEED_VERSION` bump re-upsert the catalogue on an existing install, and does that path
+  actually run on device?
+
+Also related, same report: the owner said the row read **"French"**. The only "French" in the
+entire codebase is the alias `FRENCH FRIES` / name `"Frozen french fries"` on `frozen-fries`
+(`packages/core/src/seed/categories/frozen.ts:59`). Work out how a cucumber add could surface
+that string — or establish that it cannot, and say so plainly in the report. A confident
+"cannot happen, here is why" is a fine answer; a guess is not.
+
+## Constraints
+
+TypeScript `strict`, no `any`. No new dependencies. **Create no git commits.** Do not touch
+`supabase/**` or `native/**`. Do not change the ledger semantics in `packages/core/src/pantry/`
+— relative vs absolute txn handling is correct and heavily tested.
+
+## Verification — run these yourself before reporting done
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+node apps/web/scripts/repro-add-cucumber.mjs
+```
+
+The repro must end with a cucumber row stored at `qtyBase: 1`, `dim: count`, and rendered as
+**"Cucumber  1 each"** — not 12, not "Unknown item".
+
+Add regression tests:
+- `seedPickerSelection('add', 'count', 0)` yields a submittable quantity in `each`
+- `formatQuantity(0, 'count')` is not "0 dozen"
+- `pickDefaultUnit(0, 'count') === 'each'`
+- a pantry row whose ingredient is missing from the local catalogue still renders a usable
+  title (whatever mechanism you choose to guarantee that)
+
+Existing suites must stay green: core and web. Report the counts you actually observed.
+
+## Report
+
+`reports/fix-add-item-picker.md`: what you changed and why, the before/after of the repro, your
+finding on fault 3 including the "French" question, and anything you found adjacent that is
+broken but out of scope — list it, do not fix it silently.
+
+Work continuously; do not stall waiting for input. If you hit a genuine ambiguity, state it in
+the report and proceed with your best judgement, flagged.

@@ -136,6 +136,9 @@ export function PantryScreen({ nowMs }: PantryScreenProps) {
         dim: input.dim,
         parLevelBase: previous?.parLevelBase ?? input.qtyBase,
         lowThresholdPct: previous?.lowThresholdPct ?? DEFAULT_LOW_THRESHOLD_PCT,
+        // Persist the catalog title on the pantry row so list UI still works
+        // when the local ingredients join is stale or missing.
+        ingredientName: input.ingredientName,
       });
 
       const txn = buildPurchaseTxn(

@@ -1,0 +1,137 @@
+# BRIEF: Native SQLite driver mis-maps every joined query — pantry items are named "Fridge"
+
+## Context
+
+**The Good Pantry** — `C:\Users\joshu\Documents\Larder`. Owner report from the device build:
+
+> *"I added a cucumber to my fridge and then I went to pantry and instead of saying cucumber it
+> just says Fridge... When I go to pantry and I click fridge, it just says one each but it
+> doesn't say what it is, and then it says purchased 11 minutes ago one each."*
+
+This is the same "fridge on repeat" fault reported back on v5/v6 that was never actually fixed —
+only papered over with a display-layer guard that cannot fire. **The root cause is now known and
+proven.** Do not re-diagnose it. Implement the fix.
+
+It is **native-only**. The IndexedDB dev driver (`apps/web/src/db/drivers/dev.ts`) builds its
+view objects by hand and is unaffected, which is why this never reproduces in a browser.
+
+## The root cause, proven
+
+`DomainRepository.listPantryItems()` (`apps/web/src/db/domain-repository.ts:242`) emits this SQL
+via Drizzle — I dumped it with `.toSQL()`:
+
+```sql
+select "pantry_items"."household_id", ... , "pantry_items"."conflict",
+       "ingredients"."name", "ingredient_forms"."form", "locations"."name"
+from "pantry_items"
+left join "ingredients"      on "pantry_items"."ingredient_id" = "ingredients"."id"
+left join "ingredient_forms" on "pantry_items"."form_id"       = "ingredient_forms"."id"
+left join "locations"        on "pantry_items"."location_id"   = "locations"."id"
+order by "ingredients"."name" asc
+```
+
+**20 result columns, no aliases.** Two of them are called `name`: `ingredients.name` at
+position 18 and `locations.name` at position 20.
+
+`createProxyDb()` in `apps/web/src/db/drivers/native.ts:53-80` implements the
+`drizzle-orm/sqlite-proxy` callback. Drizzle's contract is that it returns `rows` as
+**arrays of values in select order**. Capacitor's `conn.query()` returns **row objects keyed by
+column name**, so the driver normalizes with:
+
+```ts
+// Capacitor sometimes returns row objects; normalize to ordered values.
+if (row !== null && typeof row === 'object') {
+  return Object.values(row as Record<string, unknown>);
+}
+```
+
+A JavaScript object cannot hold two `name` keys. The duplicate collapses, last write wins, so
+the surviving `name` is **`locations.name`**. The object has 19 entries where Drizzle expects
+20, and `Object.values()` shifts everything past the collision:
+
+| position | Drizzle expects | actually receives |
+|---|---|---|
+| 0–16 | `pantry_items.*` | correct |
+| 17 | `ingredients.name` | **`locations.name` → "Fridge"** |
+| 18 | `ingredient_forms.form` | `form` — correct by coincidence |
+| 19 | `locations.name` | **`undefined`** |
+
+So every pantry row on device gets `ingredientName: "Fridge"` and `locationName: null`.
+
+That is both reported symptoms:
+
+1. **"it says Fridge"** — the row title is the location name.
+2. **"one each, doesn't say what it is"** — `resolvePantryItemDisplayName()` in
+   `apps/web/src/features/pantry/components/PantryItemRow.tsx` *has* a guard for exactly this
+   (`if (loc && name.toLowerCase() === loc.toLowerCase()) return 'Unknown item'`), but it needs
+   `locationName` to compare against — and that field is now `null`, so the guard cannot fire.
+   Where a locationName does survive, the guard fires and the row degrades to "Unknown item"
+   with no title.
+
+**Do not fix this in `PantryItemRow.tsx`.** That file is already carrying a band-aid for this
+bug. The data layer is what is wrong.
+
+## Scope — stay inside these files
+
+- `apps/web/src/db/drivers/native.ts`
+- `apps/web/src/db/domain-repository.ts`
+- new/updated tests under `apps/web/src/db/`
+
+**Two other Grok instances are editing this repo right now**, in `packages/core/src/`,
+`apps/web/src/features/pantry/` and `apps/web/src/features/quick/`. Do not touch those trees.
+Re-read any file immediately before you edit it. Create no git commits.
+
+## What the fix must achieve
+
+1. **No silent column misalignment, ever.** This class of bug corrupted an inventory invisibly
+   for multiple releases. The mechanism you choose must make collisions structurally impossible,
+   not merely fixed in the three queries we know about.
+2. **Audit every joined select in `domain-repository.ts`** — `listPantryItems`, `getPantryItem`,
+   `searchPantryByName` are the known three, but check the whole file (and any other
+   `.leftJoin(`/`.innerJoin(` in the db layer). Any select drawing same-named columns from two
+   tables has this fault. `name` is the obvious collider; `id`, `created_at`, and `updated_at`
+   are equally likely.
+3. **Fail loudly on mismatch.** If the driver ever receives a row object whose entry count does
+   not match the statement's result-column count, it must throw with a diagnostic naming the SQL
+   — not silently return a short array. A loud crash is strictly better than a pantry that
+   quietly renames everything to its location.
+
+The obvious mechanism is unique aliasing of every selected column so the object keys cannot
+collide, but the choice is yours — argue it in the report. If you can get Capacitor to hand back
+positional values directly, that is better still because it removes the reconstruction entirely.
+Whatever you pick, requirement 3 stands regardless.
+
+## Constraints
+
+TypeScript `strict`, no `any`. No new dependencies. Do not change the schema or write a
+migration — this is a read-path defect; the stored data is fine. Do not touch `supabase/**` or
+`native/**` (the iOS project). Do not change ledger semantics in `packages/core/src/pantry/`.
+
+## Verification — run these yourself before reporting done
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+```
+
+**The regression test is the deliverable here**, because a device is not available in CI. Test
+`createProxyDb`'s normalizer against a fake connection that behaves the way Capacitor actually
+does: given a SELECT with duplicate output column names, it returns row objects with the
+duplicate key collapsed. Assert that a pantry row round-trips with the **ingredient** name as
+`ingredientName` and the **location** name as `locationName` — the exact swap that is happening
+now. That test must fail against the current code; verify that it does before you fix it, and
+say so in the report.
+
+Also assert the loud-failure path from requirement 3.
+
+`apps/web/src/db/drivers/dev.test.ts` and the better-sqlite3 tests must stay green — both use
+drivers that were never broken, so a regression there means your fix broke the working path.
+Report the suite counts you actually observed.
+
+## Report
+
+`reports/fix-proxy-column-collision.md`: the mechanism you chose and why, the full list of joined
+selects you audited and which were affected, proof the new test fails before the fix, and
+anything adjacent you found broken but did not fix — list it, do not fix it silently.
+
+Work continuously; do not stall waiting for input. If you hit a genuine ambiguity, state it in
+the report and proceed with your best judgement, flagged.

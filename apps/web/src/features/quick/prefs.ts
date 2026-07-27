@@ -1,15 +1,23 @@
 /**
  * Pinned quick items + frequency live in localStorage (no quick_items table yet).
  * Offline-safe; survives reloads without a new dep.
+ *
+ * v2: empty defaults — never seed fake pantry ingredients or frequencies.
+ * Demo fixtures live only in demoPrefs() for !hasActiveRepository() surfaces.
  */
 
 import type { Dimension } from '@larder/core';
 
 import type { QuickPrefs } from './types';
 
-const STORAGE_KEY = 'tgp.quick.prefs.v1';
+/** Bumped from v1 so installs that cached seeded yogurt/apple/egg prefs start clean. */
+const STORAGE_KEY = 'tgp.quick.prefs.v2';
 
-const DEFAULT_PINS: QuickPrefs['pins'] = [
+/**
+ * Demo-only catalog — yogurt / apple / egg pins + banana / string cheese / carrot
+ * suggestions. Used exclusively when there is no live repository.
+ */
+export const DEMO_PINS: QuickPrefs['pins'] = [
   {
     ingredientId: 'yogurt-plain',
     formId: 'yogurt-plain-bulk',
@@ -33,16 +41,53 @@ const DEFAULT_PINS: QuickPrefs['pins'] = [
   },
 ];
 
+/** Demo-only suggested extras (not already in DEMO_PINS). */
+export const DEMO_SUGGESTED_CATALOG: QuickPrefs['pins'] = [
+  {
+    ingredientId: 'banana',
+    formId: 'banana-each',
+    name: 'Banana',
+    defaultQtyBase: 1,
+    dim: 'count',
+  },
+  {
+    ingredientId: 'string-cheese',
+    formId: 'string-cheese-each',
+    name: 'String cheese',
+    defaultQtyBase: 1,
+    dim: 'count',
+  },
+  {
+    ingredientId: 'carrot',
+    formId: 'carrot-bulk',
+    name: 'Carrot',
+    defaultQtyBase: 50,
+    dim: 'mass',
+  },
+];
+
+const DEMO_FREQUENCY: Record<string, number> = {
+  'yogurt-plain': 12,
+  apple: 8,
+  egg: 15,
+  banana: 6,
+  'string-cheese': 4,
+};
+
+/** Honest empty prefs for a new install / live mode first run. */
 export function defaultQuickPrefs(): QuickPrefs {
   return {
-    pins: DEFAULT_PINS.map((p) => ({ ...p })),
-    frequency: {
-      'yogurt-plain': 12,
-      apple: 8,
-      egg: 15,
-      banana: 6,
-      'string-cheese': 4,
-    },
+    pins: [],
+    frequency: {},
+    recentClientTxnIds: [],
+  };
+}
+
+/** Fabricated demo prefs — only for surfaces without an active repository. */
+export function demoQuickPrefs(): QuickPrefs {
+  return {
+    pins: DEMO_PINS.map((p) => ({ ...p })),
+    frequency: { ...DEMO_FREQUENCY },
     recentClientTxnIds: [],
   };
 }
@@ -109,27 +154,8 @@ export function saveQuickPrefs(prefs: QuickPrefs): void {
   }
 }
 
-/** Suggested extras from frequency that are not already pinned. */
-export const SUGGESTED_CATALOG: QuickPrefs['pins'] = [
-  {
-    ingredientId: 'banana',
-    formId: 'banana-each',
-    name: 'Banana',
-    defaultQtyBase: 1,
-    dim: 'count',
-  },
-  {
-    ingredientId: 'string-cheese',
-    formId: 'string-cheese-each',
-    name: 'String cheese',
-    defaultQtyBase: 1,
-    dim: 'count',
-  },
-  {
-    ingredientId: 'carrot',
-    formId: 'carrot-bulk',
-    name: 'Carrot',
-    defaultQtyBase: 50,
-    dim: 'mass',
-  },
-];
+/**
+ * @deprecated Use DEMO_SUGGESTED_CATALOG — kept as an alias so any stray import
+ * fails loud in review if it reappears in live paths.
+ */
+export const SUGGESTED_CATALOG = DEMO_SUGGESTED_CATALOG;

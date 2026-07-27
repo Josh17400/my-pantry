@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 
+import { resolveIngredientTitle } from '../../../db/ingredient-display';
 import type { PantryItemView } from '../../../db/types';
 import { cn } from '../../../ui/cn';
 import { PlaceholderThumb } from '../../../ui/PlaceholderThumb';
@@ -23,28 +24,22 @@ function tintFor(name: string): TintName {
  * Safe title for a pantry row when the catalog join may have failed.
  * Never shows a location name or a raw ingredient id as the title — stale
  * SQLite rows from an older build can leave unresolved ids after updates.
+ *
+ * Falls back to the in-app seed catalog by id so a freshly added item still
+ * titles correctly even when the local `ingredients` table is missing that row.
  */
 export function resolvePantryItemDisplayName(item: {
   ingredientName?: string | null;
   ingredientId: string;
   locationName?: string | null;
 }): string {
-  const name = (item.ingredientName ?? '').trim();
-  const loc = (item.locationName ?? '').trim();
-  const id = item.ingredientId;
-
-  if (!name) return 'Unknown item';
-  // Domain layer falls back to ingredientId when the join misses.
-  if (name === id) return 'Unknown item';
-  if (loc && name.toLowerCase() === loc.toLowerCase()) return 'Unknown item';
-  // Raw slug / uuid-shaped strings are not product titles.
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(name)) {
-    return 'Unknown item';
-  }
-  if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(name) && name === name.toLowerCase()) {
-    return 'Unknown item';
-  }
-  return name;
+  return (
+    resolveIngredientTitle({
+      ingredientId: item.ingredientId,
+      ingredientName: item.ingredientName,
+      locationName: item.locationName,
+    }) ?? 'Unknown item'
+  );
 }
 
 export type PantryItemRowProps = {

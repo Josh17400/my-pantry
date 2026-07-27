@@ -1,0 +1,95 @@
+# BRIEF: Quick-eat tiles are hardcoded demo data pretending to be the user's pantry
+
+## Context
+
+**The Good Pantry** — `C:\Users\joshu\Documents\Larder`. Owner report, real device:
+
+> *"When I go home I hit the plus button and I do a quick eat, it has yogurt, apples, eggs,
+> bananas, string cheese, carrots. These are all things I do not have in my pantry, but it says
+> I can eat them but I don't have them. And my cucumber isn't showing up."*
+
+This is confirmed, and the cause is not subtle.
+
+`apps/web/src/features/quick/prefs.ts` ships:
+- `DEFAULT_PINS` — yogurt, apple, egg
+- `SUGGESTED_CATALOG` — banana, string cheese, carrot
+- `defaultQuickPrefs().frequency` — **fabricated consumption counts**
+  (`yogurt-plain: 12, apple: 8, egg: 15, banana: 6, string-cheese: 4`)
+
+`buildItems()` in `apps/web/src/features/quick/useQuickItems.ts` composes tiles from exactly
+those two constants, filtered only by "not already pinned", and **never consults the pantry**.
+That is the owner's list, item for item, including the fake frequencies that order it.
+
+Demo fixtures got shipped as live behaviour.
+
+## What quick-eat should actually be
+
+Quick eat is one-tap consumption of things you really have: a yogurt cup, an apple, two eggs.
+Its whole value is that the tap is honest — it writes a `quick` txn that decrements real stock.
+Offering a tile for food that is not in the pantry produces a negative balance and teaches the
+owner the inventory is fiction.
+
+**Derive the tiles from pantry contents.** The pantry store is `usePantryStore` (see
+`apps/web/src/state`); `hasActiveRepository()` already distinguishes live from demo mode.
+
+Rules:
+
+1. **A tile may only appear for an ingredient the household actually holds** — stock above the
+   empty threshold. Use `DEFAULT_STOCK_EPSILON` from `@larder/core`; do not invent a new
+   tolerance, and do not compare against `0` (float residue from unit conversion is exactly the
+   bug class we already fixed once — see the comment on `DEFAULT_STOCK_EPSILON` in
+   `packages/core/src/pantry/stock.ts` before you write the comparison).
+2. **Ranking is real frequency**, from actual quick-consume history, not a seeded table. Ties
+   break toward the most recently purchased. An ingredient with no history ranks below one
+   with history.
+3. **Pins are a user preference, not a catalogue.** A pinned item the household is out of
+   should either be hidden or shown visibly out-of-stock and non-consumable — your call, but
+   it must never look tappable-and-fine when the stock is zero. State which you chose and why.
+4. **Default state for a new install is empty, not fake.** An empty quick screen needs an
+   honest empty state ("Quick eat shows things you have on hand — add items to your pantry
+   first"), consistent with the empty states already used elsewhere in the app.
+5. **Demo mode may keep fixtures**, but only where `hasActiveRepository()` is false, and it
+   must be unmistakably demo. Live mode never shows an item the pantry does not hold.
+6. Sensible default consume amounts still come from the ingredient's form (one egg, one apple,
+   a ~170 g yogurt cup) — keep that, just stop inventing *which* ingredients.
+
+Suggested quantity must not exceed what is on hand. Consuming more than you have is the same
+negative-balance failure the pantry picker already guards against.
+
+## Constraints
+
+TypeScript `strict`, no `any`. No new dependencies. **Create no git commits.** Scope is
+`apps/web/src/features/quick/**` plus whatever read-only selector you need from
+`apps/web/src/state`. Do not change ledger semantics in `packages/core/src/pantry/`. Do not
+touch `supabase/**` or `native/**`.
+
+Keep the existing quick-consume txn write and the undo/compensating-txn path in
+`useQuickItems.ts` intact — that logic is correct. You are changing *which tiles exist*, not
+what a tap does.
+
+## Verification — run these yourself before reporting done
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+```
+
+`apps/web/src/features/quick/quick.test.ts` exists and will need updating — update it honestly,
+do not delete assertions to make it pass.
+
+Tests to add:
+- a pantry holding only cucumber yields a cucumber tile and **no** yogurt/apple/egg tile
+- an empty pantry yields zero tiles and the empty state, in live mode
+- an ingredient at zero stock produces no consumable tile
+- ranking follows recorded quick-consume frequency, not a seeded constant
+- the suggested consume amount never exceeds stock on hand
+
+Existing suites must stay green. Report the counts you actually observed.
+
+## Report
+
+`reports/fix-quick-eat-tiles.md`: what tiles are now derived from, your ruling on pinned
+out-of-stock items, what you did about demo mode, and anything adjacent you found broken but
+did not fix — list it, do not fix it silently.
+
+Work continuously; do not stall waiting for input. If you hit a genuine ambiguity, state it in
+the report and proceed with your best judgement, flagged.

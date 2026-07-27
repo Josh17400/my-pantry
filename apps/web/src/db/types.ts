@@ -77,6 +77,11 @@ export type PantryItemUpsert = {
   unverifiedCookCount?: number;
   openedAt?: string | null;
   expiresAt?: string | null;
+  /**
+   * Denormalized display name from the picker / catalog at write time.
+   * Survives a stale local ingredients join so list rows still title correctly.
+   */
+  ingredientName?: string | null;
 };
 
 export type AppendTxnInput =

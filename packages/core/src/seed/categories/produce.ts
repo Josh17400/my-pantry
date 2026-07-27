@@ -1,9 +1,14 @@
 /**
- * Fresh produce — weight coverage toward weekly US grocery staples.
+ * Fresh produce — count for hand-sized items, mass for scoopables, bunch for
+ * herbs/celery-class items. Form is a first-class axis (SPEC units section).
  *
- * Count weights (onion, lemon, bunch herbs) are kitchen averages with high
- * uncertaintyPct — store/season variance is often 2–4× for "bunch".
- * Sources: USDA FDC raw produce weights + kitchen_avg for bunches/cloves.
+ * Every count-default item keeps a mass (`bulk`) form so receipt lines in lb/oz
+ * still resolve, and declares `gramsPerCount` so bag-weight ↔ piece count both
+ * work. Bunch forms carry high uncertaintyPct (store/season variance 2–4×).
+ *
+ * Count weights prefer USDA FoodData Central / SR Legacy household measures.
+ * When USDA lists edible-only or size is highly variable, kitchen_avg + honest
+ * uncertainty is used instead of false precision. See reports/feat-produce-by-count.md.
  */
 
 import {
@@ -14,21 +19,217 @@ import {
   massForm,
   mergeBundles,
   pack,
-  simpleCount,
   simpleMass,
   volumeForm,
 } from '../helpers';
-import { KNOWN_DENSITIES, LB_G, OZ_G } from '../sources';
+import { CUP_ML, KNOWN_DENSITIES, LB_G, OZ_G } from '../sources';
 import type { SeedCategoryBundle } from '../types';
 
-/** Garlic: whole bulb / clove / minced / powder. */
+// ── Documented count weights (grams per piece / head / bunch) ───────────────
+// Prefer USDA FDC / SR Legacy medium household measures. Do not invent values.
+
+const G = {
+  /** USDA SR: Apples, raw, with skin — 1 medium (3" dia) = 182 g */
+  apple: 182,
+  /** USDA SR: Bananas, raw — 1 medium (7"–7⅞") = 118 g */
+  banana: 118,
+  /** USDA SR: Oranges, raw, all commercial varieties — 1 medium (2⅝" dia) = 131 g */
+  orange: 131,
+  /**
+   * Whole lemon retail; USDA edible (without peel) is 58 g for 2⅛" fruit.
+   * Whole-with-peel kitchen/retail medium ≈ 84 g.
+   */
+  lemon: 84,
+  /** USDA SR: Limes, raw — 1 fruit (2" dia) = 67 g */
+  lime: 67,
+  /** USDA SR: Tomatoes, red, ripe, raw — 1 medium (2⅗" dia) = 123 g */
+  tomato: 123,
+  /** USDA SR: Tomatoes, red, ripe, raw, plum — ~62 g each (Roma/plum class) */
+  tomatoRoma: 62,
+  /** USDA SR: Onions, raw — 1 medium (2½" dia) = 110 g */
+  onion: 110,
+  /** USDA SR: Onions, raw — shallot / small bulb kitchen ≈ 40 g (high variance) */
+  shallot: 40,
+  /** Green onion / scallion stalk kitchen avg (not a stable USDA medium) */
+  greenOnionStalk: 15,
+  /**
+   * Russet / white baking potato medium ≈ 173 g (≈6 oz).
+   * Aligns with common 5 lb bag → ~13 medium potatoes (5×453.59/173 ≈ 13.1).
+   * USDA white potato "medium (2¼–3¼" dia)" is 213 g — we use 173 for
+   * typical US baking-potato bag sizing; uncertainty reflects size spread.
+   */
+  potato: 173,
+  /** Red / Yukon class similar medium piece weight; high size variance in bags */
+  potatoOther: 150,
+  /** USDA SR: Sweet potato, raw — 1 medium (5" long) ≈ 130 g */
+  sweetPotato: 130,
+  /**
+   * Hass avocado whole fruit retail medium ≈ 170 g (skin+flesh+seed).
+   * USDA edible California (without skin/seed) is often listed ~136 g;
+   * purchase weight is whole fruit.
+   */
+  avocado: 170,
+  /** USDA SR: Peppers, sweet, green, raw — 1 medium (≈2¾"×2½") = 119 g */
+  bellPepper: 119,
+  /** USDA SR / SNAP-Ed: Cucumber, raw — 1 cucumber 8¼" = 301 g */
+  cucumber: 301,
+  /** USDA SR: Squash, summer, zucchini, raw — 1 medium = 196 g */
+  zucchini: 196,
+  /** Summer yellow squash ≈ zucchini medium */
+  yellowSquash: 196,
+  /** USDA SR: Eggplant, raw — 1 eggplant ≈ 548 g (high size variance) */
+  eggplant: 548,
+  /** USDA SR: Peaches, raw — 1 medium (2⅔" dia) = 150 g */
+  peach: 150,
+  /** USDA SR: Pears, raw — 1 medium = 178 g */
+  pear: 178,
+  /** Mango whole fruit kitchen medium ≈ 200 g (cultivar varies widely) */
+  mango: 200,
+  /** Pineapple whole fruit kitchen avg ≈ 900 g */
+  pineapple: 900,
+  /** Whole watermelon kitchen avg (high variance) */
+  watermelon: 9000,
+  /** USDA SR: Peppers, jalapeño, raw — 1 pepper ≈ 14 g */
+  jalapeno: 14,
+  /**
+   * USDA SR: Carrots, raw — 1 medium ≈ 61 g.
+   * Bags are sold by weight; recipes often count — see judgement notes.
+   */
+  carrot: 61,
+  /** USDA SR: Garlic, raw — ~3 g/clove; bulb highly variable */
+  garlicClove: KNOWN_DENSITIES.garlic_clove_g,
+  garlicBulb: 60,
+  /** Corn on the cob: kernels+cob kitchen medium ear ≈ 150 g */
+  cornEar: 150,
+  /** Ginger knob kitchen piece (sold by weight, recipes say "1 knob") */
+  gingerKnob: 30,
+  // Heads / crowns (count) — USDA household or retail typicals
+  /** Romaine head retail / hearts pack component; full head varies */
+  lettuceRomaine: 300,
+  /** USDA SR: Lettuce, iceberg, raw — 1 head ≈ 539 g */
+  lettuceIceberg: 539,
+  /** USDA SR: Cabbage, raw — 1 head medium ≈ 908 g */
+  cabbage: 908,
+  /**
+   * Broccoli crown retail ≈ 250 g; full bunch USDA ~608 g.
+   * Default unit is crown (how many US recipes say "1 head broccoli").
+   */
+  broccoliCrown: 250,
+  /** USDA SR: Cauliflower, raw — 1 head medium (5–6" dia) ≈ 588 g */
+  cauliflower: 588,
+  // Bunches — highly variable; high uncertainty required
+  cilantroBunch: 40,
+  parsleyBunch: 50,
+  mintBunch: 30,
+  kaleBunch: 200,
+  celeryBunch: 450,
+  asparagusBunch: 450,
+  basilBunch: 28,
+  rosemaryBunch: 20,
+  thymeBunch: 15,
+} as const;
+
+type PackDef = {
+  readonly label: string;
+  readonly netG: number;
+  /** Attach package to count form (default) or mass form. */
+  readonly on?: 'count' | 'mass';
+};
+
+/**
+ * Count-default produce with a retained mass form for receipt lb/oz lines.
+ * Preserves `${id}-bulk` mass form id so existing pantry rows stay valid when
+ * upgrading from a simpleMass seed.
+ */
+function countWithMass(
+  id: string,
+  name: string,
+  gramsPerCount: number,
+  opts: {
+    readonly countFormName?: string;
+    readonly massFormName?: string;
+    readonly uncertaintyPct?: number;
+    readonly massUncertaintyPct?: number;
+    readonly isStaple?: boolean;
+    readonly aliases?: readonly string[];
+    readonly packages?: readonly PackDef[];
+    /** Conversion / form source tag (seed edge source field). */
+    readonly source?: string;
+    readonly densityGPerMl?: number;
+  } = {},
+): SeedCategoryBundle {
+  const countName = opts.countFormName ?? 'whole';
+  const massName = opts.massFormName ?? 'bulk';
+  const unc = opts.uncertaintyPct ?? 25;
+  const massUnc = opts.massUncertaintyPct ?? 8;
+  const source = opts.source ?? 'usda';
+
+  const whole = countForm(id, countName, gramsPerCount, unc);
+  const bulk = massForm(id, massName, {
+    densityGPerMl: opts.densityGPerMl,
+    uncertaintyPct: massUnc,
+  });
+
+  const packages = (opts.packages ?? []).map((p) =>
+    pack(p.on === 'mass' ? bulk.id : whole.id, p.label, p.netG),
+  );
+
+  return bundle(
+    [
+      ingredient({
+        id,
+        name,
+        category: 'produce',
+        isStaple: opts.isStaple,
+        defaultFormId: whole.id,
+        aliases: opts.aliases,
+      }),
+    ],
+    [whole, bulk],
+    [
+      edge({
+        fromFormId: whole.id,
+        toFormId: bulk.id,
+        factor: gramsPerCount, // 1 each → g mass form
+        uncertaintyPct: unc,
+        source,
+      }),
+    ],
+    packages,
+  );
+}
+
+/** Bunch-default herbs / celery-class items (high uncertainty). */
+function bunchWithMass(
+  id: string,
+  name: string,
+  gramsPerBunch: number,
+  opts: {
+    readonly uncertaintyPct?: number;
+    readonly aliases?: readonly string[];
+    readonly packages?: readonly PackDef[];
+    readonly densityGPerMl?: number;
+  } = {},
+): SeedCategoryBundle {
+  return countWithMass(id, name, gramsPerBunch, {
+    countFormName: 'bunch',
+    uncertaintyPct: opts.uncertaintyPct ?? 60,
+    massUncertaintyPct: 40,
+    aliases: opts.aliases,
+    packages: opts.packages ?? [{ label: 'bunch', netG: gramsPerBunch }],
+    source: 'kitchen_avg',
+    densityGPerMl: opts.densityGPerMl,
+  });
+}
+
+// ── Multi-form specials ─────────────────────────────────────────────────────
+
+/** Garlic: whole bulb / clove / minced / powder. Default = clove (recipe unit). */
 const garlic: SeedCategoryBundle = (() => {
   const id = 'garlic';
-  const whole = countForm(id, 'whole', 60, 40); // bulb mass highly variable
-  const clove = countForm(id, 'clove', KNOWN_DENSITIES.garlic_clove_g, 30);
-  // Minced garlic density ~0.56 g/ml (jarred, culinary estimate)
+  const whole = countForm(id, 'whole', G.garlicBulb, 40);
+  const clove = countForm(id, 'clove', G.garlicClove, 30);
   const minced = volumeForm(id, 'minced', 0.56, 25);
-  // Garlic powder: KA ~10 g per tbsp → 10/14.79 ≈ 0.676 g/ml
   const powder = massForm(id, 'powder', {
     densityGPerMl: 0.68,
     uncertaintyPct: 20,
@@ -46,52 +247,47 @@ const garlic: SeedCategoryBundle = (() => {
     ],
     [whole, clove, minced, powder],
     [
-      // 1 bulb ≈ 10–12 cloves; use 10 with high uncertainty
       edge({
         fromFormId: whole.id,
         toFormId: clove.id,
-        factor: 10, // each bulb → 10 each cloves
+        factor: 10,
         uncertaintyPct: 35,
         source: 'kitchen_avg',
       }),
-      // 1 clove ≈ 5 ml minced (kitchen avg)
       edge({
         fromFormId: clove.id,
         toFormId: minced.id,
-        factor: 5, // each → ml
+        factor: 5,
         uncertaintyPct: 30,
         source: 'kitchen_avg',
       }),
-      // powder is not interchangeable 1:1 with fresh — one-way flavor approximation
-      // 1 clove ≈ 1/8 tsp powder ≈ 0.625 ml; lossy substitution
       edge({
         fromFormId: clove.id,
         toFormId: powder.id,
-        factor: 0.6, // each → grams (approx 1/8 tsp × density)
+        factor: 0.6,
         uncertaintyPct: 50,
         source: 'culinary',
         oneWay: true,
       }),
     ],
     [
-      pack(whole.id, 'bulb', 60),
-      pack(whole.id, 'bag_3ct', 180),
+      pack(whole.id, 'bulb', G.garlicBulb),
+      pack(whole.id, 'bag_3ct', 3 * G.garlicBulb),
       pack(minced.id, 'jar_4_5oz', 4.5 * OZ_G),
       pack(powder.id, 'jar_2_5oz', 2.5 * OZ_G),
     ],
   );
 })();
 
-/** Yellow onion: whole / chopped. */
+/** Yellow onion: whole (count default) / chopped (volume-bridge mass) / bulk mass. */
 const onion: SeedCategoryBundle = (() => {
   const id = 'onion';
-  // Medium yellow onion ~110–150 g; use 140 g kitchen avg
-  const whole = countForm(id, 'whole', 140, 30);
+  const whole = countForm(id, 'whole', G.onion, 25);
   const chopped = massForm(id, 'chopped', {
-    // chopped onion ~160 g/cup
-    densityGPerMl: 160 / 236.5882365,
+    densityGPerMl: 160 / CUP_ML,
     uncertaintyPct: 20,
   });
+  const bulk = massForm(id, 'bulk', { uncertaintyPct: 8 });
   return bundle(
     [
       ingredient({
@@ -103,29 +299,37 @@ const onion: SeedCategoryBundle = (() => {
         aliases: ['ONION', 'YELLOW ONION', 'YLW ONION', 'ONIONS'],
       }),
     ],
-    [whole, chopped],
+    [whole, chopped, bulk],
     [
       edge({
         fromFormId: whole.id,
         toFormId: chopped.id,
-        factor: 140, // each → g
+        factor: G.onion,
         uncertaintyPct: 25,
-        source: 'kitchen_avg',
+        source: 'usda',
+      }),
+      edge({
+        fromFormId: whole.id,
+        toFormId: bulk.id,
+        factor: G.onion,
+        uncertaintyPct: 25,
+        source: 'usda',
       }),
     ],
-    [pack(whole.id, 'each', 140), pack(whole.id, 'bag_3lb', 3 * LB_G)],
+    [
+      pack(whole.id, 'each', G.onion),
+      pack(whole.id, 'bag_3lb', 3 * LB_G),
+      pack(bulk.id, 'lb', LB_G),
+    ],
   );
 })();
 
-/** Fresh cilantro bunch — high uncertainty. */
+/** Fresh cilantro bunch — high uncertainty (SPEC bunch variance). */
 const cilantro: SeedCategoryBundle = (() => {
   const id = 'cilantro';
-  // Bunch wet weight 20–80 g at stores; use 40 g ± high
-  const bunch = countForm(id, 'bunch', 40, 60);
+  const bunch = countForm(id, 'bunch', G.cilantroBunch, 60);
   const chopped = massForm(id, 'chopped', {
-    // Loosely packed fresh herbs ~40 g/cup culinary avg (still highly variable).
-    // Below ~0.1 g/ml fails the physical density band validator.
-    densityGPerMl: 40 / 236.5882365,
+    densityGPerMl: 40 / CUP_ML,
     uncertaintyPct: 50,
   });
   const dried = massForm(id, 'dried', {
@@ -147,91 +351,412 @@ const cilantro: SeedCategoryBundle = (() => {
       edge({
         fromFormId: bunch.id,
         toFormId: chopped.id,
-        factor: 40,
+        factor: G.cilantroBunch,
         uncertaintyPct: 60,
         source: 'kitchen_avg',
       }),
-      // dried is not invertible to fresh quality
       edge({
         fromFormId: dried.id,
         toFormId: chopped.id,
-        factor: 3, // 1 g dried ≈ 3 g fresh leaves (rough culinary 1:3)
+        factor: 3,
         uncertaintyPct: 50,
         source: 'culinary',
         oneWay: true,
       }),
     ],
-    [pack(bunch.id, 'bunch', 40)],
+    [pack(bunch.id, 'bunch', G.cilantroBunch)],
   );
 })();
 
+// ── Catalog body ────────────────────────────────────────────────────────────
+
 const rest = mergeBundles(
-  simpleCount('onion-red', 'Red onion', 'produce', 140, {
-    uncertaintyPct: 30,
+  // ── Count: alliums ──────────────────────────────────────────────────────
+  countWithMass('onion-red', 'Red onion', G.onion, {
+    // Preserve historical form id `onion-red-each` (simpleCount default).
+    countFormName: 'each',
+    uncertaintyPct: 25,
     aliases: ['RED ONION', 'RD ONION'],
-    packages: [{ label: 'each', netG: 140 }],
+    packages: [
+      { label: 'each', netG: G.onion },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
   }),
-  simpleCount('onion-green', 'Green onion / scallion', 'produce', 15, {
+  countWithMass('onion-green', 'Green onion / scallion', G.greenOnionStalk, {
+    countFormName: 'stalk',
     uncertaintyPct: 40,
-    formName: 'stalk',
     aliases: ['GREEN ONION', 'SCALLION', 'GREEN ONIONS', 'SCALLIONS', 'SPRING ONION'],
-    packages: [{ label: 'bunch', netG: 100 }],
+    packages: [
+      { label: 'stalk', netG: G.greenOnionStalk },
+      { label: 'bunch', netG: 100 },
+    ],
+    source: 'kitchen_avg',
   }),
-  simpleCount('shallot', 'Shallot', 'produce', 40, {
+  countWithMass('shallot', 'Shallot', G.shallot, {
+    countFormName: 'each',
     uncertaintyPct: 35,
     aliases: ['SHALLOT', 'SHALLOTS'],
-    packages: [{ label: 'each', netG: 40 }],
+    packages: [{ label: 'each', netG: G.shallot }],
+    source: 'kitchen_avg',
   }),
-  simpleMass('potato-russet', 'Russet potato', 'produce', {
+
+  // ── Count: potatoes / roots ─────────────────────────────────────────────
+  countWithMass('potato-russet', 'Russet potato', G.potato, {
     isStaple: true,
+    uncertaintyPct: 30,
     aliases: ['POTATO', 'RUSSET', 'RUSSET POTATO', 'BAKING POTATO', 'POTATOES'],
     packages: [
-      { label: 'each_medium', netG: 173 },
-      { label: 'bag_5lb', netG: 5 * LB_G },
-      { label: 'bag_10lb', netG: 10 * LB_G },
+      { label: 'each_medium', netG: G.potato },
+      { label: 'bag_5lb', netG: 5 * LB_G, on: 'mass' },
+      { label: 'bag_10lb', netG: 10 * LB_G, on: 'mass' },
     ],
+    source: 'kitchen_avg',
   }),
-  simpleMass('potato-red', 'Red potato', 'produce', {
+  countWithMass('potato-red', 'Red potato', G.potatoOther, {
+    uncertaintyPct: 35,
     aliases: ['RED POTATO', 'RED POTATOES', 'BABY RED POTATO'],
-    packages: [{ label: 'bag_3lb', netG: 3 * LB_G }],
+    packages: [
+      { label: 'each_medium', netG: G.potatoOther },
+      { label: 'bag_3lb', netG: 3 * LB_G, on: 'mass' },
+    ],
+    source: 'kitchen_avg',
   }),
-  simpleMass('potato-yukon', 'Yukon gold potato', 'produce', {
+  countWithMass('potato-yukon', 'Yukon gold potato', G.potatoOther, {
+    uncertaintyPct: 35,
     aliases: ['YUKON GOLD', 'YUKON POTATO', 'GOLD POTATO'],
-    packages: [{ label: 'bag_3lb', netG: 3 * LB_G }],
+    packages: [
+      { label: 'each_medium', netG: G.potatoOther },
+      { label: 'bag_3lb', netG: 3 * LB_G, on: 'mass' },
+    ],
+    source: 'kitchen_avg',
   }),
-  simpleMass('sweet-potato', 'Sweet potato', 'produce', {
+  countWithMass('sweet-potato', 'Sweet potato', G.sweetPotato, {
+    uncertaintyPct: 30,
     aliases: ['SWEET POTATO', 'SWEET POTATOES', 'YAM'],
     packages: [
-      { label: 'each_medium', netG: 130 },
-      { label: 'bag_3lb', netG: 3 * LB_G },
+      { label: 'each_medium', netG: G.sweetPotato },
+      { label: 'bag_3lb', netG: 3 * LB_G, on: 'mass' },
     ],
+    source: 'usda',
   }),
-  simpleCount('tomato', 'Tomato', 'produce', 123, {
-    // USDA medium tomato ~123 g
-    uncertaintyPct: 25,
+  // Carrots: ambiguous (bag vs each) — count default with mass for bags.
+  countWithMass('carrot', 'Carrot', G.carrot, {
     isStaple: true,
+    uncertaintyPct: 30,
+    aliases: ['CARROT', 'CARROTS', 'BABY CARROTS'],
+    packages: [
+      { label: 'each_medium', netG: G.carrot },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+      { label: 'bag_2lb', netG: 2 * LB_G, on: 'mass' },
+      { label: 'baby_1lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
+  }),
+  countWithMass('ginger-root', 'Ginger root', G.gingerKnob, {
+    countFormName: 'knob',
+    uncertaintyPct: 40,
+    aliases: ['GINGER', 'FRESH GINGER', 'GINGER ROOT'],
+    packages: [{ label: 'knob', netG: G.gingerKnob }],
+    source: 'kitchen_avg',
+  }),
+
+  // ── Count: tomatoes / peppers / avocado ─────────────────────────────────
+  countWithMass('tomato', 'Tomato', G.tomato, {
+    isStaple: true,
+    uncertaintyPct: 25,
+    countFormName: 'each',
     aliases: ['TOMATO', 'TOMATOES', 'FRESH TOMATO', 'VINE TOMATO'],
-    packages: [{ label: 'each', netG: 123 }, { label: 'lb', netG: LB_G }],
+    packages: [
+      { label: 'each', netG: G.tomato },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
   }),
-  simpleMass('tomato-roma', 'Roma tomato', 'produce', {
+  countWithMass('tomato-roma', 'Roma tomato', G.tomatoRoma, {
+    uncertaintyPct: 25,
+    countFormName: 'each',
     aliases: ['ROMA TOMATO', 'ROMA TOMATOES', 'PLUM TOMATO'],
-    packages: [{ label: 'lb', netG: LB_G }],
+    packages: [
+      { label: 'each', netG: G.tomatoRoma },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
   }),
+  // Cherry tomatoes: weight (pint / clamshell) — mass default
   simpleMass('tomato-cherry', 'Cherry tomato', 'produce', {
     aliases: ['CHERRY TOMATO', 'CHERRY TOMATOES', 'GRAPE TOMATO'],
     packages: [{ label: 'pint_container', netG: 280 }],
   }),
-  simpleMass('lettuce-romaine', 'Romaine lettuce', 'produce', {
+  countWithMass('bell-pepper-green', 'Green bell pepper', G.bellPepper, {
     isStaple: true,
+    uncertaintyPct: 20,
+    countFormName: 'each',
+    aliases: ['GREEN PEPPER', 'GREEN BELL PEPPER', 'BELL PEPPER GREEN'],
+    packages: [
+      { label: 'each', netG: G.bellPepper },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
+  }),
+  countWithMass('bell-pepper-red', 'Red bell pepper', G.bellPepper, {
+    uncertaintyPct: 20,
+    countFormName: 'each',
+    aliases: ['RED PEPPER', 'RED BELL PEPPER', 'BELL PEPPER RED'],
+    packages: [
+      { label: 'each', netG: G.bellPepper },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
+  }),
+  countWithMass('bell-pepper-yellow', 'Yellow bell pepper', G.bellPepper, {
+    uncertaintyPct: 20,
+    countFormName: 'each',
+    aliases: ['YELLOW PEPPER', 'YELLOW BELL PEPPER'],
+    packages: [
+      { label: 'each', netG: G.bellPepper },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
+  }),
+  countWithMass('jalapeno', 'Jalapeño', G.jalapeno, {
+    uncertaintyPct: 30,
+    countFormName: 'each',
+    aliases: ['JALAPENO', 'JALAPEÑO', 'JALAPENOS'],
+    packages: [{ label: 'each', netG: G.jalapeno }],
+    source: 'usda',
+  }),
+  countWithMass('avocado', 'Avocado', G.avocado, {
+    isStaple: true,
+    uncertaintyPct: 25,
+    countFormName: 'each',
+    aliases: ['AVOCADO', 'AVOCADOS', 'HASS AVOCADO'],
+    packages: [
+      { label: 'each', netG: G.avocado },
+      { label: 'bag_4ct', netG: 4 * G.avocado },
+    ],
+    source: 'kitchen_avg',
+  }),
+
+  // ── Count: heads of brassicas / lettuce ─────────────────────────────────
+  countWithMass('lettuce-romaine', 'Romaine lettuce', G.lettuceRomaine, {
+    isStaple: true,
+    uncertaintyPct: 35,
+    countFormName: 'head',
     aliases: ['ROMAINE', 'ROMAINE LETTUCE', 'ROMAINE HEARTS'],
     packages: [
-      { label: 'head', netG: 300 },
+      { label: 'head', netG: G.lettuceRomaine },
       { label: 'hearts_3pk', netG: 500 },
     ],
+    source: 'kitchen_avg',
   }),
-  simpleMass('lettuce-iceberg', 'Iceberg lettuce', 'produce', {
+  countWithMass('lettuce-iceberg', 'Iceberg lettuce', G.lettuceIceberg, {
+    uncertaintyPct: 25,
+    countFormName: 'head',
     aliases: ['ICEBERG', 'ICEBERG LETTUCE', 'HEAD LETTUCE'],
-    packages: [{ label: 'head', netG: 550 }],
+    packages: [{ label: 'head', netG: G.lettuceIceberg }],
+    source: 'usda',
+  }),
+  countWithMass('cabbage', 'Cabbage', G.cabbage, {
+    uncertaintyPct: 30,
+    countFormName: 'head',
+    aliases: ['CABBAGE', 'GREEN CABBAGE', 'HEAD CABBAGE'],
+    packages: [{ label: 'head', netG: G.cabbage }],
+    source: 'usda',
+  }),
+  countWithMass('broccoli', 'Broccoli', G.broccoliCrown, {
+    isStaple: true,
+    uncertaintyPct: 35,
+    countFormName: 'head',
+    aliases: ['BROCCOLI', 'BROCCOLI CROWN'],
+    packages: [
+      { label: 'crown', netG: G.broccoliCrown },
+      { label: 'bunch', netG: 500 },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'kitchen_avg',
+  }),
+  countWithMass('cauliflower', 'Cauliflower', G.cauliflower, {
+    uncertaintyPct: 30,
+    countFormName: 'head',
+    aliases: ['CAULIFLOWER', 'CAULI'],
+    packages: [{ label: 'head', netG: G.cauliflower }],
+    source: 'usda',
+  }),
+
+  // ── Count: cucumbers / squash / corn ────────────────────────────────────
+  countWithMass('cucumber', 'Cucumber', G.cucumber, {
+    uncertaintyPct: 25,
+    countFormName: 'each',
+    aliases: ['CUCUMBER', 'CUKE', 'ENGLISH CUCUMBER'],
+    packages: [
+      { label: 'each', netG: G.cucumber },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
+  }),
+  countWithMass('zucchini', 'Zucchini', G.zucchini, {
+    uncertaintyPct: 25,
+    countFormName: 'each',
+    aliases: ['ZUCCHINI', 'COURGETTE'],
+    packages: [
+      { label: 'each', netG: G.zucchini },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
+  }),
+  countWithMass('yellow-squash', 'Yellow squash', G.yellowSquash, {
+    uncertaintyPct: 25,
+    countFormName: 'each',
+    aliases: ['YELLOW SQUASH', 'SUMMER SQUASH'],
+    packages: [
+      { label: 'each', netG: G.yellowSquash },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
+  }),
+  countWithMass('eggplant', 'Eggplant', G.eggplant, {
+    uncertaintyPct: 35,
+    countFormName: 'each',
+    aliases: ['EGGPLANT', 'AUBERGINE'],
+    packages: [
+      { label: 'each', netG: G.eggplant },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
+  }),
+  countWithMass('corn-ear', 'Corn on the cob', G.cornEar, {
+    uncertaintyPct: 30,
+    countFormName: 'ear',
+    aliases: ['CORN', 'CORN ON THE COB', 'SWEET CORN', 'EAR OF CORN'],
+    packages: [
+      { label: 'ear', netG: G.cornEar },
+      { label: 'pack_4ct', netG: 4 * G.cornEar },
+    ],
+    source: 'kitchen_avg',
+  }),
+
+  // ── Count: citrus / tree fruit ──────────────────────────────────────────
+  countWithMass('lemon', 'Lemon', G.lemon, {
+    isStaple: true,
+    uncertaintyPct: 20,
+    countFormName: 'each',
+    aliases: ['LEMON', 'LEMONS', 'FRESH LEMON'],
+    packages: [
+      { label: 'each', netG: G.lemon },
+      { label: 'bag_2lb', netG: 2 * LB_G, on: 'mass' },
+    ],
+    source: 'kitchen_avg',
+  }),
+  countWithMass('lime', 'Lime', G.lime, {
+    uncertaintyPct: 20,
+    countFormName: 'each',
+    aliases: ['LIME', 'LIMES'],
+    packages: [
+      { label: 'each', netG: G.lime },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
+  }),
+  countWithMass('orange', 'Orange', G.orange, {
+    uncertaintyPct: 20,
+    countFormName: 'each',
+    aliases: ['ORANGE', 'ORANGES', 'NAVEL ORANGE'],
+    packages: [
+      { label: 'each', netG: G.orange },
+      { label: 'bag_4lb', netG: 4 * LB_G, on: 'mass' },
+    ],
+    source: 'usda',
+  }),
+  countWithMass('apple', 'Apple', G.apple, {
+    isStaple: true,
+    uncertaintyPct: 25,
+    countFormName: 'each',
+    aliases: ['APPLE', 'APPLES', 'GALA APPLE', 'HONEYCRISP', 'FUJI APPLE'],
+    packages: [
+      { label: 'each', netG: G.apple },
+      { label: 'bag_3lb', netG: 3 * LB_G, on: 'mass' },
+    ],
+    source: 'usda',
+  }),
+  // Banana: default each (not bunch) — recipes say "2 bananas"
+  countWithMass('banana', 'Banana', G.banana, {
+    isStaple: true,
+    uncertaintyPct: 20,
+    countFormName: 'each',
+    aliases: ['BANANA', 'BANANAS'],
+    packages: [
+      { label: 'each', netG: G.banana },
+      { label: 'bunch', netG: 700 },
+    ],
+    source: 'usda',
+  }),
+  countWithMass('peach', 'Peach', G.peach, {
+    uncertaintyPct: 25,
+    countFormName: 'each',
+    aliases: ['PEACH', 'PEACHES'],
+    packages: [
+      { label: 'each', netG: G.peach },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
+  }),
+  countWithMass('pear', 'Pear', G.pear, {
+    uncertaintyPct: 25,
+    countFormName: 'each',
+    aliases: ['PEAR', 'PEARS'],
+    packages: [
+      { label: 'each', netG: G.pear },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'usda',
+  }),
+  countWithMass('mango', 'Mango', G.mango, {
+    uncertaintyPct: 35,
+    countFormName: 'each',
+    aliases: ['MANGO', 'MANGOS', 'MANGOES'],
+    packages: [
+      { label: 'each', netG: G.mango },
+      { label: 'lb', netG: LB_G, on: 'mass' },
+    ],
+    source: 'kitchen_avg',
+  }),
+  countWithMass('pineapple', 'Pineapple', G.pineapple, {
+    uncertaintyPct: 35,
+    countFormName: 'whole',
+    aliases: ['PINEAPPLE'],
+    packages: [{ label: 'whole', netG: G.pineapple }],
+    source: 'kitchen_avg',
+  }),
+  countWithMass('watermelon', 'Watermelon', G.watermelon, {
+    // Preserve historical form id `watermelon-each` (simpleCount default).
+    uncertaintyPct: 40,
+    countFormName: 'each',
+    aliases: ['WATERMELON'],
+    packages: [{ label: 'whole', netG: G.watermelon }],
+    source: 'kitchen_avg',
+  }),
+
+  // ── Weight: berries, grapes, scoopable greens, pods ─────────────────────
+  simpleMass('blueberry', 'Blueberries', 'produce', {
+    aliases: ['BLUEBERRY', 'BLUEBERRIES'],
+    packages: [{ label: 'pint', netG: 312 }],
+  }),
+  simpleMass('strawberry', 'Strawberries', 'produce', {
+    aliases: ['STRAWBERRY', 'STRAWBERRIES'],
+    packages: [{ label: 'lb', netG: LB_G }],
+  }),
+  simpleMass('raspberry', 'Raspberries', 'produce', {
+    aliases: ['RASPBERRY', 'RASPBERRIES'],
+    packages: [{ label: 'clamshell_6oz', netG: 6 * OZ_G }],
+  }),
+  simpleMass('blackberry', 'Blackberries', 'produce', {
+    aliases: ['BLACKBERRY', 'BLACKBERRIES'],
+    packages: [{ label: 'clamshell_6oz', netG: 6 * OZ_G }],
+  }),
+  simpleMass('grape', 'Grapes', 'produce', {
+    aliases: ['GRAPE', 'GRAPES', 'RED GRAPES', 'GREEN GRAPES'],
+    packages: [{ label: 'bag_2lb', netG: 2 * LB_G }],
   }),
   simpleMass('spinach', 'Spinach (fresh)', 'produce', {
     isStaple: true,
@@ -241,67 +766,23 @@ const rest = mergeBundles(
       { label: 'bag_10oz', netG: 10 * OZ_G },
     ],
   }),
-  simpleMass('kale', 'Kale', 'produce', {
-    aliases: ['KALE', 'CURLY KALE', 'TUSCAN KALE', 'LACINATO KALE'],
-    packages: [{ label: 'bunch', netG: 200 }],
-  }),
   simpleMass('arugula', 'Arugula', 'produce', {
     aliases: ['ARUGULA', 'ROCKET'],
     packages: [{ label: 'clamshell_5oz', netG: 5 * OZ_G }],
   }),
-  simpleMass('cabbage', 'Cabbage', 'produce', {
-    aliases: ['CABBAGE', 'GREEN CABBAGE', 'HEAD CABBAGE'],
-    packages: [{ label: 'head', netG: 900 }],
+  simpleMass('green-beans', 'Green beans', 'produce', {
+    aliases: ['GREEN BEANS', 'STRING BEANS', 'SNAP BEANS'],
+    packages: [{ label: 'lb', netG: LB_G }],
   }),
-  simpleMass('broccoli', 'Broccoli', 'produce', {
-    isStaple: true,
-    aliases: ['BROCCOLI', 'BROCCOLI CROWN'],
-    packages: [{ label: 'crown', netG: 250 }, { label: 'bunch', netG: 500 }],
+  simpleMass('peas-fresh', 'Peas (fresh shelled)', 'produce', {
+    aliases: ['PEAS', 'FRESH PEAS', 'GARDEN PEAS', 'ENGLISH PEAS'],
+    packages: [{ label: 'lb', netG: LB_G }],
   }),
-  simpleMass('cauliflower', 'Cauliflower', 'produce', {
-    aliases: ['CAULIFLOWER', 'CAULI'],
-    packages: [{ label: 'head', netG: 600 }],
+  simpleMass('brussels-sprouts', 'Brussels sprouts', 'produce', {
+    aliases: ['BRUSSELS SPROUTS', 'BRUSSEL SPROUTS'],
+    packages: [{ label: 'bag_1lb', netG: LB_G }],
   }),
-  simpleMass('carrot', 'Carrot', 'produce', {
-    isStaple: true,
-    aliases: ['CARROT', 'CARROTS', 'BABY CARROTS'],
-    packages: [
-      { label: 'lb', netG: LB_G },
-      { label: 'bag_2lb', netG: 2 * LB_G },
-      { label: 'baby_1lb', netG: LB_G },
-    ],
-  }),
-  simpleMass('celery', 'Celery', 'produce', {
-    isStaple: true,
-    aliases: ['CELERY', 'CELERY STALKS'],
-    packages: [{ label: 'bunch', netG: 450 }],
-  }),
-  simpleMass('cucumber', 'Cucumber', 'produce', {
-    aliases: ['CUCUMBER', 'CUKE', 'ENGLISH CUCUMBER'],
-    packages: [{ label: 'each', netG: 300 }],
-  }),
-  simpleMass('bell-pepper-green', 'Green bell pepper', 'produce', {
-    isStaple: true,
-    aliases: ['GREEN PEPPER', 'GREEN BELL PEPPER', 'BELL PEPPER GREEN'],
-    packages: [{ label: 'each', netG: 120 }],
-  }),
-  simpleMass('bell-pepper-red', 'Red bell pepper', 'produce', {
-    aliases: ['RED PEPPER', 'RED BELL PEPPER', 'BELL PEPPER RED'],
-    packages: [{ label: 'each', netG: 120 }],
-  }),
-  simpleMass('bell-pepper-yellow', 'Yellow bell pepper', 'produce', {
-    aliases: ['YELLOW PEPPER', 'YELLOW BELL PEPPER'],
-    packages: [{ label: 'each', netG: 120 }],
-  }),
-  simpleMass('jalapeno', 'Jalapeño', 'produce', {
-    aliases: ['JALAPENO', 'JALAPEÑO', 'JALAPENOS'],
-    packages: [{ label: 'each', netG: 14 }],
-  }),
-  simpleMass('avocado', 'Avocado', 'produce', {
-    isStaple: true,
-    aliases: ['AVOCADO', 'AVOCADOS', 'HASS AVOCADO'],
-    packages: [{ label: 'each', netG: 170 }, { label: 'bag_4ct', netG: 680 }],
-  }),
+  // Mushrooms: sold by weight (8 oz packs); stay mass
   simpleMass('mushroom-white', 'White mushrooms', 'produce', {
     aliases: ['MUSHROOM', 'MUSHROOMS', 'WHITE MUSHROOM', 'BUTTON MUSHROOM'],
     packages: [{ label: 'pack_8oz', netG: 8 * OZ_G }],
@@ -310,117 +791,47 @@ const rest = mergeBundles(
     aliases: ['BABY BELLA', 'CREMINI', 'CRIMINI', 'BABY PORTABELLA'],
     packages: [{ label: 'pack_8oz', netG: 8 * OZ_G }],
   }),
-  simpleMass('zucchini', 'Zucchini', 'produce', {
-    aliases: ['ZUCCHINI', 'COURGETTE'],
-    packages: [{ label: 'each', netG: 200 }],
+
+  // ── Bunch: herbs + celery + asparagus + kale ────────────────────────────
+  bunchWithMass('kale', 'Kale', G.kaleBunch, {
+    aliases: ['KALE', 'CURLY KALE', 'TUSCAN KALE', 'LACINATO KALE'],
   }),
-  simpleMass('yellow-squash', 'Yellow squash', 'produce', {
-    aliases: ['YELLOW SQUASH', 'SUMMER SQUASH'],
-    packages: [{ label: 'each', netG: 200 }],
+  bunchWithMass('celery', 'Celery', G.celeryBunch, {
+    aliases: ['CELERY', 'CELERY STALKS'],
   }),
-  simpleMass('corn-ear', 'Corn on the cob', 'produce', {
-    aliases: ['CORN', 'CORN ON THE COB', 'SWEET CORN', 'EAR OF CORN'],
-    packages: [{ label: 'ear', netG: 150 }, { label: 'pack_4ct', netG: 600 }],
-  }),
-  simpleMass('green-beans', 'Green beans', 'produce', {
-    aliases: ['GREEN BEANS', 'STRING BEANS', 'SNAP BEANS'],
-    packages: [{ label: 'lb', netG: LB_G }],
-  }),
-  simpleMass('asparagus', 'Asparagus', 'produce', {
+  bunchWithMass('asparagus', 'Asparagus', G.asparagusBunch, {
     aliases: ['ASPARAGUS'],
-    packages: [{ label: 'bunch', netG: 450 }],
   }),
-  simpleMass('brussels-sprouts', 'Brussels sprouts', 'produce', {
-    aliases: ['BRUSSELS SPROUTS', 'BRUSSEL SPROUTS'],
-    packages: [{ label: 'bag_1lb', netG: LB_G }],
-  }),
-  simpleCount('lemon', 'Lemon', 'produce', 84, {
-    // USDA lemon ~84 g
-    uncertaintyPct: 20,
-    isStaple: true,
-    aliases: ['LEMON', 'LEMONS', 'FRESH LEMON'],
-    packages: [{ label: 'each', netG: 84 }, { label: 'bag_2lb', netG: 2 * LB_G }],
-  }),
-  simpleCount('lime', 'Lime', 'produce', 67, {
-    uncertaintyPct: 20,
-    aliases: ['LIME', 'LIMES'],
-    packages: [{ label: 'each', netG: 67 }],
-  }),
-  simpleCount('orange', 'Orange', 'produce', 131, {
-    uncertaintyPct: 20,
-    aliases: ['ORANGE', 'ORANGES', 'NAVEL ORANGE'],
-    packages: [{ label: 'each', netG: 131 }, { label: 'bag_4lb', netG: 4 * LB_G }],
-  }),
-  simpleCount('apple', 'Apple', 'produce', 182, {
-    uncertaintyPct: 25,
-    isStaple: true,
-    aliases: ['APPLE', 'APPLES', 'GALA APPLE', 'HONEYCRISP', 'FUJI APPLE'],
-    packages: [{ label: 'each', netG: 182 }, { label: 'bag_3lb', netG: 3 * LB_G }],
-  }),
-  simpleCount('banana', 'Banana', 'produce', 118, {
-    // USDA medium banana ~118 g
-    uncertaintyPct: 20,
-    isStaple: true,
-    aliases: ['BANANA', 'BANANAS'],
-    packages: [{ label: 'each', netG: 118 }, { label: 'bunch', netG: 700 }],
-  }),
-  simpleMass('blueberry', 'Blueberries', 'produce', {
-    aliases: ['BLUEBERRY', 'BLUEBERRIES'],
-    packages: [{ label: 'pint', netG: 312 }],
-  }),
-  simpleMass('strawberry', 'Strawberries', 'produce', {
-    aliases: ['STRAWBERRY', 'STRAWBERRIES'],
-    packages: [{ label: 'lb', netG: LB_G }],
-  }),
-  simpleMass('grape', 'Grapes', 'produce', {
-    aliases: ['GRAPE', 'GRAPES', 'RED GRAPES', 'GREEN GRAPES'],
-    packages: [{ label: 'bag_2lb', netG: 2 * LB_G }],
-  }),
-  simpleCount('watermelon', 'Watermelon', 'produce', 9000, {
-    uncertaintyPct: 40,
-    aliases: ['WATERMELON'],
-    packages: [{ label: 'whole', netG: 9000 }],
-  }),
-  simpleMass('pineapple', 'Pineapple', 'produce', {
-    aliases: ['PINEAPPLE'],
-    packages: [{ label: 'whole', netG: 900 }],
-  }),
-  simpleMass('mango', 'Mango', 'produce', {
-    aliases: ['MANGO', 'MANGOS', 'MANGOES'],
-    packages: [{ label: 'each', netG: 200 }],
-  }),
-  simpleCount('ginger-root', 'Ginger root', 'produce', 30, {
-    // often sold by piece
-    uncertaintyPct: 40,
-    formName: 'knob',
-    aliases: ['GINGER', 'FRESH GINGER', 'GINGER ROOT'],
-    packages: [{ label: 'knob', netG: 30 }],
-  }),
-  simpleMass('basil-fresh', 'Fresh basil', 'produce', {
-    uncertaintyPct: 50,
-    aliases: ['BASIL', 'FRESH BASIL', 'BASIL BUNCH'],
-    packages: [{ label: 'clamshell', netG: 28 }],
-  }),
-  simpleMass('parsley-fresh', 'Fresh parsley', 'produce', {
-    uncertaintyPct: 50,
+  bunchWithMass('parsley-fresh', 'Fresh parsley', G.parsleyBunch, {
     aliases: ['PARSLEY', 'FRESH PARSLEY', 'ITALIAN PARSLEY', 'FLAT LEAF PARSLEY'],
-    packages: [{ label: 'bunch', netG: 50 }],
   }),
-  simpleMass('mint-fresh', 'Fresh mint', 'produce', {
-    uncertaintyPct: 50,
+  bunchWithMass('mint-fresh', 'Fresh mint', G.mintBunch, {
     aliases: ['MINT', 'FRESH MINT'],
-    packages: [{ label: 'bunch', netG: 30 }],
   }),
-  simpleMass('rosemary-fresh', 'Fresh rosemary', 'produce', {
-    uncertaintyPct: 50,
+  // Basil / rosemary / thyme often clamshells — still bunch form with high unc
+  bunchWithMass('basil-fresh', 'Fresh basil', G.basilBunch, {
+    aliases: ['BASIL', 'FRESH BASIL', 'BASIL BUNCH'],
+    packages: [
+      { label: 'bunch', netG: G.basilBunch },
+      { label: 'clamshell', netG: G.basilBunch },
+    ],
+  }),
+  bunchWithMass('rosemary-fresh', 'Fresh rosemary', G.rosemaryBunch, {
     aliases: ['ROSEMARY', 'FRESH ROSEMARY'],
-    packages: [{ label: 'clamshell', netG: 20 }],
+    packages: [
+      { label: 'bunch', netG: G.rosemaryBunch },
+      { label: 'clamshell', netG: G.rosemaryBunch },
+    ],
   }),
-  simpleMass('thyme-fresh', 'Fresh thyme', 'produce', {
-    uncertaintyPct: 50,
+  bunchWithMass('thyme-fresh', 'Fresh thyme', G.thymeBunch, {
     aliases: ['THYME', 'FRESH THYME'],
-    packages: [{ label: 'clamshell', netG: 15 }],
+    packages: [
+      { label: 'bunch', netG: G.thymeBunch },
+      { label: 'clamshell', netG: G.thymeBunch },
+    ],
   }),
+
+  // Pre-peeled garlic — retail jar by weight
   simpleMass('garlic-prepeeled', 'Peeled garlic cloves (retail)', 'produce', {
     aliases: ['PEELED GARLIC', 'GARLIC CLOVES PEELED'],
     packages: [{ label: 'jar_6oz', netG: 6 * OZ_G }],

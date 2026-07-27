@@ -8,11 +8,13 @@ type QuickTileProps = {
   onStep: (next: number) => void;
   onTogglePin: () => void;
   busy?: boolean;
+  /** Upper bound for stepper (stock-aware in live mode). */
+  maxMultiplier?: number;
 };
 
 /**
  * One-tap consume tile. Stepper is optional — default mult=1 so common case
- * is a single tap (not three).
+ * is a single tap (not three). Out-of-stock tiles render non-consumable.
  */
 export function QuickTile({
   item,
@@ -21,14 +23,18 @@ export function QuickTile({
   onStep,
   onTogglePin,
   busy = false,
+  maxMultiplier = 12,
 }: QuickTileProps) {
-  const showStepper = item.dim === 'count' || multiplier > 1;
+  const canEat = item.consumable && !busy;
+  const showStepper =
+    canEat && (item.dim === 'count' || multiplier > 1) && maxMultiplier > 1;
 
   return (
     <div
       className={cn(
         'flex flex-col rounded-card bg-surface p-3 shadow-card',
         'min-h-[9.5rem]',
+        !item.consumable && 'opacity-70',
       )}
     >
       <div className="mb-2 flex items-start justify-between gap-1">
@@ -50,8 +56,12 @@ export function QuickTile({
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold text-ink">{item.name}</div>
         <div className="text-[11px] text-ink-muted">
-          {item.origin === 'pinned' ? 'Pinned' : 'Suggested'}
-          {item.frequency > 0 ? ` · ${item.frequency}×` : ''}
+          {!item.consumable
+            ? 'Out of stock'
+            : item.origin === 'pinned'
+              ? 'Pinned'
+              : 'Suggested'}
+          {item.consumable && item.frequency > 0 ? ` · ${item.frequency}×` : ''}
         </div>
       </div>
 
@@ -72,7 +82,7 @@ export function QuickTile({
           <button
             type="button"
             aria-label="Increase quantity"
-            disabled={multiplier >= 12 || busy}
+            disabled={multiplier >= maxMultiplier || busy}
             onClick={() => onStep(multiplier + 1)}
             className="flex h-11 w-11 items-center justify-center rounded-full bg-black/[0.04] text-lg font-medium text-ink disabled:opacity-40"
           >
@@ -83,14 +93,20 @@ export function QuickTile({
 
       <button
         type="button"
-        disabled={busy}
+        disabled={!canEat}
         onClick={onConsume}
         className={cn(
-          'mt-2 min-h-tap w-full rounded-2xl bg-primary text-sm font-semibold text-white',
-          'active:scale-[0.98] disabled:opacity-50',
+          'mt-2 min-h-tap w-full rounded-2xl text-sm font-semibold',
+          canEat
+            ? 'bg-primary text-white active:scale-[0.98]'
+            : 'bg-black/[0.06] text-ink-muted cursor-not-allowed',
         )}
       >
-        {multiplier > 1 ? `Eat ${multiplier}` : 'Eat'}
+        {!item.consumable
+          ? 'Out of stock'
+          : multiplier > 1
+            ? `Eat ${multiplier}`
+            : 'Eat'}
       </button>
     </div>
   );

@@ -65,8 +65,11 @@ export {
   validateSeed,
 } from './validate';
 
-/** Seed schema version — bump when breaking seed shape for loaders. */
-export const SEED_VERSION = '1.0.0' as const;
+/**
+ * Seed schema version — bump when catalog shape / default forms change so
+ * loaders re-upsert. Produce count-default forms (v1.1.0): mass form ids kept.
+ */
+export const SEED_VERSION = '1.1.0' as const;
 
 /** Ordered category contributions (stable merge order for diffs). */
 export const SEED_CATEGORIES: readonly SeedCategoryBundle[] = [
