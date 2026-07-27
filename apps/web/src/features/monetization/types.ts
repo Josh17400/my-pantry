@@ -57,10 +57,41 @@ export type ProductOffer = {
   readonly id: string;
   readonly title: string;
   readonly description: string;
+  /** Store `priceString` only — never invent a chargeable price. */
   readonly priceString: string;
   /** Monthly vs annual for display only. */
   readonly period: 'month' | 'year' | 'lifetime' | 'unknown';
 };
+
+/** Why store offerings could not be loaded on a live (non-demo) path. */
+export type OfferingsUnavailableReason =
+  | 'not_configured'
+  | 'plugin_unavailable'
+  | 'no_products'
+  | 'network'
+  | 'error';
+
+/**
+ * Outcome of loading paywall plans.
+ * - `ready` with real store offers (native), or demo sample pricing (browser DEV only).
+ * - `unavailable` when native cannot load plans — never substitute invented prices.
+ */
+export type OfferingsResult =
+  | {
+      readonly status: 'ready';
+      readonly offers: readonly ProductOffer[];
+      /**
+       * True only for non-native demo/design fixtures.
+       * Must never be true for native / live store data.
+       */
+      readonly isSamplePricing: boolean;
+    }
+  | {
+      readonly status: 'unavailable';
+      readonly reason: OfferingsUnavailableReason;
+      /** Human-readable explanation for logs and paywall UI. */
+      readonly message: string;
+    };
 
 export type PaywallFeature = {
   readonly id: string;

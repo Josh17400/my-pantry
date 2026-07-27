@@ -39,15 +39,32 @@ export {
   PRIVACY_LAST_UPDATED,
   PRIVACY_SECTIONS,
 } from './privacy-content';
-export { getPurchasesBridge, purchasesPlatformLabel } from './purchases';
+export {
+  classifyOfferingsError,
+  createNativePurchasesBridgeForTests,
+  createWebPurchasesBridgeForTests,
+  FALLBACK_OFFERS,
+  getPurchasesBridge,
+  offeringsFromStoreProducts,
+  offeringsUnavailableMessage,
+  productToOffer,
+  purchasesPlatformLabel,
+  readyOfferings,
+  SAMPLE_OFFERS,
+  sampleOfferingsResult,
+  setPurchasesBridgeForTests,
+  unavailableOfferings,
+} from './purchases';
 export type {
   AdsConsentState,
   DataExportV1,
   EntitlementSnapshot,
   EntitlementTier,
+  OfferingsResult,
+  OfferingsUnavailableReason,
   PaywallFeature,
   PlanId,
   ProductOffer,
   PurchaseResult,
 } from './types';
-export { ENTITLEMENT_ID_PRO,FREE_RECEIPT_SCANS_PER_MONTH } from './types';
+export { ENTITLEMENT_ID_PRO, FREE_RECEIPT_SCANS_PER_MONTH } from './types';

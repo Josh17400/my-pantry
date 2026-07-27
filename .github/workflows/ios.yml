@@ -63,10 +63,18 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # RevenueCat *public* SDK key (appl_…). Safe to inline in the bundle;
+          # the secret API key never goes in a VITE_ var.
+          VITE_REVENUECAT_IOS_API_KEY: ${{ secrets.VITE_REVENUECAT_IOS_API_KEY }}
         run: |
           if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
             echo "::error::Supabase client env missing — the build would ship with cloud features silently dead. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as repository secrets."
             exit 1
+          fi
+          # Not fatal: without it the paywall shows an honest unavailable state
+          # rather than fabricated prices, and the rest of the app is unaffected.
+          if [ -z "$VITE_REVENUECAT_IOS_API_KEY" ]; then
+            echo "::warning::VITE_REVENUECAT_IOS_API_KEY missing — purchases will be unavailable in this build."
           fi
           npm run build
 

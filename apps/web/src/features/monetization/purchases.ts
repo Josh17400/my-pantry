@@ -2,24 +2,38 @@
  * RevenueCat purchases bridge.
  *
  * Native: @revenuecat/purchases-capacitor (lazy dynamic import).
- * Web: optional Web Billing key — otherwise graceful degrade (no broken UI).
- * Sandbox only in this track — no live payment rails.
+ * Real store data, honest unavailable, or explicit demo — never fiction as live.
+ *
+ * Web: sample pricing only in DEV for design review; otherwise unavailable.
  */
 
 import { isNativePlatform, platformName } from '../../lib/platform';
 import { RC_PRODUCTS, revenueCatApiKey } from './config';
-import type { ProductOffer, PurchaseResult } from './types';
+import type {
+  OfferingsResult,
+  OfferingsUnavailableReason,
+  ProductOffer,
+  PurchaseResult,
+} from './types';
 
 type CustomerInfoLike = unknown;
 
 export type PurchasesBridge = {
   readonly available: boolean;
   configure(): Promise<void>;
-  getOfferings(): Promise<readonly ProductOffer[]>;
+  getOfferings(): Promise<OfferingsResult>;
   purchase(productId: string): Promise<PurchaseResult>;
   restore(): Promise<PurchaseResult & { readonly customerInfo?: CustomerInfoLike }>;
   getCustomerInfo(): Promise<CustomerInfoLike | null>;
   logIn(appUserId: string): Promise<void>;
+};
+
+type StoreProductLike = {
+  identifier?: string;
+  title?: string;
+  description?: string;
+  priceString?: string;
+  subscriptionPeriod?: string;
 };
 
 type PurchasesPlugin = {
@@ -28,13 +42,7 @@ type PurchasesPlugin = {
     current?: {
       availablePackages?: {
         identifier?: string;
-        product?: {
-          identifier?: string;
-          title?: string;
-          description?: string;
-          priceString?: string;
-          subscriptionPeriod?: string;
-        };
+        product?: StoreProductLike;
       }[];
     };
   }>;
@@ -60,30 +68,149 @@ type PurchasesPlugin = {
   logIn(opts: { appUserID: string }): Promise<void>;
 };
 
-const FALLBACK_OFFERS: readonly ProductOffer[] = [
+/**
+ * Demo / design-review fixtures only.
+ * Never returned on native. Prices are sample labels, not chargeable amounts.
+ */
+export const SAMPLE_OFFERS: readonly ProductOffer[] = [
   {
     id: RC_PRODUCTS.monthly,
-    title: 'Good Pantry Pro — Monthly',
-    description: 'AI chef, unlimited scans, no ads, household sharing.',
+    title: 'Good Pantry Pro — Monthly (sample)',
+    description: 'Sample pricing for design review — not a store price.',
     priceString: '$4.99/mo',
     period: 'month',
   },
   {
     id: RC_PRODUCTS.annual,
-    title: 'Good Pantry Pro — Annual',
-    description: 'Same as monthly, billed yearly (sandbox display price).',
+    title: 'Good Pantry Pro — Annual (sample)',
+    description: 'Sample pricing for design review — not a store price.',
     priceString: '$39.99/yr',
     period: 'year',
   },
 ];
 
-function periodFromSub(period: string | undefined): ProductOffer['period'] {
+/** @deprecated Use SAMPLE_OFFERS — kept only so tests can assert fixtures are gone from native. */
+export const FALLBACK_OFFERS = SAMPLE_OFFERS;
+
+export function sampleOfferingsResult(): OfferingsResult {
+  return {
+    status: 'ready',
+    offers: SAMPLE_OFFERS,
+    isSamplePricing: true,
+  };
+}
+
+export function readyOfferings(
+  offers: readonly ProductOffer[],
+): OfferingsResult {
+  return {
+    status: 'ready',
+    offers,
+    isSamplePricing: false,
+  };
+}
+
+export function unavailableOfferings(
+  reason: OfferingsUnavailableReason,
+  detail?: string,
+): OfferingsResult {
+  return {
+    status: 'unavailable',
+    reason,
+    message: offeringsUnavailableMessage(reason, detail),
+  };
+}
+
+export function offeringsUnavailableMessage(
+  reason: OfferingsUnavailableReason,
+  detail?: string,
+): string {
+  const base: Record<OfferingsUnavailableReason, string> = {
+    not_configured:
+      'Subscriptions are not configured on this device (missing RevenueCat API key).',
+    plugin_unavailable:
+      'In-app purchases are unavailable on this device (billing plugin failed to load).',
+    no_products:
+      'No subscription products are available from the store right now.',
+    network:
+      'Could not reach the App Store / Play Store to load subscription prices.',
+    error: 'Could not load subscription plans.',
+  };
+  const msg = base[reason];
+  if (detail && detail.trim().length > 0) {
+    return `${msg} (${detail.trim()})`;
+  }
+  return msg;
+}
+
+export function classifyOfferingsError(e: unknown): OfferingsUnavailableReason {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (/not configured|API key|REPLACE|VITE_REVENUECAT/i.test(msg)) {
+    return 'not_configured';
+  }
+  if (/plugin not available|plugin unavailable/i.test(msg)) {
+    return 'plugin_unavailable';
+  }
+  if (
+    /network|fetch|timeout|offline|ECONN|ENOTFOUND|failed to fetch|timed out/i.test(
+      msg,
+    )
+  ) {
+    return 'network';
+  }
+  return 'error';
+}
+
+export function periodFromSub(
+  period: string | undefined,
+): ProductOffer['period'] {
   if (!period) return 'unknown';
   const p = period.toUpperCase();
   if (p.includes('Y')) return 'year';
   if (p.includes('M')) return 'month';
   return 'unknown';
 }
+
+/** Map a store product to a ProductOffer — priceString comes only from the store. */
+export function productToOffer(prod: {
+  identifier: string;
+  title?: string;
+  description?: string;
+  priceString?: string;
+  subscriptionPeriod?: string;
+}): ProductOffer {
+  return {
+    id: prod.identifier,
+    title: prod.title ?? prod.identifier,
+    description: prod.description ?? '',
+    priceString: prod.priceString ?? '',
+    period: periodFromSub(prod.subscriptionPeriod),
+  };
+}
+
+/**
+ * Build ready offerings from store product list (order preserved).
+ * Empty list → unavailable no_products (caller decides logging).
+ */
+export function offeringsFromStoreProducts(
+  products: readonly {
+    identifier: string;
+    title?: string;
+    description?: string;
+    priceString?: string;
+    subscriptionPeriod?: string;
+  }[],
+): OfferingsResult {
+  if (products.length === 0) {
+    return unavailableOfferings('no_products');
+  }
+  return readyOfferings(products.map(productToOffer));
+}
+
+type NativeBridgeOptions = {
+  loadPlugin?: () => Promise<PurchasesPlugin | null>;
+  resolveApiKey?: () => string | undefined;
+};
 
 class NativePurchasesBridge implements PurchasesBridge {
   readonly available = true;
@@ -92,7 +219,12 @@ class NativePurchasesBridge implements PurchasesBridge {
   private packageCache = new Map<string, unknown>();
   private productCache = new Map<string, unknown>();
 
+  constructor(private readonly options: NativeBridgeOptions = {}) {}
+
   private async load(): Promise<PurchasesPlugin | null> {
+    if (this.options.loadPlugin) {
+      return this.options.loadPlugin();
+    }
     if (this.plugin) return this.plugin;
     if (!isNativePlatform()) return null;
     try {
@@ -107,7 +239,7 @@ class NativePurchasesBridge implements PurchasesBridge {
 
   async configure(): Promise<void> {
     if (this.configured) return;
-    const apiKey = revenueCatApiKey();
+    const apiKey = this.options.resolveApiKey?.() ?? revenueCatApiKey();
     if (!apiKey || apiKey.startsWith('REPLACE')) {
       throw new Error(
         'RevenueCat API key not configured (VITE_REVENUECAT_*_API_KEY). Sandbox only.',
@@ -119,11 +251,29 @@ class NativePurchasesBridge implements PurchasesBridge {
     this.configured = true;
   }
 
-  async getOfferings(): Promise<readonly ProductOffer[]> {
+  async getOfferings(): Promise<OfferingsResult> {
     try {
-      await this.configure();
+      const apiKey = this.options.resolveApiKey?.() ?? revenueCatApiKey();
+      if (!apiKey || apiKey.startsWith('REPLACE')) {
+        console.warn(
+          '[purchases] getOfferings: RevenueCat API key missing or placeholder — showing unavailable state (not sample pricing)',
+        );
+        return unavailableOfferings(
+          'not_configured',
+          'RevenueCat API key not configured (VITE_REVENUECAT_*_API_KEY).',
+        );
+      }
+
       const p = await this.load();
-      if (!p) return FALLBACK_OFFERS;
+      if (!p) {
+        console.warn(
+          '[purchases] getOfferings: plugin unavailable — showing unavailable state (not sample pricing)',
+        );
+        return unavailableOfferings('plugin_unavailable');
+      }
+
+      // Configure only after plugin + key are present so misconfig is explicit.
+      await this.configure();
 
       const offerings = await p.getOfferings();
       const packages = offerings.current?.availablePackages ?? [];
@@ -133,18 +283,24 @@ class NativePurchasesBridge implements PurchasesBridge {
           const prod = pkg.product;
           if (!prod?.identifier) continue;
           this.packageCache.set(prod.identifier, pkg);
-          if (prod) this.productCache.set(prod.identifier, prod);
-          out.push({
-            id: prod.identifier,
-            title: prod.title ?? prod.identifier,
-            description: prod.description ?? '',
-            priceString: prod.priceString ?? '',
-            period: periodFromSub(prod.subscriptionPeriod),
-          });
+          this.productCache.set(prod.identifier, prod);
+          out.push(
+            productToOffer({
+              identifier: prod.identifier,
+              title: prod.title,
+              description: prod.description,
+              priceString: prod.priceString,
+              subscriptionPeriod: prod.subscriptionPeriod,
+            }),
+          );
         }
-        if (out.length > 0) return out;
+        if (out.length > 0) {
+          return readyOfferings(out);
+        }
       }
 
+      // Request known product ids; store returns only those that exist.
+      // Monthly-only catalogs are valid — do not invent annual.
       const products = await p.getProducts({
         productIdentifiers: [RC_PRODUCTS.monthly, RC_PRODUCTS.annual],
       });
@@ -152,17 +308,21 @@ class NativePurchasesBridge implements PurchasesBridge {
       for (const prod of list) {
         this.productCache.set(prod.identifier, prod);
       }
-      if (list.length === 0) return FALLBACK_OFFERS;
-      return list.map((prod) => ({
-        id: prod.identifier,
-        title: prod.title,
-        description: prod.description,
-        priceString: prod.priceString,
-        period: periodFromSub(prod.subscriptionPeriod),
-      }));
+      if (list.length === 0) {
+        console.warn(
+          '[purchases] getOfferings: RevenueCat returned zero products — showing unavailable state (not sample pricing)',
+        );
+        return unavailableOfferings('no_products');
+      }
+      return offeringsFromStoreProducts(list);
     } catch (e) {
-      console.warn('[purchases] getOfferings failed', e);
-      return FALLBACK_OFFERS;
+      const reason = classifyOfferingsError(e);
+      const detail = e instanceof Error ? e.message : String(e);
+      console.warn(
+        `[purchases] getOfferings failed (${reason}) — showing unavailable state (not sample pricing):`,
+        detail,
+      );
+      return unavailableOfferings(reason, detail);
     }
   }
 
@@ -252,9 +412,8 @@ class NativePurchasesBridge implements PurchasesBridge {
 
 /**
  * Web / browser bridge — no native IAP.
- * Shows catalog fallback; purchase resolves with a clear message so the
- * paywall never crashes. Web Billing can be wired via VITE_REVENUECAT_WEB_API_KEY
- * later without splitting Stripe.
+ * DEV: sample pricing for design review (explicitly labelled).
+ * Production web: honest unavailable (subscriptions complete in app stores).
  */
 class WebPurchasesBridge implements PurchasesBridge {
   readonly available = false;
@@ -264,8 +423,14 @@ class WebPurchasesBridge implements PurchasesBridge {
     // when a web purchase completes on RevenueCat's hosted page.
   }
 
-  async getOfferings(): Promise<readonly ProductOffer[]> {
-    return FALLBACK_OFFERS;
+  async getOfferings(): Promise<OfferingsResult> {
+    if (import.meta.env.DEV) {
+      return sampleOfferingsResult();
+    }
+    return unavailableOfferings(
+      'not_configured',
+      'Subscriptions are completed in the App Store or Play Store.',
+    );
   }
 
   async purchase(_productId: string): Promise<PurchaseResult> {
@@ -314,9 +479,37 @@ export function getPurchasesBridge(): PurchasesBridge {
   return bridge;
 }
 
-/** Test injection. */
+/** Test injection for the process-wide bridge. */
 export function setPurchasesBridgeForTests(b: PurchasesBridge | null): void {
   bridge = b;
+}
+
+/**
+ * Build a native purchases bridge with injectable plugin / API key (tests only).
+ * Production code uses getPurchasesBridge().
+ */
+export function createNativePurchasesBridgeForTests(
+  options: NativeBridgeOptions & {
+    plugin?: PurchasesPlugin | null;
+  } = {},
+): PurchasesBridge {
+  const { plugin, ...rest } = options;
+  if (plugin !== undefined) {
+    return new NativePurchasesBridge({
+      ...rest,
+      loadPlugin: async () => plugin,
+      resolveApiKey: rest.resolveApiKey ?? (() => 'test_rc_api_key'),
+    });
+  }
+  return new NativePurchasesBridge({
+    ...rest,
+    resolveApiKey: rest.resolveApiKey ?? (() => 'test_rc_api_key'),
+  });
+}
+
+/** Build a web purchases bridge (tests). */
+export function createWebPurchasesBridgeForTests(): PurchasesBridge {
+  return new WebPurchasesBridge();
 }
 
 export function purchasesPlatformLabel(): string {

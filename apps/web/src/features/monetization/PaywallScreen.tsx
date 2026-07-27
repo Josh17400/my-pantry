@@ -1,6 +1,7 @@
 /**
  * Honest paywall — free is a real pantry app.
  * No fake urgency, no disguised dismiss.
+ * Plans: real store offers, labelled sample (DEV web only), or unavailable.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -10,7 +11,7 @@ import { Card, cn } from '../../ui';
 import { useEntitlementStore } from './entitlement-store';
 import { PAYWALL_FEATURES } from './entitlements';
 import { getPurchasesBridge } from './purchases';
-import type { ProductOffer } from './types';
+import type { OfferingsResult, ProductOffer } from './types';
 
 export type PaywallScreenProps = {
   /** Called after successful purchase / restore that lands paid. */
@@ -22,7 +23,7 @@ export function PaywallScreen({ onUnlocked }: PaywallScreenProps) {
   const refresh = useEntitlementStore((s) => s.refresh);
   const setLocalTier = useEntitlementStore((s) => s.setLocalTier);
 
-  const [offers, setOffers] = useState<readonly ProductOffer[]>([]);
+  const [offerings, setOfferings] = useState<OfferingsResult | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -30,8 +31,15 @@ export function PaywallScreen({ onUnlocked }: PaywallScreenProps) {
     void refresh();
     void getPurchasesBridge()
       .getOfferings()
-      .then(setOffers)
-      .catch(() => setOffers([]));
+      .then(setOfferings)
+      .catch((e: unknown) => {
+        const detail = e instanceof Error ? e.message : String(e);
+        setOfferings({
+          status: 'unavailable',
+          reason: 'error',
+          message: `Could not load subscription plans. (${detail})`,
+        });
+      });
   }, [refresh]);
 
   const afterUnlock = useCallback(async () => {
@@ -90,6 +98,13 @@ export function PaywallScreen({ onUnlocked }: PaywallScreenProps) {
     );
   }
 
+  const readyOffers: readonly ProductOffer[] =
+    offerings?.status === 'ready' ? offerings.offers : [];
+  const isSamplePricing =
+    offerings?.status === 'ready' && offerings.isSamplePricing;
+  const isUnavailable = offerings?.status === 'unavailable';
+  const isLoading = offerings === null;
+
   return (
     <div className="flex flex-col gap-5 px-4 py-6 pb-12" data-paywall="locked">
       <header>
@@ -132,13 +147,50 @@ export function PaywallScreen({ onUnlocked }: PaywallScreenProps) {
         </table>
       </Card>
 
-      <div className="flex flex-col gap-3">
-        {offers.map((offer) => (
+      {isSamplePricing ? (
+        <p
+          className="rounded-xl border border-dashed border-ink-muted/30 bg-surface px-3 py-2 text-xs font-semibold text-ink-muted"
+          data-paywall-sample-pricing
+        >
+          Sample pricing · Demo mode — not store prices
+        </p>
+      ) : null}
+
+      <div className="flex flex-col gap-3" data-paywall-plans>
+        {isLoading ? (
+          <p className="text-sm text-ink-muted" data-paywall-loading>
+            Loading plans…
+          </p>
+        ) : null}
+
+        {isUnavailable && offerings ? (
+          <Card
+            padding="md"
+            className="border border-ink-muted/20"
+            data-paywall-unavailable
+            data-paywall-unavailable-reason={offerings.reason}
+          >
+            <p className="text-sm font-semibold text-ink">
+              Plans could not be loaded
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-ink-muted">
+              {offerings.message}
+            </p>
+            <p className="mt-2 text-xs text-ink-muted">
+              If you already subscribe, use Restore purchases below. Prices
+              appear only when the store returns them.
+            </p>
+          </Card>
+        ) : null}
+
+        {readyOffers.map((offer) => (
           <button
             key={offer.id}
             type="button"
             disabled={busy !== null}
             onClick={() => void onPurchase(offer.id)}
+            data-paywall-plan={offer.id}
+            data-paywall-period={offer.period}
             className={cn(
               'flex min-h-tap flex-col items-start rounded-card bg-primary px-4 py-3 text-left text-white shadow-card',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
@@ -156,11 +208,13 @@ export function PaywallScreen({ onUnlocked }: PaywallScreenProps) {
         ))}
       </div>
 
-      <div className="flex flex-col gap-2">
+      {/* Restore must remain available even when offerings fail to load. */}
+      <div className="flex flex-col gap-2" data-paywall-actions>
         <button
           type="button"
           disabled={busy !== null}
           onClick={() => void onRestore()}
+          data-paywall-restore
           className="min-h-tap rounded-pill border border-ink-muted/25 bg-surface px-4 text-sm font-semibold text-ink"
         >
           {busy === 'restore' ? 'Restoring…' : 'Restore purchases'}

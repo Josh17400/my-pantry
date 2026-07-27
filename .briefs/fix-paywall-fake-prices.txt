@@ -1,0 +1,89 @@
+# BRIEF: The paywall invents prices when RevenueCat is unavailable
+
+## Context
+
+**The Good Pantry** — `C:\Users\joshu\Documents\Larder`. The owner has just configured
+RevenueCat and created **only the monthly** subscription in App Store Connect
+(`good_pantry_pro_monthly`). `good_pantry_pro_annual` **does not exist** and may not for a while.
+
+`apps/web/src/features/monetization/purchases.ts` defines `FALLBACK_OFFERS` — two hardcoded
+plans with **invented price strings** (`'$4.99/mo'`, `'$39.99/yr'`). `NativePurchasesBridge.getOfferings()`
+returns them in three places:
+
+- line ~126 — plugin failed to load
+- line ~155 — RevenueCat returned zero products
+- line ~165 — **any thrown error, including a missing/invalid API key**
+
+So on a real device, whenever RevenueCat is misconfigured, the key is absent, or the products
+are not yet approved, the paywall renders a confident, ordinary-looking purchase screen quoting
+prices the app does not charge — including an annual plan that does not exist. Tapping it
+reaches `purchase()`, misses the product cache, and returns `Unknown product: …`.
+
+This is wrong on three counts: it displays a price the user cannot be charged, it presents a
+purchase button that cannot purchase (an App Review rejection reason), and it hides
+misconfiguration from us at exactly the moment we need to see it. The same class of bug —
+demo fixtures rendering as live behaviour — was just fixed in the quick-eat feature; use
+`apps/web/src/features/quick/derive-items.ts` as the reference for how demo and live are kept
+apart there.
+
+## What to change
+
+**Real store data, an honest unavailable state, or demo — never fiction presented as real.**
+
+1. **Never show `FALLBACK_OFFERS` on a native platform.** On device, real offerings come from
+   RevenueCat or the paywall shows an explicit unavailable state. Use `isNativePlatform()` from
+   `apps/web/src/lib/platform`.
+2. **Add an unavailable outcome** to the offerings path so `PaywallScreen.tsx` can render it:
+   the plans could not be loaded, with the reason where we have one (not configured / no
+   products / network). Keep **Restore Purchases** working in that state — a subscriber
+   reinstalling must still be able to restore even when offerings fail to load.
+3. **Keep the fixtures for non-native demo/design review only** (browser, `import.meta.env.DEV`),
+   and label them unmistakably as sample pricing, exactly as quick-eat labels demo mode.
+4. **Do not require the annual product to exist.** A monthly-only offering must render as a
+   single plan with no empty slot, no placeholder, and no "annual" affordance. Whatever
+   RevenueCat returns is the truth.
+5. **Prices always come from the store object** (`priceString` from the product), never from a
+   constant. The store is the only source of a price the user can actually be charged.
+6. A misconfigured key should be **visible in logs** — one clear warning, not a silent swap to
+   fixtures.
+
+Check `PaywallScreen.tsx` for the same assumption: if it hardcodes two plan slots, or assumes
+an annual option exists, fix it to render whatever list it is given.
+
+## Constraints
+
+TypeScript `strict`, no `any`. No new dependencies. **Create no git commits.** Scope is
+`apps/web/src/features/monetization/**`. Do not touch `supabase/functions/**` (the entitlements
+webhook is deployed and correct), the ledger in `packages/core/src/pantry/`, or `native/**`.
+
+Do not change the purchase/restore logic itself — `purchase()`, `restore()` and the entitlement
+store are correct. You are changing **what the paywall is allowed to display** when the store
+is unreachable.
+
+## Verification — run these yourself before reporting done
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+```
+
+`apps/web/src/features/monetization/monetization.test.ts` exists — extend it honestly rather
+than weakening assertions.
+
+Tests to add:
+- native + offerings throw → **unavailable state, and `FALLBACK_OFFERS` prices appear nowhere**
+- native + zero products → unavailable state, not fixtures
+- native + monthly only → exactly one plan, no annual affordance
+- native + both products → two plans, prices taken from the store objects
+- Restore Purchases still reachable in the unavailable state
+- non-native demo → fixtures allowed, but flagged as sample pricing
+
+Report the suite counts you actually observed.
+
+## Report
+
+`reports/fix-paywall-fake-prices.md`: what the paywall now shows in each state, how demo is
+kept out of native, and anything adjacent you found broken but did not fix — list it, do not
+fix it silently.
+
+Work continuously; do not stall waiting for input. If you hit a genuine ambiguity, state it in
+the report and proceed with your best judgement, flagged.
