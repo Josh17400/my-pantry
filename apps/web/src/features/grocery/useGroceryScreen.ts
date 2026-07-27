@@ -360,15 +360,34 @@ export function useGroceryScreen(): GroceryScreenState {
       const now = new Date().toISOString();
       let written = 0;
 
+      /**
+       * Previously this loop `continue`d on any incomplete row, so a user could
+       * tick items, tap add, and be told "Added 0 items" with no indication of
+       * what was wrong. Skips are now collected and reported.
+       *
+       * A zero/blank quantity is NOT a reason to skip: a stock-out suggestion
+       * for an item whose par level is unset computes a suggested purchase of 0,
+       * and refusing to add it is exactly the case that looked broken. Fall back
+       * to one unit so ticking a row always does something.
+       */
+      const skipped: string[] = [];
+
       for (const item of checked) {
-        if (
-          !item.ingredientId ||
-          !item.formId ||
-          item.qtyBase === null ||
-          item.qtyBase === undefined
-        ) {
+        const label = item.name || item.ingredientId || 'item';
+        if (!item.ingredientId) {
+          skipped.push(`${label} (no ingredient link)`);
           continue;
         }
+        if (!item.formId) {
+          skipped.push(`${label} (no form/unit)`);
+          continue;
+        }
+        const qty =
+          item.qtyBase === null ||
+          item.qtyBase === undefined ||
+          item.qtyBase <= 0
+            ? 1
+            : item.qtyBase;
         await domain.appendTxn({
           clientTxnId: newClientId('purchase'),
           householdId,
@@ -376,7 +395,7 @@ export function useGroceryScreen(): GroceryScreenState {
           formId: item.formId,
           kind: 'relative',
           reason: 'purchase',
-          deltaBase: item.qtyBase,
+          deltaBase: qty,
           // M2 receipt reconciliation matches against this trip id
           refId: tripId,
           occurredAt: now,
@@ -387,7 +406,9 @@ export function useGroceryScreen(): GroceryScreenState {
       }
 
       setTripMessage(
-        `Added ${written} item(s) to pantry (trip ${tripId.slice(0, 12)}…)`,
+        skipped.length > 0
+          ? `Added ${written} item(s) to pantry. Skipped ${skipped.length}: ${skipped.join(', ')}`
+          : `Added ${written} item(s) to pantry (trip ${tripId.slice(0, 12)}…)`,
       );
       await usePantryStore.getState().load();
     } catch (err) {
