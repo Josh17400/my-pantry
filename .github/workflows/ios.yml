@@ -51,8 +51,24 @@ jobs:
       - name: Install monorepo dependencies
         run: npm ci
 
+      # Vite inlines VITE_* at build time, so these must be present HERE — not at
+      # runtime. Without them the bundle ships with Supabase undefined and every
+      # cloud feature (receipt scan, chef, sync, auth) is dead on device while the
+      # local pantry still works, which looks like a feature bug rather than a
+      # missing key. Only client-safe values belong here: the Supabase *anon* key
+      # is designed to ship in clients and is protected by RLS. The service_role
+      # key and the OpenRouter key must never appear in a VITE_ var — anything
+      # VITE_-prefixed is compiled into the shipped bundle and trivially readable.
       - name: Build web assets (Vite production bundle)
-        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "::error::Supabase client env missing — the build would ship with cloud features silently dead. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as repository secrets."
+            exit 1
+          fi
+          npm run build
 
       - name: Install native Capacitor dependencies
         working-directory: native
