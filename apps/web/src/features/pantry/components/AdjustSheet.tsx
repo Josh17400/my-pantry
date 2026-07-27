@@ -16,12 +16,15 @@ type AdjustSheetProps = {
   currentQtyBase: number;
   onClose: () => void;
   onConfirm: (deltaBase: number) => void | Promise<void>;
+  /** Jump to Recount when the remove wheel is at the on-hand cap. */
+  onRequestRecount?: () => void;
   busy?: boolean;
 };
 
 /**
  * Adjust quantity — relative delta via three wheels (qty · unit · add/remove).
  * Copy makes the semantics clear: "add or remove this much", not "set to".
+ * Remove is capped at on-hand so the ledger never goes negative from a mis-dial.
  */
 export function AdjustSheet({
   open,
@@ -30,6 +33,7 @@ export function AdjustSheet({
   currentQtyBase,
   onClose,
   onConfirm,
+  onRequestRecount,
   busy,
 }: AdjustSheetProps) {
   const [outcome, setOutcome] = useState<PickerOutcome | null>(null);
@@ -79,6 +83,7 @@ export function AdjustSheet({
         currentQtyBase={currentQtyBase}
         resetKey={open}
         onOutcomeChange={setOutcome}
+        onRequestRecount={onRequestRecount}
       />
 
       {error ? (
@@ -88,6 +93,7 @@ export function AdjustSheet({
       ) : (
         <p className="mt-2 text-xs text-ink-muted">
           Writes a relative ledger event (add/remove), not a set-to total.
+          Remove stops at what is recorded on hand.
         </p>
       )}
     </Sheet>

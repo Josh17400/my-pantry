@@ -614,6 +614,28 @@ async function assertPickerWheels(page, sheetName) {
   } else {
     fail(`pantry item → ${sheetName}: unexpected direction wheel`);
   }
+
+  // Waste is always a removal — qty wheel is clamped to on-hand.
+  if (sheetName === 'Waste') {
+    const clamped = await picker.getAttribute('data-removal-clamped');
+    if (clamped === 'true') {
+      ok('pantry item → Waste: data-removal-clamped=true');
+    } else {
+      fail(
+        `pantry item → Waste: expected data-removal-clamped=true, got ${clamped}`,
+      );
+    }
+    // Either "X available" (stock > 0) or empty-stock empty state
+    const available = page.locator('[data-testid="picker-available"]');
+    const empty = page.locator('[data-testid="picker-remove-empty"]');
+    const aN = await available.count();
+    const eN = await empty.count();
+    if (aN + eN >= 1) {
+      ok('pantry item → Waste: available label or empty-stock state present');
+    } else {
+      fail('pantry item → Waste: missing available label and empty-stock state');
+    }
+  }
 }
 
 async function closeSheetIfOpen(page) {

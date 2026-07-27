@@ -1,0 +1,92 @@
+# BRIEF: Clamp the Remove wheel to what is actually on hand
+
+## Context
+
+**The Good Pantry.** Owner request:
+
+> *"When switching to Remove under Adjust it should max out at the maximum possible you could
+> remove. If I have 1.824 lb of chicken, go to Adjust, slide to Remove — the counting wheel
+> should max out at 1.824 lb, so people don't give themselves a negative amount. If I dialled
+> -2 lb I'd have -2.822 oz of chicken, which doesn't make sense."*
+
+Correct. Dialling past the on-hand amount is a thumb slip, not a real event.
+
+## Scope
+
+`apps/web/src/ui/**` (the picker), `apps/web/src/features/pantry/**` (Adjust / Waste /
+Mark used up sheets), `apps/web/scripts/verify-chrome.mjs`.
+
+**Do NOT touch** `packages/core/**` (279 tests, read-only), `supabase/**`, `native/**`,
+**and specifically do not touch `apps/web/src/features/recipes/**` or the cook flow** — see
+the boundary below.
+
+## 1. Clamp on removal
+
+When the direction wheel is **Remove** (and in **Waste** / **Mark used up**, which are always
+removals), the quantity wheel's maximum is the item's current on-hand amount, expressed in the
+currently selected unit.
+
+- 1.824 lb on hand → the lb wheel stops at 1.824 (or the nearest step at or below it).
+- Switch the unit wheel to oz → the max becomes ≈29.2 oz. **Re-clamp on every unit change**,
+  converting through `@larder/core`'s `convert()`.
+- Switching **Add → Remove** while a larger value is selected must pull the selection down to
+  the new maximum, not leave an out-of-range value sitting in the wheel.
+- Switching **Remove → Add** lifts the cap again.
+- An item at zero: the Remove path should be unavailable or clearly disabled, not a wheel that
+  only offers zero.
+
+Make the cap legible rather than mysterious — the wheel simply ending is confusing. Show the
+available amount ("1.824 lb available") near the wheel.
+
+## 2. When they hit the cap, point at Recount
+
+Someone who genuinely used more than the record says does not have an input problem — they
+have a **record** problem, and the answer is Recount, not a negative adjustment.
+
+When the selection reaches the maximum, surface a quiet hint:
+
+> *"That's everything recorded. Have more than we tracked? Use **Recount** instead."*
+
+Link it so Recount opens from there. This turns a dead end into the correct next action.
+
+## 3. The boundary — do NOT clamp the cook flow
+
+`SPEC.md` is explicit that cooking more than the recorded amount **prompts** rather than
+clamps: *"Going negative prompts 'still have some?' — that recovers reality better than either
+alternative."*
+
+That is a different situation. In the cook flow the shortfall is **discovered**, and it is
+evidence the ledger has drifted — real signal worth surfacing. On the Adjust wheel the number
+is **chosen**, and a value beyond what exists is just a mis-dial.
+
+Leave `NegativeStockPrompt` and the cook flow exactly as they are. If you find yourself editing
+them, you have misread this brief.
+
+## Constraints
+
+TypeScript `strict`, no `any`. Mobile-first. No new deps. Reuse the existing picker and sheet
+primitives (`ui/layers.ts`, `Z_CLASS`). Create no git commits.
+
+## Verification
+
+```
+npm run typecheck && npm run lint && npm run test && npm run build
+node scripts/verify-chrome.mjs && node scripts/verify-interactivity.mjs
+```
+
+279 core + 273 web must stay green.
+
+Tests to add:
+- Remove wheel max equals on-hand, in the selected unit
+- Changing unit re-clamps correctly (lb → oz on the same item)
+- Add → Remove pulls an out-of-range selection down
+- Removing the maximum lands the item at exactly zero, never negative
+- **A cook that exceeds stock still reaches the negative prompt** — proving the boundary held
+
+## Report
+
+`reports/feat-wheel-clamp.md`: how the cap is computed and re-derived on unit change, what the
+user sees at the cap, confirmation that the cook flow is untouched, and a screenshot of the
+Remove wheel at its maximum.
+
+Work continuously; do not stall waiting for input.

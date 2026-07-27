@@ -206,6 +206,146 @@ export function nearestStep(value: number, steps: readonly number[]): number {
   return best;
 }
 
+/** Greatest step at or below `max` (0 when max ≤ 0 or table empty). */
+export function stepAtOrBelow(max: number, steps: readonly number[]): number {
+  if (steps.length === 0 || !Number.isFinite(max) || max < 0) return 0;
+  let best = 0;
+  let found = false;
+  for (const s of steps) {
+    if (s <= max + 1e-12 && (!found || s >= best)) {
+      best = s;
+      found = true;
+    }
+  }
+  return found ? best : 0;
+}
+
+/**
+ * True when the quantity wheel is a removal: Adjust+Remove, Waste (always).
+ * Recount and Add never clamp to on-hand.
+ */
+export function isRemovalSelection(
+  mode: PickerMode,
+  direction: PickerDirection,
+): boolean {
+  return mode === 'waste' || (mode === 'adjust' && direction === 'remove');
+}
+
+/**
+ * On-hand stock expressed in the wheel's selected unit (raw display qty).
+ * Zero when empty or conversion fails.
+ */
+export function onHandInUnit(
+  currentQtyBase: number,
+  dim: Dimension,
+  unit: string,
+): number {
+  if (!(currentQtyBase > 0)) return 0;
+  const r = convertBaseToUnit(currentQtyBase, dim, unit);
+  if (!r.ok || !Number.isFinite(r.value)) return 0;
+  return r.value;
+}
+
+/**
+ * Quantity steps for a removal wheel: full table clipped to on-hand max.
+ * Always ends with the exact on-hand amount (when > 0) so dialling the cap
+ * removes everything and lands at exactly zero — not a stepped shortfall.
+ */
+export function quantityStepsForRemoval(
+  unit: string,
+  maxQty: number,
+): number[] {
+  const full = quantityStepsForUnit(unit);
+  if (!Number.isFinite(maxQty) || maxQty <= 0) {
+    return [0];
+  }
+  const out: number[] = [];
+  const seen = new Set<number>();
+  for (const s of full) {
+    if (s <= maxQty + 1e-12) {
+      pushUnique(out, seen, s);
+    }
+  }
+  if (out.length === 0) {
+    out.push(0);
+    seen.add(0);
+  }
+  // Exact cap so max removal → zero stock (not nearest-below remainder).
+  const last = out[out.length - 1]!;
+  if (Math.abs(last - maxQty) > 1e-9) {
+    pushUnique(out, seen, Math.round(maxQty * 1e9) / 1e9);
+  }
+  return out;
+}
+
+/**
+ * Clamp selection qty when removing so it never exceeds on-hand in the
+ * current unit. Snaps onto a value present in the removal step table so the
+ * wheel selection stays valid. No-op for Add / Recount / non-removal modes.
+ */
+export function clampSelectionForRemoval(
+  selection: PickerSelection,
+  mode: PickerMode,
+  currentQtyBase: number,
+  dim: Dimension,
+): PickerSelection {
+  if (!isRemovalSelection(mode, selection.direction)) {
+    return selection;
+  }
+  const maxQty = onHandInUnit(currentQtyBase, dim, selection.unit);
+  const steps = quantityStepsForRemoval(selection.unit, maxQty);
+  const exact = steps.find((s) => Math.abs(s - selection.qty) < 1e-6);
+  let qty: number;
+  if (exact !== undefined) {
+    qty = exact;
+  } else if (selection.qty > maxQty + 1e-12) {
+    qty = steps[steps.length - 1] ?? 0;
+  } else {
+    qty = stepAtOrBelow(selection.qty, steps);
+  }
+  if (Math.abs(qty - selection.qty) < 1e-12) return selection;
+  return { ...selection, qty };
+}
+
+/**
+ * Legible cap copy next to the wheel, e.g. "1.824 lb available".
+ */
+export function formatAvailableAmount(
+  currentQtyBase: number,
+  dim: Dimension,
+  unit: string,
+): string {
+  const safeBase = Math.max(0, currentQtyBase);
+  const label = formatQuantity(safeBase, dim, {
+    preferredUnit: unit,
+    locale: 'us',
+    uncertaintyPct: 0,
+  });
+  return `${label} available`;
+}
+
+/**
+ * True when the selection is at the removal cap (everything recorded).
+ * Used to surface the Recount hint.
+ */
+export function isAtRemoveCap(
+  selection: PickerSelection,
+  mode: PickerMode,
+  currentQtyBase: number,
+  dim: Dimension,
+): boolean {
+  if (!isRemovalSelection(mode, selection.direction)) return false;
+  if (!(currentQtyBase > 0)) return false;
+  const maxQty = onHandInUnit(currentQtyBase, dim, selection.unit);
+  if (!(maxQty > 0)) return false;
+  return selection.qty >= maxQty - 1e-9;
+}
+
+/** Stock that can be removed (strictly positive on-hand). */
+export function canRemoveStock(currentQtyBase: number): boolean {
+  return currentQtyBase > 0;
+}
+
 /**
  * Re-scale quantity when the unit wheel changes, keeping equivalent amount.
  * Converts via core; snaps to the new unit's step table.
@@ -331,9 +471,22 @@ export function resolvePickerOutcome(
       if (absBase === 0) {
         return { ok: false, message: 'Enter a non-zero amount' };
       }
-      qtyBase = direction === 'remove' ? -absBase : absBase;
-      if (currentQtyBase !== undefined) {
-        resultQtyBase = currentQtyBase + qtyBase;
+      if (direction === 'remove') {
+        // Cap at on-hand so Adjust never writes a negative balance from a mis-dial.
+        if (currentQtyBase !== undefined && absBase >= currentQtyBase - 1e-9) {
+          qtyBase = -currentQtyBase;
+          resultQtyBase = 0;
+        } else {
+          qtyBase = -absBase;
+          if (currentQtyBase !== undefined) {
+            resultQtyBase = currentQtyBase + qtyBase;
+          }
+        }
+      } else {
+        qtyBase = absBase;
+        if (currentQtyBase !== undefined) {
+          resultQtyBase = currentQtyBase + qtyBase;
+        }
       }
       break;
     }
@@ -346,9 +499,15 @@ export function resolvePickerOutcome(
       if (absBase === 0) {
         return { ok: false, message: 'Enter how much was wasted' };
       }
-      qtyBase = absBase;
-      if (currentQtyBase !== undefined) {
-        resultQtyBase = currentQtyBase - absBase;
+      // Waste is always a removal — never more than recorded stock.
+      if (currentQtyBase !== undefined && absBase >= currentQtyBase - 1e-9) {
+        qtyBase = currentQtyBase;
+        resultQtyBase = 0;
+      } else {
+        qtyBase = absBase;
+        if (currentQtyBase !== undefined) {
+          resultQtyBase = currentQtyBase - absBase;
+        }
       }
       break;
     }

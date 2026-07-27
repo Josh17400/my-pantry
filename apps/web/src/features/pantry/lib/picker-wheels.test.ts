@@ -2,9 +2,15 @@ import { convertToBase } from '@larder/core';
 import { describe, expect, it } from 'vitest';
 
 import {
+  clampSelectionForRemoval,
+  formatAvailableAmount,
   formatPickerPreview,
+  isAtRemoveCap,
+  isRemovalSelection,
   nearestStep,
+  onHandInUnit,
   pickDefaultUnit,
+  quantityStepsForRemoval,
   quantityStepsForUnit,
   rescaleQuantityForUnitChange,
   resolvePickerOutcome,
@@ -269,3 +275,226 @@ describe('nearestStep / pickDefaultUnit', () => {
     expect(u).toBe('lb');
   });
 });
+
+describe('remove wheel clamp to on-hand', () => {
+  const chickenLb = convertToBase(1.824, 'lb');
+  if (!chickenLb.ok) throw new Error('convert 1.824 lb failed');
+  const chickenBase = chickenLb.value;
+
+  it('Remove wheel max equals on-hand in the selected unit', () => {
+    const maxLb = onHandInUnit(chickenBase, 'mass', 'lb');
+    expect(maxLb).toBeCloseTo(1.824, 3);
+
+    const steps = quantityStepsForRemoval('lb', maxLb);
+    const last = steps[steps.length - 1]!;
+    expect(last).toBeCloseTo(1.824, 3);
+    // No step above on-hand
+    expect(steps.every((s) => s <= maxLb + 1e-9)).toBe(true);
+    // Full table would go to 50 lb — capped table must be shorter
+    expect(steps.length).toBeLessThan(quantityStepsForUnit('lb').length);
+  });
+
+  it('changing unit re-clamps correctly (lb → oz on the same item)', () => {
+    const maxLb = onHandInUnit(chickenBase, 'mass', 'lb');
+    const maxOz = onHandInUnit(chickenBase, 'mass', 'oz');
+    expect(maxOz).toBeCloseTo(1.824 * 16, 2); // ~29.184 oz
+
+    // Selection at cap in lb, switch unit → oz must re-derive cap
+    const atCapLb = clampSelectionForRemoval(
+      { qty: maxLb, unit: 'lb', direction: 'remove' },
+      'adjust',
+      chickenBase,
+      'mass',
+    );
+    expect(atCapLb.qty).toBeCloseTo(1.824, 3);
+
+    const rescaled = rescaleQuantityForUnitChange(atCapLb.qty, 'lb', 'oz');
+    expect(rescaled.ok).toBe(true);
+    const afterUnit = clampSelectionForRemoval(
+      { qty: rescaled.qty, unit: 'oz', direction: 'remove' },
+      'adjust',
+      chickenBase,
+      'mass',
+    );
+    const ozSteps = quantityStepsForRemoval('oz', maxOz);
+    const ozMax = ozSteps[ozSteps.length - 1]!;
+    expect(afterUnit.qty).toBeLessThanOrEqual(ozMax + 1e-9);
+    // Cap itself is ~29.2 oz, not the unclamped oz table max (200)
+    expect(ozMax).toBeCloseTo(maxOz, 2);
+    expect(ozMax).toBeLessThan(30.5);
+  });
+
+  it('Add → Remove pulls an out-of-range selection down', () => {
+    // User dialled 5 lb on Add, then flips to Remove with only 1.824 on hand
+    const pulled = clampSelectionForRemoval(
+      { qty: 5, unit: 'lb', direction: 'remove' },
+      'adjust',
+      chickenBase,
+      'mass',
+    );
+    expect(pulled.direction).toBe('remove');
+    expect(pulled.qty).toBeLessThanOrEqual(
+      onHandInUnit(chickenBase, 'mass', 'lb') + 1e-9,
+    );
+    expect(pulled.qty).toBeCloseTo(1.824, 3);
+  });
+
+  it('removing the maximum lands the item at exactly zero, never negative', () => {
+    const maxLb = onHandInUnit(chickenBase, 'mass', 'lb');
+    const resolved = resolvePickerOutcome(
+      { qty: maxLb, unit: 'lb', direction: 'remove' },
+      'adjust',
+      chickenBase,
+    );
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+    expect(resolved.outcome.resultQtyBase).toBe(0);
+    expect(resolved.outcome.qtyBase).toBe(-chickenBase);
+
+    // Even an oversize dial is capped (typed past, etc.)
+    const oversize = resolvePickerOutcome(
+      { qty: 50, unit: 'lb', direction: 'remove' },
+      'adjust',
+      chickenBase,
+    );
+    expect(oversize.ok).toBe(true);
+    if (!oversize.ok) return;
+    expect(oversize.outcome.resultQtyBase).toBe(0);
+    expect(oversize.outcome.qtyBase).toBe(-chickenBase);
+    expect(oversize.outcome.resultQtyBase).toBeGreaterThanOrEqual(0);
+  });
+
+  it('waste mode is also capped at on-hand', () => {
+    const maxG = onHandInUnit(500, 'mass', 'g');
+    expect(maxG).toBeCloseTo(500, 5);
+    const steps = quantityStepsForRemoval('g', maxG);
+    expect(steps[steps.length - 1]).toBeCloseTo(500, 5);
+
+    const w = resolvePickerOutcome(
+      { qty: 900, unit: 'g', direction: 'remove' },
+      'waste',
+      500,
+    );
+    expect(w.ok).toBe(true);
+    if (!w.ok) return;
+    expect(w.outcome.qtyBase).toBe(500);
+    expect(w.outcome.resultQtyBase).toBe(0);
+  });
+
+  it('available label is legible near the wheel', () => {
+    const label = formatAvailableAmount(chickenBase, 'mass', 'lb');
+    expect(label).toMatch(/available$/i);
+    expect(label).toMatch(/lb/);
+    expect(label).toMatch(/1\.82/);
+  });
+
+  it('isAtRemoveCap is true only at the on-hand maximum', () => {
+    const maxLb = onHandInUnit(chickenBase, 'mass', 'lb');
+    expect(
+      isAtRemoveCap(
+        { qty: maxLb, unit: 'lb', direction: 'remove' },
+        'adjust',
+        chickenBase,
+        'mass',
+      ),
+    ).toBe(true);
+    expect(
+      isAtRemoveCap(
+        { qty: 0.25, unit: 'lb', direction: 'remove' },
+        'adjust',
+        chickenBase,
+        'mass',
+      ),
+    ).toBe(false);
+    expect(
+      isAtRemoveCap(
+        { qty: maxLb, unit: 'lb', direction: 'add' },
+        'adjust',
+        chickenBase,
+        'mass',
+      ),
+    ).toBe(false);
+  });
+
+  it('isRemovalSelection covers Adjust+Remove and Waste only', () => {
+    expect(isRemovalSelection('adjust', 'remove')).toBe(true);
+    expect(isRemovalSelection('adjust', 'add')).toBe(false);
+    expect(isRemovalSelection('waste', 'add')).toBe(true);
+    expect(isRemovalSelection('recount', 'remove')).toBe(false);
+    expect(isRemovalSelection('add', 'remove')).toBe(false);
+  });
+
+  it('Add path is not clamped (cap lifts when switching Remove → Add)', () => {
+    // After clamping on Remove, Add should accept values above on-hand again
+    const afterAdd = clampSelectionForRemoval(
+      { qty: 5, unit: 'lb', direction: 'add' },
+      'adjust',
+      chickenBase,
+      'mass',
+    );
+    expect(afterAdd.qty).toBe(5);
+    const steps = quantityStepsForUnit('lb');
+    expect(steps[steps.length - 1]).toBeGreaterThan(5);
+  });
+});
+
+/**
+ * Boundary proof: cook flow must still prompt when used > have.
+ * Imports recipes cook-machine only to assert the clamp work did not
+ * silently change that path. Do not "fix" cook by clamping stock here.
+ */
+describe('cook boundary — negative prompt still fires (untouched)', () => {
+  it('a cook that exceeds stock still reaches the negative prompt', async () => {
+    const {
+      startCook,
+      requestConfirm,
+      findNegativeCandidateIndices,
+    } = await import('../../recipes/cook-machine');
+    type IngredientForm = import('@larder/core').IngredientForm;
+
+    const flourForm: IngredientForm = {
+      id: 'flour-ap-bulk',
+      ingredientId: 'flour-ap',
+      form: 'bulk',
+      dim: 'mass',
+      uncertaintyPct: 0,
+    };
+    const ctx = { forms: [flourForm], edges: [] };
+    const recipe = {
+      id: 'r-clamp-boundary',
+      title: 'Bread',
+      servings: 1,
+      ingredients: [
+        {
+          ingredientId: 'flour-ap',
+          formId: flourForm.id,
+          rawText: '200 g flour',
+          qty: 200,
+          unit: 'g',
+        },
+      ],
+      steps: [{ text: 'Mix.' }],
+    };
+    const pantry = [
+      {
+        ingredientId: 'flour-ap',
+        formId: flourForm.id,
+        qtyBase: 100,
+        dim: 'mass' as const,
+      },
+    ];
+
+    let state = startCook({
+      recipe,
+      servings: 1,
+      pantry,
+      ctx,
+    });
+    // Default actualUsed = need 200 > have 100
+    expect(findNegativeCandidateIndices(state.lines).length).toBeGreaterThan(0);
+    state = requestConfirm(state);
+    expect(state.phase).toBe('negative_prompt');
+    expect(state.negativeCandidates.length).toBeGreaterThan(0);
+  });
+});
+

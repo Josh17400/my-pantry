@@ -493,6 +493,7 @@ export function PantryItemScreen({
         currentQtyBase={item.qtyBase}
         onClose={() => setSheet(null)}
         onConfirm={handleAdjust}
+        onRequestRecount={() => setSheet('recount')}
         busy={busy}
       />
 
@@ -527,7 +528,8 @@ export function PantryItemScreen({
         }
       >
         <p className="mb-3 text-sm text-ink-muted">
-          Waste is always a removal — pick how much left the pantry.
+          Waste is always a removal — pick how much left the pantry (capped at
+          what is on hand).
         </p>
         <QuantityPickerWheels
           mode="waste"
@@ -536,6 +538,7 @@ export function PantryItemScreen({
           currentQtyBase={item.qtyBase}
           resetKey={sheet === 'waste'}
           onOutcomeChange={(o) => setWasteOutcome(o)}
+          onRequestRecount={() => setSheet('recount')}
         />
         {wasteError ? (
           <p className="mt-2 text-sm text-critical">{wasteError}</p>
