@@ -55,3 +55,6 @@ coverage/
 expo-env.d.ts
 
 SECRETS.local.md
+
+# Supabase CLI local state (project ref, pooler url) - not for the repo
+supabase/.temp/
