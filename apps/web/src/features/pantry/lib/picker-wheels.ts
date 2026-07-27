@@ -7,6 +7,7 @@ import {
   convert,
   convertBaseToUnit,
   convertToBase,
+  DEFAULT_STOCK_EPSILON,
   type Dimension,
   formatQuantity,
 } from '@larder/core';
@@ -473,7 +474,17 @@ export function resolvePickerOutcome(
       }
       if (direction === 'remove') {
         // Cap at on-hand so Adjust never writes a negative balance from a mis-dial.
-        if (currentQtyBase !== undefined && absBase >= currentQtyBase - 1e-9) {
+        //
+        // The snap-to-empty tolerance was 1e-9, which is far tighter than the
+        // error introduced by converting the wheel value. Removing "1.984 lb"
+        // against 900 g converts to 899.9999…g, misses that window, and leaves
+        // a residue behind — the residue that then rendered as "0 mg / Plenty".
+        // Use the same zero-tolerance the stock evaluation uses, so "remove
+        // everything" lands on exactly zero.
+        if (
+          currentQtyBase !== undefined &&
+          absBase >= currentQtyBase - DEFAULT_STOCK_EPSILON
+        ) {
           qtyBase = -currentQtyBase;
           resultQtyBase = 0;
         } else {
