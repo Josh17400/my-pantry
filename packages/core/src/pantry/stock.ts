@@ -20,8 +20,20 @@ import type {
  * Batched evaluation only — no per-item push API.
  */
 
-/** Default zero-tolerance for floating base units. */
-export const DEFAULT_STOCK_EPSILON = 1e-9;
+/**
+ * Zero-tolerance for floating base units (grams / millilitres / count).
+ *
+ * This was 1e-9 — one billionth of a gram — which is meaningless for food and
+ * caused a real bug: removing everything left a floating-point residue from
+ * pound<->gram conversion (~1e-7 g). That residue is larger than 1e-9, so the
+ * item was not OUT; and with no par level set it could not be LOW either, so it
+ * fell through to OK and displayed "Plenty" at a quantity that rendered as
+ * "0 mg". A quantity too small to display must never read as fully stocked.
+ *
+ * 0.005 is comfortably above conversion residue and far below any amount a
+ * person would track: 5 milligrams, 5 microlitres, or 0.005 of an item.
+ */
+export const DEFAULT_STOCK_EPSILON = 0.005;
 export const OUT_EPSILON = DEFAULT_STOCK_EPSILON;
 
 export type EvaluateStockOptions = {

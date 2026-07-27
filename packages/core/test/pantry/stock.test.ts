@@ -73,4 +73,44 @@ describe('evaluateStockBatch — daily brief, not per-item push', () => {
     const b = evaluateStockBatch([]);
     expect(b.brief).toEqual([]);
   });
+
+  /**
+   * Reported from a real device: an item showing "0 mg" and "Plenty" at once,
+   * absent from the grocery list, and unfixable by the projection repair
+   * (because the cache genuinely matched the ledger — nothing was corrupted).
+   *
+   * Cause: removing everything left a float residue from pound<->gram
+   * conversion. With epsilon at 1e-9 the residue was not OUT, and with no par
+   * level it could not be LOW, so it fell through to OK -> "Plenty".
+   */
+  describe('float residue must not read as stocked', () => {
+    const RESIDUE = 1e-7; // ~ what lb -> g -> lb round-tripping leaves behind
+
+    it('residue with NO par level is out, not ok', () => {
+      const e = evaluateStock(RESIDUE, 0);
+      expect(e.status).toBe('out');
+    });
+
+    it('residue with a par level is out, not low or ok', () => {
+      expect(evaluateStock(RESIDUE, 900).status).toBe('out');
+    });
+
+    it('a real small amount is still counted, not swallowed', () => {
+      // 1 g of saffron is a genuine quantity and must not be treated as zero.
+      expect(evaluateStock(1, 0).status).not.toBe('out');
+      expect(evaluateStock(1, 900).status).toBe('low');
+    });
+
+    it('exact zero and negative are unchanged', () => {
+      expect(evaluateStock(0, 900).status).toBe('out');
+      expect(evaluateStock(-5, 900).status).toBe('negative');
+    });
+
+    it('residue reaches the shopping brief as out-of-stock', () => {
+      const b = evaluateStockBatch([
+        { key: 'chicken', qtyBase: RESIDUE, parLevelBase: 0 },
+      ]);
+      expect(b.out.map((x) => x.key)).toContain('chicken');
+    });
+  });
 });
